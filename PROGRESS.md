@@ -2721,6 +2721,7 @@ try to play. The game is now significantly more playable with natural English vo
 **Current status:** 1 of 6 orchestrator queue items complete. Next task: Fix 
 deck/item/consumables panel stacking.
 
+---
 
 ## 2026-08-19T22:53Z
 
@@ -2793,6 +2794,7 @@ floor-1 boss difficulty spike that was flagged by the earlier balance simulation
 **Current status:** 3 of 6 orchestrator queue items complete. Next task: Guarantee shop on 
 every floor and raise consumable drop rate.
 
+---
 
 ## 2026-08-19T23:18Z
 
@@ -2860,4 +2862,43 @@ distinct from the calm sine-wave normal music.
 
 **Current status:** 5 of 6 orchestrator queue items complete. Final task: Tile staging 
 animation (feature, not bug fix).
+
+---
+
+## 2026-08-19T22:45Z (orchestrator review, not a routine run)
+
+Jaxon asked for five more things: more items, visually differentiated tile bonuses,
+broader suffix support (-ED/-ER/-ERS beyond the plural fix already landed), boss
+fights feeling more intense, and a more visually interesting overall style. No "fix
+it" attached to this batch -- per the standing delegation rule (reinforced again
+just before this ask), investigated each with real code/context checks but did not
+implement anything. Wrote five new tickets appended to GOALS.md's queue, after the
+five from the last review pass:
+
+1. **More items** -- confirmed 11 currently exist in items.js. Ticketed adding 3-5
+   more, same bar as prior items work (playstyle-altering over flat stat bumps),
+   pointed at THEME.md for naming and the existing hook system.
+2. **Tile bonus differentiation** -- confirmed all three bonus types (FLAT_ON_PLAY,
+   MULT_ON_PLAY, MULT_ON_HOLD) currently get the identical `.has-bonus` glow;
+   players can only tell them apart by hovering the tooltip. Ticketed per-type CSS
+   classes driven off `tile.bonus.type`.
+3. **More suffix coverage** -- explicitly the harder follow-up the "+S" plural fix
+   deliberately scoped out. Wrote a detailed, careful ticket covering the specific
+   spelling-rule cases worth tackling (E-drop before -ING/-ED, Y->IES/IER,
+   sibilant+ES) and explicitly told the routine NOT to attempt consonant-doubling
+   (RUN->RUNNING) since that trigger condition is genuinely ambiguous without a
+   syllable-stress model -- partial-but-correct coverage over full-but-sloppy.
+4. **Boss fight intensity** -- confirmed the only current boss differentiation is
+   music + a text color + an emoji, no entrance moment/escalation/distinct feedback.
+   Flagged as taste/design work, gave concrete directions grounded in THEME.md and
+   existing animation patterns (hpShake/hpFlash scaling) without over-prescribing.
+5. **More interesting visual style** -- confirmed the CSS is currently flat solid
+   colors with no gradients/texture anywhere. Explicitly scoped as a bounded polish
+   pass (not a redesign) -- keep the established palette/layout, add depth within it.
+   Most open-ended item in the file; asked for a Playwright screenshot + written
+   description in PROGRESS.md since visual "does it look better" needs Jaxon's eyes.
+
+Five tickets now queued behind the one remaining from the prior review pass (panel
+stacking, boss simplify+map, shop/consumable rarity, boss music pitch, tile-staging
+animation).
 

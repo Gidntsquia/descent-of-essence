@@ -242,6 +242,144 @@ Rules for the routine:
       click, staging area reflects click order, clear/backspace properly reverts),
       and say plainly in PROGRESS.md that the actual visual feel needs a human
       playtest to fully confirm, same as other animation work in this project.
+- [ ] CONTENT: add more permanent items. Requested 2026-08-19 ("add more items").
+      Currently 11 in js/wordbound/items.js (`spare_satchel`, `lucky_vowel`,
+      `wildcard_pouch`, `heavy_ink`, `rare_hunter`, `vowel_leech`, `thick_skin`,
+      `second_wind`, `folio_mark`, `marginalia`, `catalog_tab`). Add 3-5 more,
+      prioritizing ones that meaningfully change how a run is *played* (synergy with
+      a specific tile-bonus type, altered discard/redraw rhythm, rack-capacity math,
+      interaction with the trait/resistance system) over small flat stat bumps --
+      same bar as the last items-expansion task in this file's history. Add new
+      entries to THEME.md's item table first (keep the whimsical library-pun naming
+      style already established), then implement. Reuse the existing
+      `Items.ITEM_DEFS` / hook system (`onDraw`, `onWordPlayed`, `onPlayerDamaged`,
+      `onRunStart` -- see items.js's existing entries for the hook shapes) rather
+      than inventing a new mechanism.
+      VERIFICATION: `npm test` (16/16), plus a real-browser check that each new item
+      can be bought/found and its effect actually fires (not just that it doesn't
+      error) -- same standard as prior item-adding tasks.
+- [ ] FEATURE/VISUAL: tiles with different bonus types are visually indistinguishable
+      from each other. Requested 2026-08-19 ("differentiate tiles with different
+      bonuses"). CONTEXT: `Tiles.BONUS_TYPES` (js/wordbound/tiles.js) has three kinds
+      -- FLAT_ON_PLAY, MULT_ON_PLAY, MULT_ON_HOLD -- but every bonus tile gets the
+      exact same `.has-bonus` CSS treatment (css/wordbound.css ~line 274, a single
+      gold box-shadow glow) regardless of which one it is. A player can only tell
+      them apart by hovering for the tooltip (`Tiles.describeBonus`, set as the
+      tile's `title` attribute in `renderCombat()`, game.js). FIX: give each bonus
+      type a distinct at-a-glance visual treatment -- e.g. a different glow color per
+      type, or a small corner icon/symbol (a common pattern: "+" for flat, "×" for
+      multiply-on-play, a different marker for hold-based). Add a class per bonus
+      type (e.g. `.bonus-flat`, `.bonus-mult-play`, `.bonus-mult-hold`) alongside the
+      existing generic `.has-bonus`, driven off `tile.bonus.type` in the same place
+      the class string is built (`btn.className = ...`, game.js ~line 1230). Keep
+      it readable against the existing parchment/gold palette -- check THEME.md/
+      existing CSS custom properties if any, don't introduce clashing colors.
+      VERIFICATION: `npm test` (16/16), plus a real-browser check that a rack
+      containing all three bonus types shows three visually distinct classes/states
+      (check via `getComputedStyle` or class list, not just visual inspection since
+      you can't see the render).
+- [ ] CONTENT: expand suffix coverage beyond the plain "+S" plural fix already
+      landed (2026-08-19T22:41Z, see the completed ticket above and
+      js/wordbound/wordlist.js). Requested 2026-08-19: "ensure other suffixes work
+      (such as ed, er, ers, etc.)". This is explicitly a harder version of the same
+      problem -- the "+S" fix was deliberately scoped to skip -ED/-ER/-ING/-ES
+      because they have irregular spelling rules a blind suffix would get wrong
+      (RUN -> RUNNING needs consonant doubling; MAKE -> MAKING drops the E; HAPPY ->
+      HAPPIER changes Y to I; BOX -> BOXES not BOXS). Take real care here, don't
+      rush a blind concatenation the way "+S" safely could be:
+      SUGGESTED APPROACH: implement a SMALL set of common, well-defined spelling
+      rules rather than one blind suffix each, and accept that full English
+      inflection is out of scope (a proper morphological engine is a much bigger
+      task than this one). Reasonable rules to start with, in order, each only
+      applied when its trigger condition matches:
+        - words ending in a consonant + E: drop the E before adding -ED/-ER/-ING
+          (MAKE -> MAKING, not MAKEING)
+        - words ending in consonant + Y (not preceded by a vowel): Y -> IES for
+          plural, Y -> IER for -er (HAPPY -> HAPPIER, CITY -> CITIES) -- but words
+          ending in vowel + Y just take -S/-ED normally (PLAY -> PLAYS, not PLAIES)
+        - words ending in S/X/Z/CH/SH: use -ES not blind -S for the plural case
+          (already partially relevant to the landed +S fix -- BOX/BOXES, not BOXS;
+          double check the landed fix actually skips these correctly, since it only
+          checks "already ends in S," not the other sibilant endings)
+        - do NOT attempt consonant-doubling for -ING/-ED (RUN -> RUNNING) -- the
+          trigger condition (stressed short vowel + single final consonant) is
+          genuinely ambiguous without a syllable-stress model; skip this rule
+          entirely rather than guess wrong half the time
+      For each rule, generate the inflected form for base words in WORDS meeting
+      the trigger condition, add to WORDLIST/WORD_SET if not already present --
+      same overall mechanism and file-editing technique as the already-landed "+S"
+      fix (wordlist.js is a single giant line, splice via shell commands, don't
+      read/edit it directly -- see that ticket's implementation note above for the
+      exact head/tail/cat technique).
+      VERIFICATION: spot-check a sample of words through each rule (e.g. MAKE/MAKING,
+      HAPPY/HAPPIER, CITY/CITIES, BOX/BOXES, PLAY/PLAYS/PLAYED) and confirm the
+      *correct* spelling is now valid AND that no obviously-wrong form got added
+      (e.g. confirm MAKEING was NOT added). `npm test` 16/16. If any rule's edge
+      cases feel too uncertain to get right confidently, it's fine to skip that rule
+      and document why in PROGRESS.md rather than risk polluting the dictionary with
+      wrong spellings -- partial coverage done carefully beats full coverage done
+      sloppily here.
+- [ ] DESIGN/FEEL: boss fights should feel more intense/dramatic than regular fights.
+      Requested 2026-08-19 ("make the boss fights feel more intense"). CONTEXT:
+      currently the ONLY things that differentiate a boss fight from a regular one
+      are (1) different background music (already queued for a pitch fix above),
+      (2) a red text color + subtle glow on the boss's name (`.boss-tier` in
+      css/wordbound.css), and (3) a crown emoji prefix. No entrance moment, no
+      escalation as the fight progresses, no distinct hit-feedback. This is a taste/
+      design task more than a bug fix -- use judgment, but ground choices in
+      THEME.md's established parchment/gold "Boundless Archive" aesthetic rather
+      than inventing an unrelated visual language. Concrete directions worth
+      considering (not a checklist to do all of, pick what fits well together):
+        - a brief, distinct entrance beat when combat starts against a boss (e.g. a
+          screen-flash or the existing damage-number/HP-flash CSS keyframe pattern
+          reused for an "arrival" moment)
+        - the existing `hpShake`/`hpFlash` keyframes (css/wordbound.css) could scale
+          in intensity as the boss's HP drops (more shake/brighter flash at low HP),
+          reusing the pattern already established for damage numbers scaling with
+          hit size
+        - boss-specific hit sounds (playCombatSound/playCounterattackSound in
+          game.js currently scale by raw damage number for ALL fights) -- consider
+          whether boss counterattacks specifically should sound more ominous,
+          without duplicating the whole audio system
+        - a persistent visual frame/border treatment on the combat panel specifically
+          during a boss fight, distinguishing it from a normal encounter at a glance
+      Keep changes additive and reversible (CSS classes gated on `state.monster.isBoss`,
+      not hard-coded into shared combat rendering) so this doesn't risk regressing
+      normal-fight polish already in place.
+      VERIFICATION: `npm test` (16/16, confirms no errors from the changes). Actual
+      "does it feel more intense" is a human-judgment question `npm test` can't
+      answer -- say plainly in PROGRESS.md what was verified not-broken vs. what
+      needs Jaxon's playtest to confirm the feel actually landed, same caveat as
+      other feel/animation work in this project.
+- [ ] DESIGN/VISUAL: overall visual style is fairly plain and could be more visually
+      interesting. Requested 2026-08-19 ("make the visual style more interesting").
+      CONTEXT: css/wordbound.css is currently flat solid colors, simple rounded
+      borders, and subtle box-shadow glows throughout -- no gradients, no
+      background texture/imagery, no decorative flourishes anywhere. This is the
+      most open-ended, taste-driven item in this file -- treat it as a bounded CSS
+      polish pass, NOT a redesign: don't change the color palette, layout structure,
+      or THEME.md's established "Boundless Archive" parchment/gold identity, just
+      add visual depth/richness within it. Ideas worth exploring (pick a coherent
+      subset, don't just pile on every idea):
+        - a subtle background texture or gradient on `.panel`/`body` suggesting aged
+          paper/parchment, rather than the current flat `#241f17`/`#1a1610`
+        - more varied border treatment on panels (e.g. a subtle inset/outset effect,
+          or a faint double-border suggesting a book cover or archive folder)
+        - decorative touches consistent with the library/archive theme (e.g. a
+          subtle corner flourish or rule line under headings) -- don't add actual
+          image assets/icon fonts, this project has no external dependencies by
+          design; CSS-only (gradients, box-shadow, border tricks, unicode glyphs
+          already used elsewhere like 🪙/👑) is the right toolkit here
+        - consider whether the tier/rarity color-coding already in place (tier-weak/
+          normal/strong, boss-tier, item rarity if any) could extend consistently
+          into panel/border treatment, reinforcing rather than fighting the existing
+          system
+      VERIFICATION: `npm test` (16/16, confirms no errors/layout breaks). Take a
+      screenshot via Playwright of a few key screens (main menu, combat, shop) before
+      and after and describe the visual change in PROGRESS.md (you can't literally
+      see the image, but you can describe what CSS changed and where) -- this is
+      ultimately a taste call for Jaxon to confirm on his own playtest, say so
+      plainly rather than claiming certainty that it looks better.
 
 - [x] Persist audio settings (mute + volume) across sessions. Confirmed via grep on
       2026-08-19 that only achievements.js wrote to localStorage -- the music
