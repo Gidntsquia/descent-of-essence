@@ -87,6 +87,7 @@ body {
 .hp-display.take-damage {
   animation: playerDamageFlash 0.4s ease-out;
 }
+.gold-display { color: #f0d789; font-weight: bold; }
 .floor-label { color: #b8ac8a; }
 
 .items-owned {

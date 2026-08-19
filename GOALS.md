@@ -145,7 +145,7 @@ Rules for the routine:
       packaged zip is needed -- if you can't determine this from the repo alone, document what you
       checked and leave the question for Jaxon rather than guessing at itch.io's actual upload UI.
       COMPLETED 2026-08-19T11:18Z.
-- [ ] Add a gold/money economy: defeating an enemy grants gold (add a `goldDrop` range display or
+- [x] Add a gold/money economy: defeating an enemy grants gold (add a `goldDrop` range display or
       reuse the existing `goldDrop: [min,max]` field already in MONSTER_DEFS -- it's defined but
       currently unused, check before inventing a new field). "Overkill" bonus: damage dealt beyond
       what was needed to reduce the monster to 0 HP should grant extra gold proportional to the
@@ -153,6 +153,7 @@ Rules for the routine:
       game.js's onMonsterDefeated path, since monster.hp is already clamped to 0 by the time you'd
       normally check). Show current gold somewhere in the run HUD. This is the foundation the next
       two tasks (shop, potions) depend on -- get the currency and its display solid first.
+      COMPLETED 2026-08-19T11:35Z.
 - [ ] Add a shop: a new node type (or extend the existing 'treasure' node, your call, document
       which you picked and why) where gold (previous task) buys permanent passive items -- reuse
       the existing Items.ITEM_DEFS system rather than inventing a parallel one; a shop just needs a

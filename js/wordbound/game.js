@@ -51,7 +51,7 @@
   function $(id) { return document.getElementById(id); }
 
   function newPlayer() {
-    return { hp: 20, maxHp: 20, rack: [], items: [], usedSecondWind: false };
+    return { hp: 20, maxHp: 20, gold: 0, rack: [], items: [], usedSecondWind: false };
   }
 
   function log(msg) {
@@ -178,6 +178,7 @@
     var word = (rawWord || '').trim().toUpperCase();
     if (!word) return;
 
+    var monsterHpBefore = state.monster.hp;
     var result = Combat.playWord(state.player, state.monster, word);
     if (!result) {
       log('"' + word + '" is not playable -- not a word you know, or you don\'t have those tiles.');
@@ -192,7 +193,7 @@
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
 
     if (state.monster.hp <= 0) {
-      onMonsterDefeated();
+      onMonsterDefeated(result.damage, monsterHpBefore);
       return;
     }
 
@@ -225,8 +226,27 @@
     }
   };
 
-  function onMonsterDefeated() {
-    log('Defeated ' + state.monster.name + '!');
+  function onMonsterDefeated(damageDealt, monsterHpBefore) {
+    var goldDrop = [0, 0];
+    if (state.monster.isBoss) {
+      var bossDef = Monsters.BOSS_DEFS[state.monster.defId];
+      goldDrop = (bossDef && bossDef.goldDrop) || [0, 0];
+    } else {
+      var def = Monsters.MONSTER_DEFS[state.monster.defId];
+      goldDrop = (def && def.goldDrop) || [0, 0];
+    }
+
+    var baseGold = Wordbound.RNG.range(goldDrop[0], goldDrop[1], state.rng);
+    var overkill = Math.max(0, damageDealt - monsterHpBefore);
+    var bonusGold = Math.floor(overkill * 0.5);
+    var totalGold = baseGold + bonusGold;
+    state.player.gold += totalGold;
+
+    var goldMsg = 'Defeated ' + state.monster.name + '! Gained ' + totalGold + ' gold';
+    if (bonusGold > 0) goldMsg += ' (including ' + bonusGold + ' overkill bonus)';
+    goldMsg += '.';
+    log(goldMsg);
+
     state.combatActive = false;
     currentNode().cleared = true;
     var wasBoss = currentNode().type === 'boss';
@@ -612,6 +632,7 @@
 
   function renderRun() {
     $('player-hp-display').textContent = 'HP ' + state.player.hp + ' / ' + state.player.maxHp;
+    $('gold-display').textContent = state.player.gold + ' 🪙';
     var floorName = getFloorName(state.floorNumber);
     $('floor-label').textContent = 'Floor ' + state.floorNumber + ' / ' + Floor.TOTAL_FLOORS + (floorName ? ' — ' + floorName : '');
     renderItemsOwned();

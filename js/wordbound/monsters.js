@@ -31,21 +31,21 @@
   mdef({ id: 'warden', name: 'The Hoarder', maxHp: 20, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }] });
 
   bdef({
-    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 6, floor: 1,
+    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 6, floor: 1, goldDrop: [15, 25],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'vowelHungry' },
       { hpThreshold: 0.5, traitId: 'palindromic' }
     ]
   });
   bdef({
-    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 80, attack: 8, floor: 2,
+    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 80, attack: 8, floor: 2, goldDrop: [25, 40],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'lengthy' },
       { hpThreshold: 0.5, traitId: 'rareSeeker' }
     ]
   });
   bdef({
-    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 120, attack: 10, floor: 3,
+    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 120, attack: 10, floor: 3, goldDrop: [40, 60],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'silentE' },
       { hpThreshold: 0.6, traitId: 'shortFuse' },

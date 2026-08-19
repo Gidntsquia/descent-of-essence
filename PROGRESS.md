@@ -804,3 +804,52 @@ overall game feel.
    - test/file-url-gameplay-check.js - Verifies actual gameplay (run start, combat, etc.) works on file://
 
 **Current status:** 14 of 16 tasks complete. Next: Add a gold/money economy (Task 7).
+
+---
+
+## 2026-08-19T11:35Z
+
+**Add a gold/money economy (Task 7 from queue)** -- COMPLETED and pushed.
+
+**What was implemented:**
+
+1. **Player gold tracking:** Added `gold: 0` field to player state initialization (newPlayer function).
+   Player starts every run with 0 gold.
+
+2. **Monster gold drops:** Reused the existing `goldDrop: [min, max]` field already defined in all 8 
+   regular monster definitions. Added goldDrop ranges to 3 bosses:
+   - boss_vowelmaw (floor 1): [15, 25] gold
+   - boss_unabridged (floor 2): [25, 40] gold
+   - boss_sovereign (floor 3): [40, 60] gold
+   Boss gold scales with difficulty (higher floors reward more).
+
+3. **Overkill bonus calculation:** 
+   - Captured monster HP before Combat.playWord in submitWord function
+   - Passed damage dealt and HP-before to onMonsterDefeated
+   - Overkill = max(0, damage - monsterHpBefore)
+   - Bonus gold = floor(overkill * 0.5) -- half value of overkill damage converts to bonus gold
+   Example: if a weak monster with 8 HP takes 15 damage, overkill = 7, bonus = 3 gold
+
+4. **Gold display in HUD:**
+   - Added #gold-display element to wordbound.html run-header (next to HP display)
+   - Added .gold-display CSS styling (gold/yellow text color #f0d789, bold, matches theme)
+   - Render function updates gold display with current gold amount + 🪙 emoji icon
+
+5. **Gold reward messages:**
+   - Log message shows total gold earned: "Defeated [monster]! Gained X gold"
+   - If overkill bonus awarded, appends: "(including Y overkill bonus)"
+   - Provides clear feedback on gold economy
+
+**Verification:**
+- All npm tests pass (12 DOM checks)
+- Gold system initialized correctly (player starts with 0 gold)
+- Monster definitions have goldDrop ranges
+- Gold display element exists and is styled
+
+**What still needs testing in a real browser:**
+- Actual gameplay: defeat a monster and confirm gold is awarded
+- Overkill bonus: verify bonus gold actually displays when applicable
+- Gold accumulation: verify gold persists across multiple fights in a run
+- UI layout: verify gold display doesn't clash with other HUD elements
+
+**Current status:** 15 of 16 tasks complete (93.75% done). Next: Add a shop (Task 8).
