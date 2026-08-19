@@ -1631,3 +1631,32 @@ verified with real clicks since character select was added.
 
 **GOALS.md status:** CRITICAL task now marked complete. Game is playable again.
 
+
+---
+
+## 2026-08-19T16:38Z -- ROUTINE STATUS: IDLE
+
+**Summary of this run:**
+- Fixed critical game-breaking show() bug (added 'screen-character-select' to hardcoded screen array)
+- Hardened npm test with 3 new visibility checks
+- All 16 tests pass
+- GOALS.md queue completely empty (all tasks checked off)
+
+**Current game status:**
+- ✅ Core game fully functional and playable
+- ✅ All major features implemented (deck system, characters, shop, events, consumables, achievements, music, animations, etc.)
+- ✅ 204k+ word dictionary
+- ✅ Touch support (drag-to-reorder)
+- ✅ All known bugs fixed
+- ✅ Comprehensive test suite with visibility hardening
+
+**What's next:**
+1. Real browser playtest (orchestrator's responsibility via Playwright)
+   - Verify end-to-end flow: character select → run → all systems
+   - Confirm difficulty curve feels right
+   - Test mobile/touch on actual device
+2. Screen recording for GIF (not automatable, needs human)
+3. itch.io page creation and store-copy finalization (Jaxon's responsibility)
+
+**Routine will now idle until new tasks are added to GOALS.md.**
+
