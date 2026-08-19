@@ -44,7 +44,7 @@ Rules for the routine:
 
 ## Queue
 
-- [ ] BUG, high priority: common regular plurals (and any word ending in a bare "S"
+- [x] BUG, high priority: common regular plurals (and any word ending in a bare "S"
       suffix) are missing from the dictionary, making the game reject completely
       ordinary words. Reported 2026-08-19: "Words that end with 's' aren't allowed.
       Like 'ads'." Verified directly: `Lexicon.isValidWord('ADS')` returns false, and
