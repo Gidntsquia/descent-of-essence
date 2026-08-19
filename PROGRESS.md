@@ -208,5 +208,35 @@ Code changes:
 
 Ready for playtest. No logic changes, purely UI.
 
-**Current status:** 4 of 8 tasks complete. Remaining: item inspector (#6), rack 
-animation/drag (#7), sound effects (#8), background music (#9).
+**Current status:** 5 of 8 tasks complete. Remaining: rack animation/drag (#7), sound effects (#8), background music (#9).
+
+---
+
+## 2026-08-19T06:45Z
+
+**Make items easy to inspect (Task 6)** -- COMPLETED and pushed.
+
+Implemented item inspector panel that shows full name and hint when clicking on
+item chips. Solves the touch/mobile discoverability issue where hover tooltips
+don't work.
+
+Implementation:
+- Item chips in items-owned strip are now clickable (cursor: pointer)
+- Click opens item inspector modal panel showing item name and hint
+- Close button to dismiss and return to play
+- Reuses treasure-panel CSS styling (consistent with deck viewer)
+- Always-visible strip remains for quick reference
+
+Code changes:
+- wordbound.html: added #item-inspector-panel with #inspector-item-name,
+  #inspector-item-hint, and #btn-close-item-inspector
+- game.js: added itemInspectorOpen and itemInspectorId state flags, 
+  openItemInspector/closeItemInspector functions, renderItemInspector function,
+  updated renderItemsOwned to add click handlers, updated render logic to toggle
+  panel and call renderItemInspector, wired up close button listener
+
+Ready for playtest. Implements both patterns (deck viewer + item inspector) in
+a consistent, reusable way.
+
+**Current status:** 5 of 8 tasks complete (43% queue). About 1.5 hours into this
+routine run. Remaining tasks are more complex (animation, audio synthesis).

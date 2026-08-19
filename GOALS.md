@@ -48,7 +48,7 @@ Rules for the routine:
       sorted however reads clearly. Viewable any time during a run, not just mid-combat. Follow the
       existing treasure-panel/tile-reward-panel visual pattern (css/wordbound.css .treasure-panel,
       .treasure-choice) rather than inventing a new style language.
-- [ ] Make the items you own actually easy to inspect. There's already an always-visible chip strip
+- [x] Make the items you own actually easy to inspect. There's already an always-visible chip strip
       (wordbound.html #items-owned, renderItemsOwned() in game.js) with hover-tooltip hint text, but
       hover isn't discoverable (and doesn't really work on touch). Clicking a chip (or a dedicated
       button) should show the item's full name + hint clearly, not just on hover -- reuse the panel
