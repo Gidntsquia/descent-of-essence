@@ -44,6 +44,205 @@ Rules for the routine:
 
 ## Queue
 
+- [ ] BUG, high priority: common regular plurals (and any word ending in a bare "S"
+      suffix) are missing from the dictionary, making the game reject completely
+      ordinary words. Reported 2026-08-19: "Words that end with 's' aren't allowed.
+      Like 'ads'." Verified directly: `Lexicon.isValidWord('ADS')` returns false, and
+      `window.Wordbound.WORD_SET.has('ADS')` is false, even though `WORD_SET.has('AD')`
+      is true. This is NOT a one-off -- sampled 12 common base/plural pairs (CAT/CATS,
+      WORD/WORDS, BOOK/BOOKS, AD/ADS, CAR/CARS, TREE/TREES, HOUSE/HOUSES, GIRL/GIRLS,
+      BOY/BOYS, GAME/GAMES, TABLE/TABLES, DOG/DOGS): 10 of 12 plurals were missing
+      despite their base word being present.
+      ROOT CAUSE: js/wordbound/wordlist.js's header says the dictionary is sourced
+      from macOS's system dictionary (Webster's Second, via /usr/share/dict/words).
+      Webster's Second is a *headword* dictionary from 1913 -- it lists base forms but
+      not their regular inflections (plurals, verb conjugations), because those were
+      considered "regular" and omittable. So the base word is there but its plain "+S"
+      form usually isn't.
+      FIX: generate the "+S" form of every base word that doesn't already end in S,
+      and add it to both WORDLIST and WORD_SET if not already present (this also
+      covers third-person-singular verb forms for free, e.g. RUN -> RUNS). Don't
+      attempt other inflections (-ES, -IES, -ED, -ING) in this pass -- those have
+      irregular spelling rules (BOX -> BOXES not BOXS; CITY -> CITIES not CITYS) that
+      a blind suffix rule would get wrong more often than a plain "+S" does; a good
+      follow-up task once this lands, not part of this one.
+      IMPLEMENTATION NOTE (important -- read before touching this file):
+      js/wordbound/wordlist.js is a single ~2.5MB line (the WORDS array literal) --
+      standard file-reading tools will refuse to load the whole file into context.
+      Don't try to read/edit it directly. Instead, splice new code in using shell
+      commands that never load the giant line into memory, e.g.:
+        `head -n 16 js/wordbound/wordlist.js > /tmp/part1.js`  (or however many lines
+          precede the `var WORDS = [...]` line -- check with `wc -l` and `sed -n`
+          on the surrounding lines, which are short)
+        write the new expansion code to /tmp/part2.js as its own file (a plain-text
+          write of a *small* file is fine, it's just the array literal that's huge)
+        `tail -n 3 js/wordbound/wordlist.js > /tmp/part3.js`  (the closing
+          `window.Wordbound.WORDLIST = WORDS;` / `WORD_SET = new Set(WORDS);` / `})();`
+          lines)
+        `cat /tmp/part1.js /tmp/part2.js /tmp/part3.js > js/wordbound/wordlist.js`
+      The new code should go between the WORDS array declaration and those closing
+      lines, roughly:
+        ```
+        var existingWordSet = new Set(WORDS);
+        var generatedPlurals = [];
+        for (var wi = 0; wi < WORDS.length; wi++) {
+          var baseWord = WORDS[wi];
+          if (baseWord.charAt(baseWord.length - 1) === 'S') continue;
+          if (baseWord.length >= 15) continue; // keep the documented 2-15 length range
+          var withS = baseWord + 'S';
+          if (!existingWordSet.has(withS)) {
+            existingWordSet.add(withS);
+            generatedPlurals.push(withS);
+          }
+        }
+        WORDS = WORDS.concat(generatedPlurals);
+        ```
+      (WORDS is declared with `var`, so reassigning it is fine.) Run `node -c
+      js/wordbound/wordlist.js` after reassembling to catch syntax errors before
+      testing further -- a mistake here breaks the entire dictionary.
+      VERIFICATION: after the fix, `window.Wordbound.WORD_SET.has('ADS')` should be
+      true, and the 12-pair sample above should show 0 missing plurals. `npm test`
+      should still pass (16/16). Also sanity-check `window.Wordbound.WORD_SET.size`
+      roughly doubles (was 204,217) and that page load time doesn't visibly regress
+      (a `page.evaluate` timing check in Playwright is enough, no need for a
+      dedicated perf harness).
+- [ ] BUG: opening the deck viewer, item inspector, or consumables panel while
+      another of the three is already open leaves BOTH visible at once, stacking in
+      the DOM instead of replacing each other. Reported 2026-08-19: "the UI for deck,
+      consumables, and item get appended to each other, which requires scrolling,
+      which I don't like."
+      ROOT CAUSE: js/wordbound/game.js has three independent open functions --
+      `Game.openDeckViewer`, `Game.openItemInspector`, `Game.openConsumablesPanel`
+      (around line 556-586) -- each of which only ever sets its OWN state flag
+      (`state.deckViewerOpen` / `state.itemInspectorOpen` / `state.consumablesPanelOpen`)
+      to true and calls render(). None of them close the other two. Since render()
+      toggles each panel's `hidden` class independently based on its own flag
+      (`$('deck-viewer-panel').classList.toggle('hidden', !state.deckViewerOpen)` etc.,
+      around line 999-1001), opening a second panel while the first is still open
+      results in both being simultaneously un-hidden.
+      FIX: add a small helper, e.g.
+        ```
+        function closeAllSidePanels() {
+          state.deckViewerOpen = false;
+          state.itemInspectorOpen = false;
+          state.itemInspectorId = null;
+          state.consumablesPanelOpen = false;
+        }
+        ```
+      and call it at the top of each of the three `open*` functions, before setting
+      that function's own flag to true. Leave the three `close*` functions as-is.
+      VERIFICATION: in a real browser (not just jsdom -- this is a DOM-visibility bug
+      that a synthetic click on a hidden element could mask, same class of issue as
+      earlier bugs this project has had), open the deck viewer, then without closing
+      it click the Consumables button, and confirm only the consumables panel is
+      visible (deck-viewer-panel has the `hidden` class again). Repeat for all
+      pairs/orders of the three panels. `npm test` should still pass.
+- [ ] BALANCE/DESIGN: bosses currently have 2-3 traits that switch mid-fight based on
+      HP thresholds, and the player can't see which trait(s) a boss uses before
+      entering combat. Reported 2026-08-19: "I want the bosses to just have 1
+      restriction, and have that restriction be clear from the map view so that
+      players can plan ahead to beat it."
+      Two parts:
+      1. Simplify each boss (js/wordbound/monsters.js, `BOSS_DEFS`) from its current
+         2-3-entry `traitPhases` array down to a single entry at `hpThreshold: 1.0`.
+         Suggested (keeps each boss's original opening trait, all three of which are
+         "bonus damage" traits with a 1x baseline -- not the 0x/0.3x-floor
+         "resistance" kind -- so this also makes every boss fight strictly
+         "extra reward for the right words," never "penalized for the wrong ones"):
+         boss_vowelmaw -> `vowelHungry` only, boss_unabridged -> `lengthy` only,
+         boss_sovereign -> `silentE` only. (This also fully retires the palindromic/
+         shortFuse phases that earlier balance simulation flagged as the floor-1
+         boss's difficulty spike -- worth confirming that finding stays resolved.)
+      2. Surface the boss's (single, now-fixed) trait hint text on the node-map pill
+         for boss nodes, so it's visible before the player commits to entering. See
+         `renderNodeMap()` in game.js (~line 1083) -- currently every pill just shows
+         a generic label (`labels[node.type]`, e.g. "BOSS"). For boss-type nodes
+         specifically, look up `Monsters.BOSS_DEFS[node.defId].traitPhases[0].traitId`,
+         then `Traits.TRAITS[thatId].hint`, and append it to the pill's text or a
+         title/tooltip attribute -- whichever reads better without breaking the
+         node-map's existing compact layout (check css/wordbound.css .node-pill for
+         current width constraints before assuming a long hint string will fit
+         cleanly; truncate or wrap if needed).
+      VERIFICATION: `npm test` (16/16), plus a real-browser check that a boss node's
+      pill shows its trait hint before entering, and that combat with that boss
+      only ever uses the one configured trait regardless of HP (log the active
+      trait each turn via `Traits.activeTraitForHpRatio` and confirm it never
+      changes within a single fight).
+- [ ] BALANCE: shops are floor-2+ only, and consumable drop rate is low enough that a
+      player can go a whole run without seeing either. Reported 2026-08-19: "I don't
+      see any shop and I haven't gotten a single consumable."
+      CONTEXT: `hasShop = floorNumber >= 2` in js/wordbound/floor.js's
+      `generateFloor()` (~line 70) means floor 1 has zero shop nodes -- combined with
+      floor 1 previously being disproportionately hard (see earlier balance-
+      simulation entries in this file/PROGRESS.md, since addressed), many runs likely
+      never reached floor 2 to see a shop at all. Separately,
+      `Consumables.getConsumableDropChance()` in js/wordbound/consumables.js returns
+      0.12 (12% per kill) -- plausible to see zero drops over a short run purely by
+      bad luck (expected ~1 drop over 8 kills), independent of any bug.
+      FIX: change `hasShop = floorNumber >= 2` to `hasShop = true` (guarantee a shop
+      on every floor, not just 2+). Raise `getConsumableDropChance()` from 0.12 to
+      something in the 0.18-0.22 range so a full run reliably produces a few. Pick a
+      specific number and document the reasoning briefly in PROGRESS.md; this is a
+      numeric tuning call, not an exact-science one.
+      VERIFICATION: `npm test` (16/16), plus a real-browser check across a few
+      generated floor-1 maps confirming a 'shop' node type is always present.
+- [ ] AUDIO: boss background music is pitched noticeably higher than normal music,
+      reported as "too high" (2026-08-19). Current implementation in game.js:
+      `playNormalMusic` uses notes [130.81, 146.83, 164.81, 146.83] (C3-E3) with
+      `osc.type = 'sine'`; `playBossMusic` (~line 781) uses notes [164.81, 196.00,
+      164.81, 196.00, 220.00, 196.00] (E3-A3) with `osc.type = 'square'`. Boss music
+      is both a higher register AND a harsher waveform than normal music, which
+      likely compounds into feeling shrill/too-high.
+      FIX: lower the boss music's note frequencies -- consider dropping a full
+      octave (E2 82.41, G2 98.00, A2 110.00) or at minimum matching normal music's
+      C3-E3 register with a different melodic pattern so it's still distinguishable
+      as "boss" without being higher-pitched. Keep the square wave for timbre
+      distinction (that's a reasonable way to signal "boss," pitch is the actual
+      complaint) unless it still sounds harsh after the pitch fix, in which case
+      reconsider the waveform too. This is a listen-and-adjust task -- npm test can't
+      verify audio quality, so use your judgment on the actual frequency values and
+      note in PROGRESS.md that final confirmation needs a human ear, same caveat as
+      prior audio tasks in this file.
+      VERIFICATION: `npm test` (16/16, confirms no errors from the change). Audio
+      *quality* itself needs Jaxon's ear to fully confirm -- say so plainly rather
+      than claiming certainty.
+- [ ] FEATURE: tiles should visibly animate into a "staging" position as the player
+      builds a word, not just when the word is submitted. Reported 2026-08-19: "when
+      you type 'a', then I want the 'a' tile to be selected, then when you type 'd'
+      then the 'd' tile moves up next to the 'a'. This is so it's clear exactly which
+      tiles are being played."
+      CONTEXT: currently `#word-input` is a plain text field -- clicking a rack tile
+      (or typing) just appends a character to it (see the rack tile's click handler
+      in `renderCombat()`, game.js). There is no tracking of *which specific tile
+      instance* was clicked, no visual "selected" state on rack tiles, and no
+      separate staging-area UI. This is a genuinely bigger feature than the other
+      items in this file -- it changes core input interaction, not just a fix -- so
+      take real care and don't rush it:
+      SUGGESTED APPROACH (not prescriptive -- use judgment, but keep the scope
+      bounded to this): when a rack tile is clicked, instead of only appending to
+      `#word-input`, also (a) mark that specific tile's DOM element as "selected"
+      (dim it or add a distinct border/glow -- don't remove it from the rack, the
+      player may want to reconsider), and (b) render/move a visual copy or the tile
+      itself into a staging row above or beside the rack, in click order, so the
+      player can see the word forming tile-by-tile. Clicking "Clear" (or backspacing
+      the text input) should un-stage and un-select correspondingly. Keep `#word-
+      input`'s text value in sync (typing should probably still work as an
+      alternative input method -- check whether keyboard typing needs to map back to
+      tile selection too, or if this feature is mouse/touch-click-only; if the
+      keyboard-typing path is kept, decide and document whether typed letters get
+      a staging animation too or just click-selected ones, since typed letters don't
+      correspond to a specific tile instance the same way a click does).
+      This will interact with the existing `.tile-played` animation (added earlier
+      2026-08-19 for when a word is *submitted*) and the `.new-tile` slide-in
+      animation (for redraws) -- make sure staging a tile, then submitting, then the
+      rack refilling all animate coherently and don't fight each other or double up.
+      VERIFICATION: `npm test` can't verify animation visuals (jsdom limitation,
+      documented elsewhere in this file already) -- use Playwright to confirm the
+      right DOM state/classes exist at each step (tile has a "selected" class after
+      click, staging area reflects click order, clear/backspace properly reverts),
+      and say plainly in PROGRESS.md that the actual visual feel needs a human
+      playtest to fully confirm, same as other animation work in this project.
+
 - [x] Persist audio settings (mute + volume) across sessions. Confirmed via grep on
       2026-08-19 that only achievements.js wrote to localStorage -- the music
       mute/volume controls didn't persist at all. DONE 2026-08-19T18:50Z (Claude,

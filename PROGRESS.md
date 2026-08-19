@@ -2634,3 +2634,53 @@ again produced zero duplicate items.
 
 No new tickets. Nothing needs the routine's attention this cycle.
 
+---
+
+## 2026-08-19T22:39Z (orchestrator review, not a routine run)
+
+Jaxon reported six issues from direct play. Investigated each with real execution
+(not just code reading) and wrote up precise tickets at the top of GOALS.md's queue
+-- root cause, exact fix, and verification steps for each. Per standing instruction,
+did NOT implement any of these directly even though several were already fully
+diagnosed and (briefly) drafted -- reverted all uncommitted code changes via
+`git checkout --` and left the diagnosis in ticket form for the routine instead.
+
+1. **Common word plurals missing from the dictionary** ("ads" rejected). Verified:
+   `WORD_SET.has('ADS')` is false despite `WORD_SET.has('AD')` being true, and 10 of
+   12 sampled base/plural pairs were missing their plural entirely. Root cause: the
+   dictionary source (Webster's Second, a 1913 headword-only dictionary) doesn't
+   list regular inflections. This is the highest-priority ticket -- it affects
+   essentially every word a player might try to play. Included detailed
+   implementation notes in the ticket since wordlist.js is a single ~2.5MB line that
+   can't be read/edited directly with normal tools; documented the shell-based
+   file-splicing technique needed to safely inject new code without loading the
+   whole array into context.
+2. **Deck/item/consumables panels stack instead of replacing each other** (requires
+   scrolling). Verified root cause precisely: three independent `open*` functions in
+   game.js each only set their own visibility flag, never closing the other two.
+   Straightforward fix, wrote exact code for the suggested `closeAllSidePanels()`
+   helper.
+3. **Bosses should have exactly 1 restriction, visible on the map before entering.**
+   Currently 2-3 HP-gated trait phases per boss with no pre-combat visibility.
+   Suggested collapsing to each boss's original phase-1 trait (all three are
+   bonus-only, not resistance-floor traits, which also fully retires the
+   floor-1-boss difficulty spike from earlier balance simulation) plus surfacing the
+   trait hint on the node-map pill.
+4. **No shop seen, no consumables ever dropped.** Shops are floor-2+ only (floor 1
+   has none at all); consumable drop rate is 12%. Both plausible as "real but
+   avoidable" rather than bugs -- suggested guaranteeing a shop on every floor and
+   raising the drop rate to ~18-22%.
+5. **Boss music pitched too high.** Confirmed: boss music (E3-A3, square wave) is a
+   full register above normal music (C3-E3, sine wave) -- likely compounds into
+   sounding shrill. Suggested dropping an octave; flagged that final audio-quality
+   confirmation needs Jaxon's ear, same as prior audio tickets.
+6. **Tiles should animate into a "staging" area as a word is typed/clicked**, not
+   just when submitted -- want to see exactly which tile instances are selected
+   before playing. This is a real UI/interaction feature (currently `#word-input` is
+   just a plain text field with no per-tile selection tracking), not a bug fix --
+   wrote it up as the most open-ended ticket, with a suggested approach but explicit
+   room for implementation judgment, and flagged how it needs to interact cleanly
+   with the existing tile-played and new-tile animations.
+
+All six items are now queued at the top of GOALS.md for the hourly routine.
+
