@@ -1751,3 +1751,40 @@ Ready for Jaxon's own playtest.
 
 Routine idle pending new tasks in GOALS.md.
 
+---
+
+## 2026-08-19T17:56Z -- ROUTINE CHECK-IN (IDLE CONFIRMED)
+
+**Status:** No new tasks added to GOALS.md since 2026-08-19T17:46Z.
+**Queue:** Empty (all 28 tasks complete and checked off).
+**Roadmap gaps:** All automatable items already completed or outside scope (require human testing/input).
+**Test suite:** npm test runs clean - all 16 DOM checks pass (jsdom and core game logic).
+
+**Summary:**
+The game is feature-complete, all critical bugs are fixed, and the codebase is in a stable, production-ready state. The routine installed jsdom and re-ran the full test suite to confirm nothing has regressed. All checks pass.
+
+**What's been shipped:**
+- ✅ Slay the Spire deck system with persistent tile progression
+- ✅ 204k+ word dictionary (Webster's Second)
+- ✅ 3 character loadouts with unique starting decks and items
+- ✅ Shop system with 11 permanent items
+- ✅ Consumable one-time-use items (3 types, 12% drop rate)
+- ✅ Event nodes with 2-3 choices per floor (60% spawn rate)
+- ✅ Animated drag-to-reorder rack (mouse + touch)
+- ✅ Combat feedback (floating damage numbers, HP flash/shake, synthesized sound effects)
+- ✅ Background music (calm for normal floors, intense for boss fights)
+- ✅ Achievement system (5 achievements unlocking 5 rare items)
+- ✅ All visual/audio/copy cohesion pass (matches THEME.md aesthetic)
+- ✅ Comprehensive README.md with features, quickstart, and development guide
+- ✅ Two critical bugs fixed (show() screen visibility, null element crash)
+- ✅ Test hardening (visibility checks added to dom-check.js)
+- ✅ Version v0.6 (bumped to reflect actual build state)
+
+**Current blockers (all outside automation scope):**
+1. Real browser playtest (Jaxon's responsibility)
+2. Gameplay GIF recording (Jaxon's responsibility)
+3. itch.io page creation & store-page copy finalization (Jaxon's responsibility)
+4. Community promotion (Jaxon's responsibility)
+
+**Routine will remain idle until new tasks are added to GOALS.md.**
+
