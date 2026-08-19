@@ -1812,3 +1812,85 @@ The game is feature-complete, all critical bugs are fixed, and the codebase is i
 **Game status:** Feature-complete, all critical bugs fixed, production-ready.
 **Next action:** Awaiting new tasks in GOALS.md to resume work.
 
+---
+
+## 2026-08-19T18:17Z (Claude, direct fixes at Jaxon's request -- not a routine run)
+
+Jaxon playtested and reported: no tile animations, the "vowelless" monster is
+impossible, clippy/weird music, boss fights don't work, strange boss music, "and
+many other things." Asked directly to fix it. Found and fixed four real, distinct
+issues (all verified with real-browser Playwright testing, not just npm test):
+
+1. **Tile animations effectively invisible half the time.** The starter deck is 12
+   tiles and the rack is 8, so after a full discard+redraw only ~4 tiles are ever a
+   genuinely different tile *instance* than before -- the other ~4 get reshuffled
+   right back from the discard pile the same turn, and the animation code (correctly,
+   per its own literal logic) skipped them as "not new." Fixed by adding a
+   `rackJustRefilled` flag: whenever the rack gets a full discard+redraw (fight start,
+   or after playing a word), the whole rack now animates in, matching what a player
+   actually experiences (a full hand redeal). Page Turn's partial-keep redraw is
+   untouched -- it still only animates the genuinely new bonus tiles, since that one
+   legitimately keeps some tiles in place. Verified: new-tile ratio went from 4/8 to
+   8/8 per turn across 6 full playthroughs.
+
+2. **Page Turn consumable crashed the game.** `cycleRackAfterWord`'s Page Turn branch
+   called `Tiles.draw(tilesToDraw, state.pile, state.deck, state.rng)` -- wrong
+   argument order (Tiles.draw's real signature is `(pileState, count, rng)`) plus an
+   extra unused arg. This threw immediately (`pileState.drawPile` was undefined)
+   whenever a player used Page Turn and then played a word. Also fixed a smaller bug
+   in the same block: it hardcoded rack capacity as `7` instead of calling
+   `Items.getRackCapacity(state.player)` (actual capacity is 8, and this ignores
+   capacity-boosting items). Verified end-to-end via the actual UI (use consumable ->
+   play word): rack now correctly goes from 8 -> 11 tiles (8 kept + 3 bonus), zero
+   errors.
+
+3. **"Vowelless" trait ("The Consonant") was a hard 0x-immune-unless-zero-vowels
+   check.** Zero-vowel English words are genuinely rare (SKY, CRY, MYTH -- this
+   dictionary doesn't count Y as a vowel), and a player's rack won't always be able
+   to form one, making this fight a coin-flip softlock rather than just hard.
+   Softened the off-type multiplier from 0 to 0.3 (still heavily discouraged, the
+   weakness still matters, but no longer a guaranteed-unwinnable draw). The other
+   "immune unless X" traits (palindromic, shortFuse, alphabetic) were left alone --
+   only this one was reported and its off-type condition (finding ANY zero-vowel
+   word) is meaningfully harder to satisfy than the others (short words, palindromes,
+   alphabetical-order words are far more common).
+
+4. **Background music genuinely was clippy -- confirmed root cause, not just a vibe.**
+   Both `playNormalMusic` and `playBossMusic` ramped each note's gain down to a
+   *non-zero* value (0.08 / 0.10) and then hard-called `osc.stop()` while the
+   oscillator was still audible -- stopping an oscillator mid-amplitude creates an
+   audible click (a hard waveform discontinuity), and this fired on literally every
+   single beat of every loop. Fixed by extending the ramp all the way to silence
+   (0.0001) before the scheduled stop time, both loops. Separately, `stopBackgroundMusic()`
+   (called on every combat transition, including normal<->boss switches) was hard-
+   stopping ALL active oscillators immediately with no fade at all, adding another
+   click on top at the exact moment boss music kicks in -- likely why "boss music
+   sounds strange" specifically. Fixed by tracking each note's gain node alongside
+   its oscillator and fading each to silence over 30ms before stopping, instead of
+   an instant cutoff. Verified: no errors across normal-combat entry, forced
+   boss-transition, and run-end in Playwright; the maths of the new envelopes were
+   checked directly (ramps reach 0.0001 strictly before each scheduled stop time).
+
+**Boss difficulty (judgment call, flagged as such, not a "bug fix"):** thorough
+Playwright testing of all 3 boss fights found no additional crash bugs, but did find
+they're genuinely very punishing -- boss attack (was 6/8/10) against the player's
+fixed 20 max HP meant only 3-4 hits of margin, often not enough turns to whittle
+down a 50-120 HP boss while also adapting to its trait-phase switches. This is very
+plausibly what "the boss fight doesn't work" meant in practice, even though nothing
+crashes. Nudged boss attack down to 5/6/8 -- HP pools and trait puzzles untouched, so
+the core challenge is intact, just with a bit more room to actually play it out. This
+is a balance judgment call on my part, not a definitively-diagnosed bug; flagging
+clearly in case Jaxon wants different numbers.
+
+**Verification:** `npm test` 16/16 clean. 6+ full real-browser (Playwright)
+playthroughs post-fix with zero uncaught errors, covering combat, tile rewards,
+treasure, shop, and event nodes. Boss transitions (including a forced normal->boss
+music switch) tested directly with zero errors.
+
+**Not found:** despite extensive testing (forced entry into all 3 boss floors, boss
+defeat + floor-advance flow, multi-phase trait switching), no crash or logic bug was
+found specific to boss combat beyond the Page Turn issue above (which isn't boss-
+specific, but could plausibly have hit during a boss attempt). If "the boss fight
+doesn't work" persists after these fixes, that's the next thing to dig into --
+possibly something visual/UX that automated testing can't see.
+

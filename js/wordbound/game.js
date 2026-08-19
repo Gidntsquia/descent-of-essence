@@ -46,6 +46,10 @@
     itemInspectorId: null,
     consumablesPanelOpen: false,
     lastRackTileIds: [], // track tile IDs from previous render to detect new tiles
+    rackJustRefilled: false, // true right after a full discard+redraw -- animate the whole rack,
+                              // not just tiles that happen to be a different instance than before
+                              // (with a small deck, refills often reuse the same tile object, which
+                              // would otherwise skip the slide-in animation despite being a fresh deal)
     draggedTileId: null, // track which tile is being dragged for reordering
     dragOverIndex: null, // track which position we're hovering over
     touchStartIndex: null, // for touch-based reordering
@@ -278,6 +282,7 @@
     var ctx = { player: state.player, drawnTiles: drawn, pileState: state.pile, rng: state.rng };
     Items.runHook('onDraw', ctx, state.player);
     state.player.rack = state.player.rack.concat(ctx.drawnTiles);
+    state.rackJustRefilled = true;
   }
 
   // Slay the Spire-style rack: whatever's left in the rack after a word is
@@ -301,15 +306,18 @@
     if (state.player.skipDiscardNextTurn) {
       // Page Turn: keep unused tiles, refill to full capacity, then draw bonus
       var bonusCount = state.player.bonusTilesToDraw || 0;
-      var targetRackSize = 7 + bonusCount; // normal rack is 7
+      var targetRackSize = Items.getRackCapacity(state.player) + bonusCount;
       var tilesToDraw = targetRackSize - unusedTiles.length;
 
       if (tilesToDraw > 0) {
-        var drawn = Tiles.draw(tilesToDraw, state.pile, state.deck, state.rng);
+        var drawn = Tiles.draw(state.pile, tilesToDraw, state.rng);
         var ctx = { player: state.player, drawnTiles: drawn, pileState: state.pile, rng: state.rng };
         Items.runHook('onDraw', ctx, state.player);
         state.player.rack = unusedTiles.concat(ctx.drawnTiles);
       }
+      // Note: deliberately NOT setting rackJustRefilled here -- Page Turn keeps some
+      // tiles in place (they shouldn't re-animate), only the newly drawn bonus tiles
+      // should slide in, which the normal per-tile-id diff below already handles correctly.
 
       // Reset Page Turn flags
       state.player.skipDiscardNextTurn = false;
@@ -674,11 +682,15 @@
         osc.type = 'sine';
         osc.frequency.setValueAtTime(notes[i], noteStart);
         gain.gain.setValueAtTime(0.25, noteStart);
-        gain.gain.linearRampToValueAtTime(0.08, noteStart + beatDuration * 0.9);
+        gain.gain.linearRampToValueAtTime(0.08, noteStart + beatDuration * 0.7);
+        // Fade fully to silence before stop() -- stopping an oscillator while its
+        // gain is still non-zero creates an audible click (a hard discontinuity in
+        // the waveform). Ramping to ~0 first makes the cutoff inaudible.
+        gain.gain.linearRampToValueAtTime(0.0001, noteStart + beatDuration * 0.95);
 
         osc.start(noteStart);
         osc.stop(noteStart + beatDuration * 0.95);
-        musicOscillators.push(osc);
+        musicOscillators.push({ osc: osc, gain: gain });
       }
 
       setTimeout(function () { playLoop(startTime + (notes.length * beatDuration)); }, notes.length * beatDuration * 1000);
@@ -705,11 +717,14 @@
         osc.type = 'square';
         osc.frequency.setValueAtTime(notes[i], noteStart);
         gain.gain.setValueAtTime(0.30, noteStart);
-        gain.gain.linearRampToValueAtTime(0.10, noteStart + beatDuration * 0.85);
+        gain.gain.linearRampToValueAtTime(0.10, noteStart + beatDuration * 0.6);
+        // Same click-avoidance as playNormalMusic: reach silence before stop().
+        // Square waves make an un-faded stop click even more noticeable than sine.
+        gain.gain.linearRampToValueAtTime(0.0001, noteStart + beatDuration * 0.9);
 
         osc.start(noteStart);
         osc.stop(noteStart + beatDuration * 0.9);
-        musicOscillators.push(osc);
+        musicOscillators.push({ osc: osc, gain: gain });
       }
 
       setTimeout(function () { playLoop(startTime + (notes.length * beatDuration)); }, notes.length * beatDuration * 1000);
@@ -720,8 +735,18 @@
 
   function stopBackgroundMusic() {
     isPlayingMusic = false;
-    musicOscillators.forEach(function (osc) {
-      try { osc.stop(); } catch (e) {}
+    // Fade each still-playing note to silence before stopping it, rather than
+    // cutting it off mid-note -- this runs on every combat transition (including
+    // normal<->boss music switches), so a hard stop() here clicked audibly on
+    // nearly every fight start/end.
+    musicOscillators.forEach(function (pair) {
+      try {
+        var now = audioContext ? audioContext.currentTime : 0;
+        pair.gain.gain.cancelScheduledValues(now);
+        pair.gain.gain.setValueAtTime(pair.gain.gain.value, now);
+        pair.gain.gain.linearRampToValueAtTime(0.0001, now + 0.03);
+        pair.osc.stop(now + 0.03);
+      } catch (e) {}
     });
     musicOscillators = [];
   }
@@ -1115,7 +1140,7 @@
       btn.draggable = true;
       btn.setAttribute('data-tile-id', tile.id);
       btn.setAttribute('data-tile-index', index);
-      var isNewTile = state.lastRackTileIds.indexOf(tile.id) === -1;
+      var isNewTile = state.rackJustRefilled || state.lastRackTileIds.indexOf(tile.id) === -1;
       btn.className = 'letter-tile' + (tile.bonus ? ' has-bonus' : '') + (isNewTile ? ' new-tile' : '');
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       btn.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
@@ -1161,6 +1186,7 @@
       currentRackIds.push(tile.id);
     });
     state.lastRackTileIds = currentRackIds;
+    state.rackJustRefilled = false;
   }
 
   function escapeHtml(s) {

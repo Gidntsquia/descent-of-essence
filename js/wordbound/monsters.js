@@ -34,22 +34,27 @@
   mdef({ id: 'appendix', name: 'The Appendix', maxHp: 13, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
   mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 19, attack: 5, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
 
+  // Boss attack values tuned down from their original 6/8/10 on 2026-08-19 after
+  // playtesting showed the player's fixed 20 max HP only survives 3-4 hits, which
+  // is often not enough turns to whittle down a 50-120 HP boss while also adapting
+  // to its trait-phase switches -- reported as "the boss fight doesn't work." HP
+  // pools and trait puzzles are untouched; this only buys a bit more breathing room.
   bdef({
-    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 6, floor: 1, goldDrop: [15, 25],
+    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 5, floor: 1, goldDrop: [15, 25],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'vowelHungry' },
       { hpThreshold: 0.5, traitId: 'palindromic' }
     ]
   });
   bdef({
-    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 80, attack: 8, floor: 2, goldDrop: [25, 40],
+    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 80, attack: 6, floor: 2, goldDrop: [25, 40],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'lengthy' },
       { hpThreshold: 0.5, traitId: 'rareSeeker' }
     ]
   });
   bdef({
-    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 120, attack: 10, floor: 3, goldDrop: [40, 60],
+    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 120, attack: 8, floor: 3, goldDrop: [40, 60],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'silentE' },
       { hpThreshold: 0.6, traitId: 'shortFuse' },

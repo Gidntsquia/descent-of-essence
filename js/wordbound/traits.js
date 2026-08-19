@@ -57,8 +57,13 @@
   def({
     id: 'vowelless',
     name: 'The Consonant',
-    hint: 'Immune unless your word has zero vowels.',
-    multiplier: function (word) { return vowelCount(word) === 0 ? 1.5 : 0; }
+    hint: 'Takes bonus damage from words with zero vowels, resists other words.',
+    // Zero-vowel English words are genuinely rare (SKY, CRY, MYTH...) and a
+    // player's rack won't always be able to form one -- a hard 0x here made
+    // this fight literally unwinnable on an unlucky draw. Heavily discouraged
+    // (0.3x) rather than impossible, so the weakness still matters but doesn't
+    // hard-lock the fight.
+    multiplier: function (word) { return vowelCount(word) === 0 ? 1.5 : 0.3; }
   });
 
   def({
