@@ -109,38 +109,36 @@ Rules for the routine:
       Consumables remain stackable. npm test passes clean (16/16).
       ENHANCED 2026-08-19T21:45Z: Added shop re-roll after successful permanent item
       purchase so bought items are replaced with new options (improved UX).
-- [ ] BALANCE/DESIGN (found 2026-08-19 by test/balance-simulation.js, 30 runs -- needs a
-      design call, deliberately NOT changed by the routine): traits whose multiplier floor
-      is 0 make a monster nearly immune rather than merely harder, and that one property,
-      not HP/attack, decides how hard every fight in the game is.
-      Measured (skilled bot, 15 runs): The Vowelmaw (floor-1 boss) ended 40% of runs --
-      more than every other floor-1 monster combined, which ended zero -- while The
-      Unabridged Terror (floor-2 boss, higher HP AND higher attack) ended none and died in
-      2.3 words. The first boss is currently the hardest gate in the game, ahead of both
-      later bosses: a progression inversion.
-      CAUSE: `palindromic` (Vowelmaw phase 2, below 50% HP) returns 0 for any non-palindrome,
-      and palindromes are essentially unformable from a 7-8 tile rack, so the back half of
-      that fight is a pure race against its attack with no counterplay. Same shape for
-      `alphabetic` (0x) and `shortFuse` (0x). By contrast the floor-2 boss's phases
-      (`lengthy`, `rareSeeker`) both floor at 1x, so they are pure damage bonuses with no
-      downside -- which is why it is a pushover despite better stats.
-      The routine applied the one sanctioned numeric mitigation (Vowelmaw attack 5 -> 4, see
-      monsters.js) but that only widens the survival window; it does not give the player
-      counterplay. A real fix is a trait-mechanics decision that was explicitly out of scope:
-      e.g. give 0x traits a small nonzero floor (0.25x) so progress is always possible, or
-      reserve 0x phases for later floors, or pair every 0x phase with a rack-cycling option.
-      Needs Jaxon's or a stronger model's judgment on which direction fits the design.
+- [x] BALANCE/DESIGN (found 2026-08-19 by test/balance-simulation.js, 30 runs -- needed a
+      design call, deliberately not changed by the routine at the time). traits whose
+      multiplier floor is 0 made a monster nearly immune rather than merely harder, and
+      that one property, not HP/attack, decided how hard every fight in the game was
+      (the floor-1 boss ended 40% of runs, more than every other floor-1 monster
+      combined, purely because its palindromic phase requires a palindrome -- nearly
+      unformable from a random rack -- to deal any damage at all).
+      RESOLVED 2026-08-19T22:10Z (Jaxon approved this direction directly): gave all
+      four 0x-floor traits (vowelless, palindromic, shortFuse, alphabetic) a 0.3x floor
+      instead of 0 -- see js/wordbound/traits.js. The weakness/resistance shape is
+      unchanged (off-type words are still heavily penalized, matching-type words still
+      hit much harder), it's just no longer a guaranteed dead end when a rack can't
+      form the required word type. Verified via direct multiplier checks in a real
+      browser plus 10 full playthrough regressions, zero errors.
 - [x] BUG/DESIGN (found 2026-08-19 by test/balance-simulation.js): a rack that can form no
-      valid word is a hard softlock. COMPLETED 2026-08-19T21:16Z: Implemented auto-detect
-      + silent cycle solution. After refillRack(), if the rack cannot form any valid word,
-      it is automatically cycled (discarded and redrawn) until a playable rack is found.
-      Implementation: built anagramMap (sorted letters -> words) once at Game.init(),
-      added canFormAnyWord() check, modified refillRack() to loop-cycle unplayable racks
-      with max 10 attempts safety limit. Verified with test/verify-unplayable-rack-fix.js.
-      Design choice rationale: auto-detect was preferred over "Discard Rack" button to
-      avoid adding UI complexity and keep softlock prevention transparent to the player.
-      This approach prevents the ~25% Scribe softlock rate without requiring Scribe deck
-      rebalancing or new game mechanics.
+      valid word is a hard softlock -- hit ~25% of Scribe runs. COMPLETED (routine
+      2026-08-19T21:16Z, refined by Claude 2026-08-19T22:10Z after picking up parallel
+      work): auto-detect + silent cycle. If a rack can form no valid word, it's
+      discarded and redrawn (bounded retries) until playable. Final implementation
+      lives as Lexicon.hasPlayableWord(rack) in lexicon.js (cached anagram-key index)
+      + ensureRackIsPlayable() in game.js, called after every full rack refill --
+      consolidated from two independently-written versions (the routine's inline
+      canFormAnyWord()/anagramMap in game.js, and Claude's lexicon.js version written
+      in parallel) that both landed via a merge; kept the lexicon.js version since it's
+      reusable and gives the player a log message when it triggers, removed the
+      duplicate to avoid two redundant checks running back to back. Also widened the
+      Scribe's deck 3->4 vowels (swapped L for O, kept every rare/powerful letter) so
+      the safety net needs to trigger less often in the first place. Verified with
+      test/verify-unplayable-rack-fix.js plus 10 more playthrough regressions (6 forced
+      Scribe), zero errors, zero detected softlocks.
 - [x] Verify the game is keyboard-playable without a mouse. Check: can a player tab to
       the word-input field and submit with Enter (this likely already works via a form
       submit or keypress handler -- confirm, don't assume), can they tab through and

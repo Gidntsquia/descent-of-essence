@@ -2491,3 +2491,46 @@ on design direction, not routine automation.
 
 ---
 
+## 2026-08-19T22:10Z (Claude, direct implementation of both approved design calls)
+
+Jaxon reviewed both open BALANCE/DESIGN items and asked directly to implement both
+recommended directions. Landed both, plus reconciled with the routine, which had
+independently implemented the same softlock fix in parallel while this work was in
+progress.
+
+**0x-trait floor:** extended the 0x -> 0.3x floor (already applied to `vowelless`
+after an earlier direct playtest complaint) to `palindromic`, `shortFuse`, and
+`alphabetic` -- the other three traits whose off-type multiplier was a hard 0. This
+was the root cause the balance simulation found for the floor-1 boss being harder
+than both later bosses combined: its palindromic phase required an essentially
+unformable word type to deal any damage at all. Weakness/resistance shape unchanged,
+just no longer a guaranteed dead end on an unlucky rack.
+
+**Unplayable-rack softlock:** while implementing `Lexicon.hasPlayableWord()` +
+`ensureRackIsPlayable()` in game.js, a `git pull` revealed the routine had picked up
+the same ticket independently in the meantime (commit 5c629ef, "Implement auto-cycle
+fix for unplayable racks") -- functionally the same fix (auto-detect + silent
+reshuffle, bounded retries), just as an inline `canFormAnyWord()`/`anagramMap` in
+game.js instead of a reusable Lexicon method. The merge combined both without
+conflict markers, leaving the check running twice redundantly (refillRack's own
+inline retry loop, immediately followed by ensureRackIsPlayable's separate retry
+loop). Removed the routine's duplicate (`canFormAnyWord`, `anagramMap`, and its
+lazy-build in Game.init()), kept the lexicon.js version -- it's reusable, and gives
+the player a log message ("Your hand had no playable words...") when it actually
+triggers, which the routine's version didn't. The routine's own
+`test/verify-unplayable-rack-fix.js` is black-box (public API only) and still passes
+unmodified against the consolidated implementation. Also widened the Scribe's deck
+from 3 to 4 vowels (swapped L for O) so the safety net needs to fire less often to
+begin with, while keeping every rare/powerful letter (X, Z, K, B) that defines the
+character.
+
+**Verification:** `npm test` 16/16, `test/verify-unplayable-rack-fix.js` passes
+standalone. Directly verified all four trait multipliers in a real browser. Directly
+verified `Lexicon.hasPlayableWord` against known playable/unplayable/blank-tile racks.
+Forced the retry path via a monkey-patched `hasPlayableWord` to confirm the log
+message and rack-refill both fire correctly when a reshuffle genuinely happens. 16
+total full-playthrough regressions across this session (10 before the merge, 6 after
+the cleanup, including forced-Scribe runs), zero errors, zero detected softlocks.
+
+Both items in GOALS.md marked complete. No unchecked items remain in the queue.
+
