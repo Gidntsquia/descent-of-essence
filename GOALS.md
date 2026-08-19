@@ -255,14 +255,16 @@ Rules for the routine:
       per Jaxon's direct request; update that comment when you implement this so it doesn't
       contradict what's actually there. Keep the run structure (3 floors, node map) identical
       across characters -- only the starting deck/items differ. COMPLETED 2026-08-19T15:44Z.
-- [ ] Add achievement-locked unlockable items: pick a handful of achievements (your call -- e.g.
+- [x] Add achievement-locked unlockable items: pick a handful of achievements (your call -- e.g.
       "beat a boss without taking damage that fight," "clear a run," "deal 50+ damage in one word")
       and lock a few distinctive items behind them. This needs actual cross-run persistence, which
       doesn't exist yet in Wordbound (check before assuming -- if there's truly nothing, add a
       small localStorage-backed save for unlocked-achievement state, keyed so it won't collide with
       anything else on the page). Show unlock progress somewhere the player can see it (doesn't
       need to be fancy). Document the achievement list and what they unlock in THEME.md or
-      PROGRESS.md so it's easy to reference later.
+      PROGRESS.md so it's easy to reference later. COMPLETED 2026-08-19T15:55Z: Implemented 5
+      achievements (Victory, Untouched, Devastating, Collector, Overkill) unlocking 5 rare items.
+      Persistent localStorage-backed system. Achievement progress shown on main menu.
 - [ ] Write a proper README.md: what the game is (link to THEME.md's pitch), a link to play it live
       (the GitHub Pages URL), a short gameplay GIF, a quickstart for anyone who wants to run/edit it
       locally (no build step -- just open the HTML files; mention `npm test` for the dev-only DOM
