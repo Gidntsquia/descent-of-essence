@@ -2202,3 +2202,124 @@ This 1-hour routine session completed 3 of 4 unchecked tasks from the refilled q
 **Game status:** Feature-complete, all critical bugs fixed, well-tested, ready for launch.
 No blocking issues. Mobile layout is usable if not perfect.
 
+
+## 2026-08-19T19:58Z
+
+**Systematic difficulty/balance simulation across all 3 floors (last unchecked queue
+item)** -- COMPLETED and pushed (commit 970aaed).
+
+### The existing script had never actually run
+
+`test/balance-simulation.js` existed as a skeleton from the 19:30Z run, described there
+as "needs validation." It could not have produced a number: it called
+`browser.createBrowserContext()`, which is a Puppeteer API that does not exist in
+Playwright, so it would throw before the first run. Its word-finder also only tried
+contiguous slices of the rack (`rack.slice(i, j)`), which misses nearly every word a
+player would actually find. Rewrote it rather than patching.
+
+### How the rewrite works
+
+Drives the **real** Game API (`Game.startRun`, `enterCurrentNode`, `submitWord`,
+`pickTileReward`, `buyItem`, ...) inside jsdom -- deliberately does not reimplement the
+combat loop, since an independent reimplementation would measure the simulation's balance
+instead of the game's. Loads the page once and calls `startRun` per run, because the
+2.5MB wordlist parse (~3s) would otherwise dominate the runtime. Finds words with a
+sorted-letters index over the dictionary (92,105 keys), enumerating rack subsets and
+scoring each candidate exactly the way `Combat.playWord` does, so the bot chooses on real
+damage rather than raw score -- traits can zero out a high-scoring word.
+
+Two strategies bracket play: `best` (highest-damage word available) and `first` (first
+playable word found). 15 runs each, rotating all 3 characters.
+
+### Findings (30 runs, before the tuning change)
+
+Skilled bot: 2/15 wins. Floor clear rates 33% / 63% / 29%. Unskilled bot: 0/15, every
+run died on floor 1 -- a reasonable lower bracket, not itself a balance problem.
+
+**The clear outlier, and it was a progression inversion:** The Vowelmaw (floor-1 boss)
+ended **40% of skilled runs -- more than every other floor-1 monster combined, which
+ended zero between them**. Meanwhile The Unabridged Terror (floor-2 boss) ended **none**
+of 7 and died in 2.3 words, despite having strictly higher HP (80 vs 50) and attack
+(6 vs 5). The first boss was the hardest gate in the game.
+
+Cause is trait multipliers, not stats. Traits split into two classes:
+- **0x floor** (`palindromic`, `alphabetic`, `shortFuse`): a wrong word deals *nothing*.
+  Vowelmaw's phase 2 (below 50% HP) is `palindromic`, and palindromes are essentially
+  unformable from a 7-8 tile rack, so the back half of that fight has no counterplay --
+  it becomes a pure race against its attack.
+- **1x floor** (`lengthy`, `rareSeeker`, `doubled`, `silentE`, `vowelHungry`): a wrong
+  word still deals full damage, so the trait is a pure bonus. Both of the floor-2 boss's
+  phases are this kind, which is exactly why it's a pushover.
+
+Average state on reaching each boss (skilled): F1 72.3 gold / 2.7 items, F2 49.1 / 6.1,
+F3 29.4 / 9.6.
+
+### The one tuning change applied
+
+**The Vowelmaw: attack 5 -> 4** (-20%, the scale the task sanctioned, and the same lever
+used in the 18:17Z boss tuning). Reasoning: during the palindromic phase the player
+usually cannot deal damage at all, so survival time is what decides the fight. 20 player
+HP / 5 = 4 turns; / 4 = 5 turns, a 25% wider window to find a palindrome or a vowel-heavy
+2x word.
+
+Re-measured over another 30 runs: Vowelmaw kill rate **40% -> 17%**, floor-1 clear rate
+**33% -> 60%**, damage taken in that fight **8.5 -> 5.8**. Floor clear rates became
+60% / 100% / 11%, so difficulty now escalates toward floor 3 rather than peaking on
+floor 1, which is the intended shape.
+
+Deliberately did NOT tune the floor-2 boss. A ~20% HP bump (80 -> 96) would move it from
+1.5 to ~1.8 words to kill -- cosmetic, since the real cause is that neither of its trait
+phases can ever reduce damage. Making that fight meaningful is a trait decision, which
+this task explicitly excluded.
+
+### Three findings ticketed rather than fixed (out of this task's scope)
+
+Added to GOALS.md's queue:
+1. **Duplicate shop purchases (real bug, reachable in the real UI).** `Game.buyItem`
+   checks affordability but never whether the item is already owned; `renderShop` renders
+   from `state.shopOptions`, which is rolled once on entering the shop and never
+   re-filtered after a purchase. So a player with gold can buy the same permanent item
+   repeatedly and its hooks **stack**. Confirmed by reading `buyItem`/`renderShop`/
+   `rollShopOptions`, not just inferred: this is how the simulation first surfaced it,
+   with stacked Wildcard Pouches producing all-blank racks ("???????").
+2. **The 0x-trait-floor design question** described above -- needs Jaxon's or a stronger
+   model's judgment on direction (nonzero floor? later floors only? pair with a rack
+   cycle?).
+3. **Unplayable-rack softlock.** Combat offers only "Play Word" and "Clear" (which clears
+   the text input, not the rack), and the rack only cycles when a word is played -- so a
+   rack that can form no valid word means the player can never act again. Strongly
+   character-specific: across two samples it ended 1 then 4 runs and **every occurrence
+   was the Scribe**, whose deck has 3 vowels against 9 consonants including X/Z/K/B.
+   Roughly a quarter of Scribe runs, unrecoverable.
+
+### Verified vs. not verified
+
+**Verified:** `npm test` 16/16 clean after the monsters.js change. The simulation itself
+ran 90 runs total across three samples with **zero uncaught page errors**. The
+before/after tuning numbers above are measured, not estimated. The duplicate-purchase bug
+was confirmed by reading the actual UI render path, and the softlock by confirming no
+discard/redraw control exists in wordbound.html.
+
+**NOT verified:** none of this ran in a real browser -- it's jsdom, so audio and
+drag-and-drop are untouched by it as always. The bot never uses blank tiles, consumables,
+or rack reordering, and takes shop/treasure/event options greedily in listed order, so
+its win rates are a **floor, not a ceiling** on human performance -- do not read "13% win
+rate" as the human difficulty. Sample size is 15 runs per strategy, so per-monster rates
+with fewer than ~5 encounters are noisy; the Vowelmaw and floor-boss numbers are the ones
+with enough encounters to trust. A few runs end as STALL (bot hits a per-combat word cap
+without resolving, likely a 0x trait phase plus damage mitigation) -- these are counted
+and reported separately, not silently dropped, but I did not chase their root cause.
+
+**Harness note for future runs:** `Game.startRun` does not reset `state.combatActive` or
+`state.monster`. That is unreachable in the real game (you only reach it from the main
+menu, after combat has ended), but any harness that abandons a run mid-combat must reset
+it, or every later run starts "already fighting" the previous monster with an empty rack.
+The simulation does this; an earlier iteration that didn't produced 29 garbage runs.
+
+**Repo note:** during this run the remote tip was force-moved by something outside this
+session (an earlier `115e324` was replaced by `cc683a9`). I did not force-push; my commit
+fast-forwards cleanly on top of the current tip. Flagging only in case that was unexpected.
+
+**Queue status:** the original refilled queue is now fully checked off. Three new tickets
+(above) are unchecked and are the natural next work -- #1 is a small, fully-diagnosed
+2-line fix and is the obvious one to take first.
