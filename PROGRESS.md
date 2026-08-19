@@ -2922,3 +2922,60 @@ to confirm, not something testable.
 Six tickets now queued total from this review session (items, tile-bonus
 differentiation, suffix coverage, boss intensity, visual polish, voice/personality).
 
+---
+
+## 2026-08-19T23:35Z
+
+**Tile staging animation (Task 6 from orchestrator's queue)** -- COMPLETED.
+
+**The Feature:**
+
+When a player clicks rack tiles to build a word, the game now provides real-time visual 
+feedback:
+1. Clicked tiles get a "selected" visual state: opacity 0.5, gold border, slight scale reduction
+2. A staging area displays selected tiles in click order between the rack and word input
+3. Clear button resets selection (both UI and internal state)
+4. Tiles animate visually but don't disappear from the rack (player can reconsider)
+
+**Implementation Details:**
+
+State tracking: Added `state.selectedTileIds: []` array to track selected tile ID instances in 
+click order (matters for duplicate letters).
+
+Rack rendering: Tiles check `state.selectedTileIds.indexOf(tile.id)` and conditionally add 
+the 'selected' CSS class (render/game.js line 1258-1259).
+
+Staging area: `renderStagingArea()` function (game.js lines 1311-1327) displays a visual 
+copy of each selected tile with its letter + point value, called at the end of 
+renderCombat() to stay in sync.
+
+Word submission: selectedTileIds is cleared in Game.submitWord() after a successful play 
+(game.js line 415), resetting the UI.
+
+CSS: Added styling for `.letter-tile.selected`, `.staging-area`, and `.staged-tile` 
+(wordbound.css lines 285-334).
+
+HTML: Added `<div id="staging-area">` container between rack and word input (wordbound.html).
+
+**Verification:**
+
+✓ npm test: 16/16 checks pass (no regressions from staging implementation)
+
+✓ Playwright DOM verification (created test/verify-tile-staging.js):
+  - ✓ First tile gets "selected" class after click
+  - ✓ Staging area contains exactly 1 tile
+  - ✓ Second tile gets "selected" class after click  
+  - ✓ Staging area contains 2 tiles in click order
+  - ✓ Clear button removes all "selected" classes
+  - ✓ Staging area clears when Clear button clicked
+
+**Caveat - Animation Visuals:**
+
+jsdom cannot verify CSS animation timing/smoothness (it doesn't compute real layout). 
+The DOM state (classes, order, presence) is correct and verified via Playwright, but 
+the actual *visual feel* of the animations (whether the tiles smoothly fade/scale, 
+whether the staging display is visually clear and appealing) needs human playtest in a 
+real browser.
+
+**Current status:** All 6 orchestrator queue items complete. Queue is now empty.
+

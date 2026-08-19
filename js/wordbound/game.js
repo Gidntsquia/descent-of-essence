@@ -79,7 +79,8 @@
     draggedTileId: null, // track which tile is being dragged for reordering
     dragOverIndex: null, // track which position we're hovering over
     touchStartIndex: null, // for touch-based reordering
-    touchCurrentIndex: null // track position during touch drag
+    touchCurrentIndex: null, // track position during touch drag
+    selectedTileIds: [] // tiles selected for staging (in click order)
   };
   Game._state = state; // exposed for headless/browser test inspection only
 
@@ -409,6 +410,9 @@
       render();
       return;
     }
+
+    // Clear staging area since word was submitted
+    state.selectedTileIds = [];
 
     // Flag the played tiles' existing DOM elements right away, before anything
     // else touches the rack -- render() rebuilds rack-display's innerHTML
@@ -1251,13 +1255,16 @@
       btn.setAttribute('data-tile-id', tile.id);
       btn.setAttribute('data-tile-index', index);
       var isNewTile = state.rackJustRefilled || state.lastRackTileIds.indexOf(tile.id) === -1;
-      btn.className = 'letter-tile' + (tile.bonus ? ' has-bonus' : '') + (isNewTile ? ' new-tile' : '');
+      var isSelected = state.selectedTileIds.indexOf(tile.id) !== -1;
+      btn.className = 'letter-tile' + (tile.bonus ? ' has-bonus' : '') + (isNewTile ? ' new-tile' : '') + (isSelected ? ' selected' : '');
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       btn.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
       if (tile.bonus) btn.title = Tiles.describeBonus(tile.bonus);
       btn.addEventListener('click', function () {
+        state.selectedTileIds.push(tile.id);
         $('word-input').value += (tile.letter === '?' ? '' : tile.letter);
         $('word-input').focus();
+        render();
       });
       btn.addEventListener('dragstart', function (e) {
         startTileDrag(tile.id);
@@ -1297,6 +1304,26 @@
     });
     state.lastRackTileIds = currentRackIds;
     state.rackJustRefilled = false;
+
+    renderStagingArea();
+  }
+
+  function renderStagingArea() {
+    var stagingArea = $('staging-area');
+    if (!stagingArea) return;
+    stagingArea.innerHTML = '';
+    if (state.selectedTileIds.length === 0) return;
+
+    state.selectedTileIds.forEach(function (tileId) {
+      var tile = state.player.rack.find(function (t) { return t.id === tileId; });
+      if (!tile) return;
+      var stageTile = document.createElement('div');
+      stageTile.className = 'staged-tile' + (tile.bonus ? ' has-bonus' : '');
+      var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
+      stageTile.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
+      if (tile.bonus) stageTile.title = Tiles.describeBonus(tile.bonus);
+      stagingArea.appendChild(stageTile);
+    });
   }
 
   function escapeHtml(s) {
@@ -1351,7 +1378,9 @@
     });
     $('btn-clear-word').addEventListener('click', function () {
       $('word-input').value = '';
+      state.selectedTileIds = [];
       $('word-input').focus();
+      render();
     });
 
     $('btn-toggle-music').addEventListener('click', function () {

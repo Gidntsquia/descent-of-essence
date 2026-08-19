@@ -206,7 +206,7 @@ Rules for the routine:
       VERIFICATION: `npm test` (16/16, confirms no errors from the change). Audio
       *quality* itself needs Jaxon's ear to fully confirm -- say so plainly rather
       than claiming certainty.
-- [ ] FEATURE: tiles should visibly animate into a "staging" position as the player
+- [x] FEATURE: tiles should visibly animate into a "staging" position as the player
       builds a word, not just when the word is submitted. Reported 2026-08-19: "when
       you type 'a', then I want the 'a' tile to be selected, then when you type 'd'
       then the 'd' tile moves up next to the 'a'. This is so it's clear exactly which

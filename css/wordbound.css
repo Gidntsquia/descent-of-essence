@@ -282,6 +282,57 @@ body {
   opacity: 0.7;
 }
 
+.letter-tile.selected {
+  opacity: 0.5;
+  border: 2px solid #f0d789;
+  transform: scale(0.95);
+}
+
+.staging-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  margin: 8px 0;
+  min-height: 40px;
+  border: 2px dashed #b8ac8a;
+  border-radius: 6px;
+  background: rgba(184, 172, 138, 0.1);
+  justify-content: center;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #b8ac8a;
+}
+
+.staging-area:empty::before {
+  content: 'Click tiles to build word...';
+  opacity: 0.6;
+}
+
+.staged-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #e8dfc8;
+  color: #14110b;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.staged-tile sub {
+  font-size: 0.6rem;
+  margin-left: 2px;
+}
+
+.staged-tile.has-bonus {
+  box-shadow: 0 0 8px #f0d789, 0 2px 4px rgba(0,0,0,0.3);
+  background: #fff4d6;
+}
+
 .word-input-row {
   display: flex;
   gap: 8px;
