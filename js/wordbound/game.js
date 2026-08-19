@@ -258,9 +258,15 @@
     $('victory-stats').textContent = 'You cleared all ' + Floor.TOTAL_FLOORS + ' floors. Wordbound complete.';
   }
 
+  function getFloorName(floorNumber) {
+    var names = { 1: 'The Overdue Aisles', 2: 'The Reference Wing', 3: 'The Binding' };
+    return names[floorNumber] || '';
+  }
+
   function renderRun() {
     $('player-hp-display').textContent = 'HP ' + state.player.hp + ' / ' + state.player.maxHp;
-    $('floor-label').textContent = 'Floor ' + state.floorNumber + ' / ' + Floor.TOTAL_FLOORS;
+    var floorName = getFloorName(state.floorNumber);
+    $('floor-label').textContent = 'Floor ' + state.floorNumber + ' / ' + Floor.TOTAL_FLOORS + (floorName ? ' — ' + floorName : '');
     renderItemsOwned();
     var log_ = $('message-log');
     log_.innerHTML = state.messages.map(function (m) { return '<div>' + escapeHtml(m) + '</div>'; }).join('');

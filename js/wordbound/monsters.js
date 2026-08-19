@@ -21,14 +21,14 @@
   function mdef(d) { MONSTER_DEFS[d.id] = d; }
   function bdef(d) { BOSS_DEFS[d.id] = d; }
 
-  mdef({ id: 'slime', name: 'Vowel Slime', maxHp: 8, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
-  mdef({ id: 'gremlin', name: 'Gremlin', maxHp: 7, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'shortFuse' }] });
-  mdef({ id: 'wisp', name: 'Wisp', maxHp: 6, attack: 2, tier: 'weak', goldDrop: [1, 2], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] });
-  mdef({ id: 'serpent', name: 'Consonant Serpent', maxHp: 14, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelless' }] });
-  mdef({ id: 'golempup', name: 'Golem Pup', maxHp: 16, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
-  mdef({ id: 'raven', name: 'Raven', maxHp: 12, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
-  mdef({ id: 'sentinel', name: 'Sorted Sentinel', maxHp: 22, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'alphabetic' }] });
-  mdef({ id: 'warden', name: 'Warden', maxHp: 20, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }] });
+  mdef({ id: 'slime', name: 'The Vowel Slurper', maxHp: 8, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
+  mdef({ id: 'gremlin', name: 'The Fidget', maxHp: 7, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'shortFuse' }] });
+  mdef({ id: 'wisp', name: 'Filler Word', maxHp: 6, attack: 2, tier: 'weak', goldDrop: [1, 2], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] });
+  mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 14, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelless' }] });
+  mdef({ id: 'golempup', name: 'Echo Pup', maxHp: 16, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
+  mdef({ id: 'raven', name: 'Quoth', maxHp: 12, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
+  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 22, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'alphabetic' }] });
+  mdef({ id: 'warden', name: 'The Hoarder', maxHp: 20, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }] });
 
   bdef({
     id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 6, floor: 1,
@@ -45,7 +45,7 @@
     ]
   });
   bdef({
-    id: 'boss_sovereign', name: 'The Silent Sovereign', maxHp: 120, attack: 10, floor: 3,
+    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 120, attack: 10, floor: 3,
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'silentE' },
       { hpThreshold: 0.6, traitId: 'shortFuse' },
