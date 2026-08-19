@@ -246,6 +246,8 @@
       state.player.consumables.push(actualId);
     } else {
       state.player.items.push(actualId);
+      // Re-roll shop options so the bought item is replaced with a new option
+      state.shopOptions = rollShopOptions();
     }
     log('You bought ' + def.name + ' for ' + def.shopPrice + ' gold.');
     render();
