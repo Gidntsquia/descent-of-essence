@@ -789,7 +789,7 @@
   }
 
   function playBossMusic(ctx) {
-    var notes = [164.81, 196.00, 164.81, 196.00, 220.00, 196.00]; // E, G, E, G, A, G
+    var notes = [82.41, 98.00, 82.41, 98.00, 110.00, 98.00]; // E2, G2, E2, G2, A2, G2 (one octave lower than original)
     var beatDuration = 0.5;
     var now = ctx.currentTime;
 
