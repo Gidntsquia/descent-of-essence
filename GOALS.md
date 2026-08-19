@@ -21,13 +21,11 @@ Rules for the routine:
       on-play or on-hold), full rack discard + redraw after every word played. Implemented directly
       in conversation on 2026-08-18 (js/wordbound/tiles.js [new], lexicon.js, combat.js, items.js,
       game.js, wordbound.html, css/wordbound.css). See PROGRESS.md for details.
-- [ ] QA/polish pass on the deck system above: check rack and tile-reward screen UI/UX clarity
-      (especially the bonus-tile highlight and tooltip), verify item hooks (lucky_vowel,
-      wildcard_pouch) behave correctly against the new draw/discard pile model, look for edge
-      cases (empty deck+discard mid-fight, duplicate-letter tile identity, etc.), and playtest a
-      full run if possible. Fix anything clearly broken; leave genuinely ambiguous design calls
-      (e.g. reward-screen skip option, bonus tile rarity tuning) noted in PROGRESS.md for Jaxon
-      rather than guessing.
+- [x] QA/polish pass on the deck system above: code-level review completed 2026-08-19T05:42Z
+      (see PROGRESS.md) -- tile identity/removal, pile cycling, bonus math, item hooks, and DOM
+      wiring all verified correct by reading the code. Nothing broken found, no fixes needed.
+      Still not verified in an actual browser (see the deferred playtest note in PROGRESS.md) --
+      that's a standing gap across this whole project, not specific to this task.
 - [x] Apply the theme from THEME.md (read it in full first -- it's the source of truth, don't
       invent names/lore that contradict it): update monster/boss `name` fields in
       js/wordbound/monsters.js per its rename tables (ids, traitPhases, stats untouched --
@@ -54,14 +52,12 @@ Rules for the routine:
       button) should show the item's full name + hint clearly, not just on hover -- reuse the panel
       pattern from the deck-viewer task above if that's built already, or build both to share it.
       Keep the always-visible strip for at-a-glance reference.
-- [ ] Animate the rack and make it reorderable: (1) tiles drawn into the rack (refillRack in
-      game.js) should visibly slide/animate into place rather than just appearing -- a CSS
-      transition is enough, no physics engine needed. (2) rack tiles should be draggable with the
-      mouse to reorder them, and the DISPLAY order must stay in sync with state.player.rack's actual
-      order, since clicking/typing tiles builds the word left-to-right from rack order. This is the
-      biggest task in the queue -- if it doesn't fit one hourly run, leave the rack visually
-      functional (even if unanimated/undraggable) at the end of every run and resume exactly where
-      you left off using PROGRESS.md notes. Touch/mobile drag is nice-to-have, not required.
+- [ ] Finish rack reordering (part 2 of the animate+reorder task -- part 1 is DONE: tiles already
+      slide/fade in via @keyframes slideInTile when drawn, see PROGRESS.md 2026-08-19T07:00Z).
+      What's left: rack tiles should be draggable with the mouse to reorder them, and the DISPLAY
+      order must stay in sync with state.player.rack's actual order, since clicking/typing tiles
+      builds the word left-to-right from rack order. Native HTML5 drag-and-drop or manual
+      pointer-event dragging, either is fine. Touch/mobile drag is nice-to-have, not required.
 - [ ] Make combat feel impactful: animate damage when a word is played (e.g. a floating damage
       number over the monster, HP bar flash/shake scaled to the hit size) and play a sound effect --
       punchy for a big score, deliberately wimpy (soft "pff"/thud) for a low one. Same for the
