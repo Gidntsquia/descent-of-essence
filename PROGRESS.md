@@ -628,3 +628,31 @@ complete, feature-rich release candidate ready for itch.io launch. Future featur
 will bump to v0.2, v0.3, etc. as development continues.
 
 **Current status:** 12 of 14 tasks complete. Next: visual distinction for monsters/bosses (Task 4).
+
+---
+
+## 2026-08-19T09:16Z
+
+**Add visual tier distinction for monsters (Task 4 from new queue)** -- COMPLETED and pushed.
+
+**What was implemented:**
+- Added tier-based Unicode glyphs displayed before monster names:
+  * 📄 (page) for weak-tier monsters
+  * 📖 (open book) for normal-tier monsters
+  * 📚 (stack of books) for strong-tier monsters
+  * 👑 (crown) for boss-tier monsters
+- Added CSS color classes reflecting tier rank:
+  * `.tier-weak`: muted brown (#a89a7a) -- less threatening
+  * `.tier-normal`: standard gold (#f0d789) -- baseline
+  * `.tier-strong`: bright gold (#fce5b2) with subtle glow -- stands out
+  * `.boss-tier`: red/crimson (#e08a8a) with subtle glow -- clearly distinct
+- Glyphs chosen to fit library/archive theme (books, pages, crown as regal)
+- Subtle text-shadow glow added to strong/boss tiers for visual hierarchy
+- Fixed monster object structure to include `tier` field in createMonster()
+
+**Consistency:** All colors fit within the existing parchment/gold palette (no new
+clashing colors). Tiers now visually scannable in one glance.
+
+**Testing:** npm test passes all 12 DOM checks, no errors.
+
+**Current status:** 13 of 14 tasks complete. Next: headless playtest simulation (Task 5).
