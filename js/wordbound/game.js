@@ -35,6 +35,7 @@
     combatActive: false,
     messages: [],
     treasureOptions: null,
+    shopOptions: null,
     tileRewardOptions: null,
     pendingAfterTileReward: null, // 'advanceFloor' | 'nextNode'
     deckViewerOpen: false,
@@ -112,6 +113,10 @@
       state.screen = 'TREASURE';
       state.treasureOptions = rollTreasureOptions();
       render();
+    } else if (node.type === 'shop') {
+      state.screen = 'SHOP';
+      state.shopOptions = rollShopOptions();
+      render();
     } else if (node.type === 'rest') {
       var healed = Math.round(state.player.maxHp * 0.5);
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + healed);
@@ -135,6 +140,37 @@
     currentNode().cleared = true;
     state.currentNodeIndex += 1;
     state.screen = 'RUN';
+    render();
+  };
+
+  function rollShopOptions() {
+    var owned = state.player.items;
+    var pool = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
+    var shuffled = state.rng.shuffle(pool);
+    return shuffled.slice(0, 4);
+  }
+
+  Game.buyItem = function (itemId) {
+    var def = Items.ITEM_DEFS[itemId];
+    if (!def || !def.shopPrice) {
+      log('ERROR: Item not purchasable');
+      return;
+    }
+    if (state.player.gold < def.shopPrice) {
+      log('Not enough gold! Need ' + def.shopPrice + ', have ' + state.player.gold + '.');
+      return;
+    }
+    state.player.gold -= def.shopPrice;
+    state.player.items.push(itemId);
+    log('You bought ' + def.name + ' for ' + def.shopPrice + ' gold.');
+    render();
+  };
+
+  Game.leaveShop = function () {
+    currentNode().cleared = true;
+    state.currentNodeIndex += 1;
+    state.screen = 'RUN';
+    state.shopOptions = null;
     render();
   };
 
@@ -651,13 +687,17 @@
       return;
     }
 
-    $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'TILE_REWARD');
+    $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD');
     $('combat-panel').classList.toggle('hidden', !state.combatActive);
-    $('treasure-panel').classList.toggle('hidden', state.screen !== 'TREASURE');
+    $('treasure-panel').classList.toggle('hidden', state.screen !== 'TREASURE' && state.screen !== 'SHOP');
     $('tile-reward-panel').classList.toggle('hidden', state.screen !== 'TILE_REWARD');
 
     if (state.screen === 'TREASURE') {
       renderTreasure();
+      return;
+    }
+    if (state.screen === 'SHOP') {
+      renderShop();
       return;
     }
     if (state.screen === 'TILE_REWARD') {
@@ -713,6 +753,7 @@
   }
 
   function renderTreasure() {
+    $('treasure-panel-heading').textContent = 'Choose an item';
     var el = $('treasure-choices');
     el.innerHTML = '';
     state.treasureOptions.forEach(function (itemId) {
@@ -723,6 +764,36 @@
       btn.addEventListener('click', function () { Game.pickTreasureItem(itemId); });
       el.appendChild(btn);
     });
+  }
+
+  function renderShop() {
+    $('treasure-panel-heading').textContent = 'Shop — Gold: ' + state.player.gold + ' 🪙';
+    var el = $('treasure-choices');
+    el.innerHTML = '';
+    if (!state.shopOptions || state.shopOptions.length === 0) {
+      el.innerHTML = '<p style="text-align: center;">No items available in shop</p>';
+      return;
+    }
+    state.shopOptions.forEach(function (itemId) {
+      var def = Items.ITEM_DEFS[itemId];
+      if (!def) return;
+      var canAfford = state.player.gold >= (def.shopPrice || 0);
+      var btn = document.createElement('button');
+      btn.className = 'treasure-choice' + (canAfford ? '' : ' shop-unavailable');
+      btn.style.opacity = canAfford ? '1' : '0.6';
+      var priceColor = canAfford ? '#f0d789' : '#8b7355';
+      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + (def.shopPrice || 0) + ' 🪙</span>';
+      if (canAfford) {
+        btn.addEventListener('click', function () { Game.buyItem(itemId); });
+      }
+      el.appendChild(btn);
+    });
+    var leaveBtn = document.createElement('button');
+    leaveBtn.className = 'btn btn-secondary';
+    leaveBtn.textContent = 'Leave Shop';
+    leaveBtn.style.marginTop = '10px';
+    leaveBtn.addEventListener('click', function () { Game.leaveShop(); });
+    el.appendChild(leaveBtn);
   }
 
   function renderTileReward() {

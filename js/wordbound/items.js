@@ -51,6 +51,7 @@
     name: 'Spare Satchel',
     hint: 'Your rack holds 8 tiles instead of 7.',
     rarity: 'common',
+    shopPrice: 25,
     statMods: { rackCapacityBonus: 1 }
   });
 
@@ -59,6 +60,7 @@
     name: 'Lucky Vowel',
     hint: "Every draw is guaranteed at least one vowel.",
     rarity: 'common',
+    shopPrice: 20,
     hooks: {
       onDraw: function (ctx) {
         var VOWELS = ['A', 'E', 'I', 'O', 'U'];
@@ -84,6 +86,7 @@
     name: 'Wildcard Pouch',
     hint: 'Adds 2 extra blank tiles to your draw pile at the start of every fight.',
     rarity: 'uncommon',
+    shopPrice: 35,
     hooks: {
       onRunStart: function (ctx) {
         var Tiles = window.Wordbound.Tiles;
@@ -97,6 +100,7 @@
     name: 'Heavy Ink',
     hint: "Your word's single highest-value tile counts double.",
     rarity: 'uncommon',
+    shopPrice: 30,
     hooks: {
       onWordPlayed: function (ctx) {
         var Lexicon = window.Wordbound.Lexicon;
@@ -115,6 +119,7 @@
     name: 'Rare Hunter',
     hint: 'Deal +3 bonus damage when your word contains a 4+ point letter.',
     rarity: 'uncommon',
+    shopPrice: 40,
     hooks: {
       onWordPlayed: function (ctx) {
         var Lexicon = window.Wordbound.Lexicon;
@@ -129,6 +134,7 @@
     name: 'Vowel Leech',
     hint: 'Heal 1 HP per vowel in each word you play.',
     rarity: 'rare',
+    shopPrice: 35,
     hooks: {
       onWordPlayed: function (ctx) {
         var VOWELS = ['A', 'E', 'I', 'O', 'U'];
@@ -143,6 +149,7 @@
     name: 'Thick Skin',
     hint: 'Reduce all incoming damage by 2 (minimum 1).',
     rarity: 'common',
+    shopPrice: 45,
     statMods: { damageReductionFlat: 2 },
     hooks: {
       onPlayerDamaged: function (ctx) {
@@ -156,6 +163,7 @@
     name: 'Second Wind',
     hint: 'The first time you would drop to 0 HP, survive with 1 HP instead. Once per run.',
     rarity: 'legendary',
+    shopPrice: 60,
     hooks: {
       onPlayerDamaged: function (ctx) {
         if (ctx.player.usedSecondWind) return;

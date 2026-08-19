@@ -67,10 +67,12 @@
     var nodeCount = rng.randInt(6, 8);
     var hasElite = Floor.ELITE_FLOOR_NUMBERS.indexOf(floorNumber) !== -1;
     var hasRest = floorNumber >= 2;
+    var hasShop = floorNumber >= 2;
 
     var specials = ['treasure'];
     if (hasElite) specials.push('elite');
     if (hasRest) specials.push('rest');
+    if (hasShop) specials.push('shop');
 
     var fillerCount = nodeCount - 1 - specials.length; // -1 reserves the guaranteed first combat node
     if (fillerCount < 0) fillerCount = 0;
