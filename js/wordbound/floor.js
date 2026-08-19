@@ -67,7 +67,7 @@
     var nodeCount = rng.randInt(6, 8);
     var hasElite = Floor.ELITE_FLOOR_NUMBERS.indexOf(floorNumber) !== -1;
     var hasRest = floorNumber >= 2;
-    var hasShop = floorNumber >= 2;
+    var hasShop = true;
     var hasEvent = floorNumber >= 1; // events on all floors
 
     var specials = ['treasure'];

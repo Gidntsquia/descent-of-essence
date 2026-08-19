@@ -82,7 +82,7 @@
 
   // Chance of consumable drop from defeated enemy: 12%
   Consumables.getConsumableDropChance = function () {
-    return 0.12;
+    return 0.20;
   };
 
   // Roll a random consumable drop (weighted by rarity)
