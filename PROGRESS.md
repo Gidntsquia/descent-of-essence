@@ -2757,3 +2757,39 @@ flow of exploring deck contents, item details, and consumables during runs.
 **Current status:** 2 of 6 orchestrator queue items complete. Next task: Simplify boss 
 traits (1 per boss, visible on map).
 
+
+## 2026-08-19T23:08Z
+
+**Simplify bosses to single trait and surface trait hints (Task 3 from orchestrator's queue)** -- COMPLETED and pushed.
+
+**The Changes:**
+
+1. **Simplified each boss to one trait** (js/wordbound/monsters.js):
+   - boss_vowelmaw: kept vowelHungry, removed palindromic phase
+   - boss_unabridged: kept lengthy, removed rareSeeker phase
+   - boss_sovereign: kept silentE, removed shortFuse and palindromic phases
+
+   Each boss now has `traitPhases: [{ hpThreshold: 1.0, traitId: 'xxx' }]` (single entry).
+
+2. **Surfaced trait hints on node-map pills** (renderNodeMap in game.js):
+   - Boss node pills now display: "BOSS — [trait hint]" (e.g., "BOSS — Loves vowels")
+   - Looks up boss definition → first trait phase → trait hint
+   - Players can now see the weakness before entering combat
+   - Enables strategic planning: "I have bad luck with vowels, skip this boss" or "I can form vowels easily, fight this one"
+
+**Design Impact:**
+
+All three boss opening traits are "bonus damage" traits (1x baseline), not resistance-floor 
+traits (0x/0.3x floor). This means boss fights are now strictly "extra reward for the right 
+words," never "penalized for the wrong ones" -- players can always deal damage, making 
+fights feel fair even when a boss's weakness is hard to satisfy. Also fully retires the 
+floor-1 boss difficulty spike that was flagged by the earlier balance simulation.
+
+**Verification:**
+- npm test: all 16 checks passed (no regressions)
+- Code review: trait hint lookup is safe (checks for boss existence, traitPhases, trait def)
+- Logic: only boss-type nodes get the hint appended; others use generic labels
+
+**Current status:** 3 of 6 orchestrator queue items complete. Next task: Guarantee shop on 
+every floor and raise consumable drop rate.
+

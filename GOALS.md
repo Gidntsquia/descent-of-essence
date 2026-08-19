@@ -137,7 +137,7 @@ Rules for the routine:
       it click the Consumables button, and confirm only the consumables panel is
       visible (deck-viewer-panel has the `hidden` class again). Repeat for all
       pairs/orders of the three panels. `npm test` should still pass.
-- [ ] BALANCE/DESIGN: bosses currently have 2-3 traits that switch mid-fight based on
+- [x] BALANCE/DESIGN: bosses currently have 2-3 traits that switch mid-fight based on
       HP thresholds, and the player can't see which trait(s) a boss uses before
       entering combat. Reported 2026-08-19: "I want the bosses to just have 1
       restriction, and have that restriction be clear from the map view so that
