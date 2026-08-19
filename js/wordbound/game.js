@@ -553,7 +553,15 @@
 
   // ---- deck viewer --------------------------------------------------------
 
+  function closeAllSidePanels() {
+    state.deckViewerOpen = false;
+    state.itemInspectorOpen = false;
+    state.itemInspectorId = null;
+    state.consumablesPanelOpen = false;
+  }
+
   Game.openDeckViewer = function () {
+    closeAllSidePanels();
     state.deckViewerOpen = true;
     render();
   };
@@ -564,6 +572,7 @@
   };
 
   Game.openItemInspector = function (itemId) {
+    closeAllSidePanels();
     state.itemInspectorOpen = true;
     state.itemInspectorId = itemId;
     render();
@@ -576,6 +585,7 @@
   };
 
   Game.openConsumablesPanel = function () {
+    closeAllSidePanels();
     state.consumablesPanelOpen = true;
     render();
   };
