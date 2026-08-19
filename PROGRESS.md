@@ -2386,3 +2386,28 @@ work as designed (stackable, always available).
 
 **Next:** Two design-level decisions remain unchecked (trait 0x-floor and softlock).
 Routine has no further blocking tasks; ready for new work or Jaxon's input.
+
+---
+
+## 2026-08-19T20:24Z -- ROUTINE STATUS CHECK
+
+**Queue status:** 34/36 GOALS.md tasks complete (94%).
+
+**Unchecked items (2):**
+- BALANCE/DESIGN: 0x-trait floor mechanics (needs Jaxon's judgment on direction)
+- BUG/DESIGN: unplayable rack softlock (needs design decision on solution)
+
+Both explicitly marked as needing human judgment, not routine automation.
+
+**Current state:**
+- Game is feature-complete and playable
+- All critical bugs fixed
+- All automatable polish/content complete
+- npm test: 16/16 checks passing
+- Ready for itch.io launch
+
+**What's next:**
+- Await new tasks from GOALS.md, or
+- Jaxon makes design decisions on the two remaining items, which the routine can then implement
+
+Routine idle, no further work to do until new tasks arrive or design decisions are made.
