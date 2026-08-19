@@ -168,7 +168,7 @@ Rules for the routine:
       only ever uses the one configured trait regardless of HP (log the active
       trait each turn via `Traits.activeTraitForHpRatio` and confirm it never
       changes within a single fight).
-- [ ] BALANCE: shops are floor-2+ only, and consumable drop rate is low enough that a
+- [x] BALANCE: shops are floor-2+ only, and consumable drop rate is low enough that a
       player can go a whole run without seeing either. Reported 2026-08-19: "I don't
       see any shop and I haven't gotten a single consumable."
       CONTEXT: `hasShop = floorNumber >= 2` in js/wordbound/floor.js's

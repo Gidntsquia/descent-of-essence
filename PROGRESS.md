@@ -2793,3 +2793,40 @@ floor-1 boss difficulty spike that was flagged by the earlier balance simulation
 **Current status:** 3 of 6 orchestrator queue items complete. Next task: Guarantee shop on 
 every floor and raise consumable drop rate.
 
+
+## 2026-08-19T23:18Z
+
+**Improve shop and consumable availability (Task 4 from orchestrator's queue)** -- COMPLETED and pushed.
+
+**The Changes:**
+
+1. **Guarantee shop on every floor** (js/wordbound/floor.js line 70):
+   - Changed: `hasShop = floorNumber >= 2` → `hasShop = true`
+   - Now all three floors have a shop (was 0 shops on floor 1, guaranteed on floors 2-3)
+   - Players always have economic options and item procurement opportunities
+
+2. **Increase consumable drop rate** (js/wordbound/consumables.js):
+   - Changed: 0.12 (12%) → 0.20 (20%) per enemy kill
+   - Expected drops per run: ~2 (was ~1 with 12% over 8-10 kills)
+   - Makes consumables feel accessible and rewarding, not punishingly rare
+
+**Rationale:**
+
+The 12% drop rate over a short run (~8-10 enemy kills) left many players seeing zero 
+consumables entirely through RNG bad luck alone. This felt punishing and made the 
+consumable system feel unimportant. At 20%, most runs will have 1-3 consumable drops, 
+making them a regular strategic choice point: "Should I buy this now or risk not finding 
+another later?"
+
+The floor-1 shop restriction was a complexity reduction during early development, but 
+now that the shop system is mature, there's no reason to withhold it. Having a shop 
+available every run gives players early access to item power-ups.
+
+**Verification:**
+- npm test: all 16 checks passed (no regressions)
+- No other code paths depend on floor-2+ shop availability
+- Drop rate is a probability return value (no other logic changes needed)
+
+**Current status:** 4 of 6 orchestrator queue items complete. Next task: Adjust boss 
+background music (lower pitch).
+
