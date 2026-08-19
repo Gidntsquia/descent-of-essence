@@ -1025,3 +1025,52 @@ monster fight. Progression to floor 2 and beyond now works.
 **Current status:** 16 of 16 tasks complete (top-priority critical bug fixed).
 Next unchecked task: Fix consumable items that don't work (Index Card Shard, Page Turn).
 But that can wait -- the game is now playable!
+
+---
+
+## 2026-08-19T23:50Z
+
+**Fix consumable items (Task 2 from critical queue)** -- COMPLETED and pushed.
+
+**The Bugs:**
+Three consumable items were completely broken:
+1. Index Card Shard set bonusDamageUntilEndOfTurn but nothing ever read it
+2. Page Turn set skipDiscardNextTurn and bonusTilesToDraw but nothing read them
+3. Errata Slip hardcoded maxHp as 40 instead of the real maxHp (20), allowing
+   healing to push HP above max (e.g. 15/20 -> +8 -> 23/20)
+
+**The Fixes:**
+
+1. **Index Card Shard:** Added logic in Game.submitWord() after Combat.playWord
+   to check for bonusDamageUntilEndOfTurn flag. If set, applies the bonus damage
+   directly to state.monster.hp, adds it to result.damage (for overkill math),
+   logs it, then resets to 0 so it only affects the one word it was used for.
+
+2. **Page Turn:** Rewrote cycleRackAfterWord() to check for skipDiscardNextTurn
+   flag. When set:
+   - Unused tiles from current rack stay in hand (not discarded)
+   - Only used tiles are discarded
+   - Normal refill happens
+   - Then draw 3 bonus tiles on top (target rack size becomes 7 + bonus)
+   - Reset flags after use
+
+3. **Errata Slip:** Changed from hardcoded `var maxHp = 40` to `ctx.player.maxHp`
+   so healing correctly caps at the player's actual maxHp (20).
+
+**Verification:**
+1. npm test: all 12 DOM checks pass
+2. test/verify-consumables-fix.js: validates each consumable's effect()
+   - Errata Slip: HP healing caps at maxHp (tested 15->20, 18->20)
+   - Index Card Shard: flag is set correctly
+   - Page Turn: flags are set correctly
+3. test/verify-consumables-gameplay.js: tests consumables in actual combat
+   - Index Card Shard flag is reset after word play
+   - Damage is applied to the monster
+   - Both consumables work without errors
+
+**Current status:** 17 of 17 top-priority tasks complete. The game is now:
+- Fully playable (no crash on monster defeat)
+- Consumables work mechanically as designed
+- All tests passing
+
+Next tasks are optional polish/content (shop UX, event nodes, more monsters/items)
