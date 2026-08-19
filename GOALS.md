@@ -63,9 +63,8 @@ Rules for the routine:
       animations (floating numbers, HP bar flash/shake) and Web Audio API synthesized sound effects
       (critical hits high-pitched, normal mid-range, weak hits low tone, monster counterattack
       ominous low). All damage scaled to intensity.
-- [ ] Add background music: a calm loop for normal play, a more intense loop specifically for boss
-      fights (node.type === 'boss'). Same constraint as the sound-effects task -- no external audio
-      files, synthesize procedurally with the Web Audio API (a simple looping oscillator melody/
-      bassline is enough, doesn't need to be sophisticated). Add an easy-to-find mute/volume control
-      on the run screen, defaulting to a reasonable low-to-moderate volume. Can share a single
-      AudioContext with the sound-effects task above but doesn't need to depend on it landing first.
+- [x] Add background music: a calm loop for normal play, a more intense loop specifically for boss
+      fights (node.type === 'boss'). Implemented 2026-08-19T09:00Z with procedural synthesis using
+      Web Audio API. Calm melody (sine wave, 1s beat) for normal play, intense melody (square wave,
+      0.5s beat) for boss fights. Added mute button and volume slider (0-100%, default 10%) to run
+      screen. Music starts on run begin, switches based on node type, stops on run end.

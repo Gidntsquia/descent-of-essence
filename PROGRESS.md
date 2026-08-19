@@ -393,3 +393,71 @@ Code changes:
 
 **Current status:** 7 of 8 tasks complete (87.5% queue).
 Remaining: background music (#9).
+
+---
+
+## 2026-08-19T09:00Z
+
+**Add background music (Task 9)** -- COMPLETED and pushed. QUEUE COMPLETE!
+
+Implemented procedural background music with Web Audio API synthesis and UI controls.
+
+Normal play music:
+- Calm, soothing melody using sine wave oscillators
+- Notes: C, D, E, D (130.81, 146.83, 164.81 Hz)
+- 1-second beat duration for relaxed pacing
+- Volume: 0.05-0.01 with smooth envelope
+
+Boss fight music:
+- Intense, faster melody using square wave oscillators
+- Notes: E, G, E, G, A, G (164.81, 196.00, 220.00 Hz)
+- 0.5-second beat duration for urgency
+- Volume: 0.06-0.01 with smooth envelope
+- Square wave timbre makes it distinctly more aggressive than normal music
+
+UI Controls:
+- Added mute button (🔊/🔇) and volume slider to run header
+- Volume slider ranges 0-100%, default 10% (low-to-moderate)
+- Mute button toggles between muted (🔇) and unmuted (🔊)
+- Live volume adjustment via slider input event
+- Controls are compact and integrated into existing header layout
+
+Music management:
+- Starts automatically when run begins (normal mode)
+- Switches to boss mode when entering boss combat (node.type === 'boss')
+- Switches back to normal mode after boss defeat
+- Stops completely when run ends (victory or death)
+- Handles multiple simultaneous oscillators correctly
+- Uses single AudioContext shared with sound effects
+
+Code changes:
+- js/wordbound/game.js: Added musicOscillators, musicGainNode, isPlayingMusic,
+  currentMusicMode globals. Added initAudioContext, startBackgroundMusic,
+  playNormalMusic, playBossMusic, stopBackgroundMusic, setMusicVolume, 
+  toggleMusicMute functions. Connected music start/stop to game lifecycle.
+- wordbound.html: Added music controls (mute button + volume slider) to run header
+
+**QUEUE STATUS: ALL 9 TASKS COMPLETE! ✓**
+
+Queue completion summary:
+1. ✓ Slay the Spire deck rework
+2. ✓ QA/polish pass on deck system
+3. ✓ Apply theme from THEME.md
+4. ✓ Expand dictionary to 204k+ words
+5. ✓ Add deck viewer panel
+6. ✓ Make items easy to inspect
+7. ✓ Rack animation + drag-to-reorder
+8. ✓ Combat impact (visuals + sound effects)
+9. ✓ Background music with controls
+
+The game now has:
+- Full deck system with persistent tiles and fight-scoped piles
+- Themed monster names and UI per THEME.md
+- Comprehensive 204k+ word dictionary
+- Multiple UI panels (deck viewer, item inspector) for accessibility
+- Animated, draggable rack for player agency in word building
+- Satisfying combat feedback (damage numbers, HP bar effects, sound synthesis)
+- Atmospheric background music with mute/volume controls
+- Full procedural audio synthesis (no external files)
+
+No external dependencies, clean architecture, ready for playtest.
