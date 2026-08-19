@@ -33,7 +33,8 @@
     pendingAfterTileReward: null, // 'advanceFloor' | 'nextNode'
     deckViewerOpen: false,
     itemInspectorOpen: false,
-    itemInspectorId: null
+    itemInspectorId: null,
+    lastRackTileIds: [] // track tile IDs from previous render to detect new tiles
   };
   Game._state = state; // exposed for headless/browser test inspection only
 
@@ -432,10 +433,12 @@
 
     var rack = $('rack-display');
     rack.innerHTML = '';
+    var currentRackIds = [];
     state.player.rack.forEach(function (tile) {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'letter-tile' + (tile.bonus ? ' has-bonus' : '');
+      var isNewTile = state.lastRackTileIds.indexOf(tile.id) === -1;
+      btn.className = 'letter-tile' + (tile.bonus ? ' has-bonus' : '') + (isNewTile ? ' new-tile' : '');
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       btn.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
       if (tile.bonus) btn.title = Tiles.describeBonus(tile.bonus);
@@ -444,7 +447,9 @@
         $('word-input').focus();
       });
       rack.appendChild(btn);
+      currentRackIds.push(tile.id);
     });
+    state.lastRackTileIds = currentRackIds;
   }
 
   function escapeHtml(s) {

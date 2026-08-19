@@ -169,6 +169,17 @@ body {
   margin-bottom: 14px;
 }
 
+@keyframes slideInTile {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .letter-tile {
   font-family: inherit;
   width: 46px;
@@ -181,8 +192,12 @@ body {
   border-radius: 6px;
   cursor: pointer;
   position: relative;
+  transition: all 0.2s ease-in-out;
 }
 .letter-tile:hover { background: #fff4d6; }
+.letter-tile.new-tile {
+  animation: slideInTile 0.3s ease-out;
+}
 .letter-tile sub {
   position: absolute;
   bottom: 2px;
