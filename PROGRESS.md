@@ -2411,3 +2411,33 @@ Both explicitly marked as needing human judgment, not routine automation.
 - Jaxon makes design decisions on the two remaining items, which the routine can then implement
 
 Routine idle, no further work to do until new tasks arrive or design decisions are made.
+
+---
+
+## 2026-08-19T20:29Z (orchestrator QA pass, not a routine run)
+
+Periodic real-browser QA check. Pulled to origin/main tip first -- picked up a lot of
+routine progress since the last pass (balance simulation + floor-1 boss tuning, mobile
+layout verification, keyboard-playability verification, a shop duplicate-purchase fix,
+wordlist load-time investigation). `npm test` clean (16/16).
+
+Ran 5 full real-browser (Playwright) playthroughs with a best-word-scoring bot, this
+time specifically also exercising the shop twice per visit (buying back-to-back in the
+same shop stop) to directly stress-test the duplicate-purchase fix the routine landed
+this cycle (a89b5d1 / 9e5d0a2), plus checking `player.items` for duplicate ids after
+every purchase. Coverage: 4 shop visits across 3 runs (8 items purchased total, zero
+duplicates found), treasure visited 10 times, events 5 times, rest nodes 6 times,
+consumables used 8 times. **One run reached VICTORY** -- the first time an automated
+pass has seen a full clear, consistent with the boss-attack tuning and balance work
+landing well.
+
+**Zero uncaught page errors, zero console errors.** One minor finding, explicitly a
+non-bug: run 1 hit a rack with no playable word at step 7 and stopped (an unlucky
+draw, not a softlock in the run it happened in). No new tickets added.
+
+Note for whoever picks this up next: GOALS.md still has two unchecked BALANCE/DESIGN
+items from the routine's balance-simulation pass, both explicitly marked as needing
+Jaxon's judgment (0x-multiplier traits making some fights uncounterable, and a
+genuine unrecoverable softlock on unplayable Scribe racks in ~25% of that character's
+runs). Neither is new to this pass -- flagging that they're still sitting unresolved
+since PROGRESS.md's queue emptied around them.
