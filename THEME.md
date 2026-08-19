@@ -94,9 +94,21 @@ word patterns or tile types.
 
 | Name | Rarity | Effect | Flavor |
 |---|---|---|---|
+| **Spare Satchel** | common | Your rack holds 8 tiles instead of 7. | More room for possibilities. |
+| **Lucky Vowel** | common | Every draw is guaranteed at least one vowel. | The Archive's luck runs vowel-deep. |
+| **Thick Skin** | common | Reduce all incoming damage by 2 (minimum 1). | Hardened by years in the Stacks. |
+| **Wildcard Pouch** | uncommon | Adds 2 extra blank tiles to your draw pile at the start of every fight. | Every word can mean something new. |
+| **Heavy Ink** | uncommon | Your word's single highest-value tile counts double. | Deep, bold marks leave impressions. |
+| **Rare Hunter** | uncommon | Deal +3 bonus damage when your word contains a 4+ point letter. | Seek the valuable letters. |
 | **Folio Mark** | uncommon | +2 bonus damage for each tile with a bonus that you play. | A bookmark marking passages of power. |
 | **Marginalia** | uncommon | Heal 2 HP when you play 5+ letter words. | Handwritten notes in the margins restore the spirit. |
 | **Catalog Tab** | uncommon | +2 bonus damage when you play an alphabetical word. | Index tabs guide you to what matters. |
+| **Blank Slate** | uncommon | +2 bonus damage for each blank (?) tile in the word you play. | A fresh start makes all the difference. |
+| **Dust Jacket** | uncommon | Reduce incoming damage by 1 for each bonused tile in your rack (minimum 1). | A protective covering safeguards what matters. |
+| **Rare Tome** | uncommon | +2 bonus damage when you play a word containing X, Q, or Z. | Some books are precious precisely because they're rare. |
+| **Vowel Leech** | rare | Heal 1 HP per vowel in each word you play. | Every vowel is a sip of vitality. |
+| **Foreword** | rare | +1 bonus damage for each unused tile in your rack after playing a word. | Preparation carries weight; potential carries power. |
+| **Second Wind** | legendary | The first time you would drop to 0 HP, survive with 1 HP instead. Once per run. | A final word at the final hour. |
 
 ## Applying this
 

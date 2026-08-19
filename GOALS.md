@@ -242,7 +242,7 @@ Rules for the routine:
       click, staging area reflects click order, clear/backspace properly reverts),
       and say plainly in PROGRESS.md that the actual visual feel needs a human
       playtest to fully confirm, same as other animation work in this project.
-- [ ] CONTENT: add more permanent items. Requested 2026-08-19 ("add more items").
+- [x] CONTENT: add more permanent items. Requested 2026-08-19 ("add more items").
       Currently 11 in js/wordbound/items.js (`spare_satchel`, `lucky_vowel`,
       `wildcard_pouch`, `heavy_ink`, `rare_hunter`, `vowel_leech`, `thick_skin`,
       `second_wind`, `folio_mark`, `marginalia`, `catalog_tab`). Add 3-5 more,

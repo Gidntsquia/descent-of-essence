@@ -223,6 +223,69 @@
     }
   });
 
+  def({
+    id: 'blank_slate',
+    name: 'Blank Slate',
+    hint: '+2 bonus damage for each blank (?) tile in the word you play.',
+    rarity: 'uncommon',
+    shopPrice: 40,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        var blankCount = 0;
+        ctx.tilesUsed.forEach(function (t) {
+          if (t.letter === '?') blankCount++;
+        });
+        if (blankCount > 0) Items.applyBonusDamage(ctx, blankCount * 2);
+      }
+    }
+  });
+
+  def({
+    id: 'dust_jacket',
+    name: 'Dust Jacket',
+    hint: 'Reduce incoming damage by 1 for each bonused tile in your rack (minimum 1).',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    hooks: {
+      onPlayerDamaged: function (ctx) {
+        var bonusCount = 0;
+        (ctx.player.rack || []).forEach(function (t) {
+          if (t.bonus) bonusCount++;
+        });
+        var reduction = Math.min(ctx.damage - 1, bonusCount);
+        ctx.damage = Math.max(1, ctx.damage - reduction);
+      }
+    }
+  });
+
+  def({
+    id: 'rare_tome',
+    name: 'Rare Tome',
+    hint: '+2 bonus damage when you play a word containing X, Q, or Z.',
+    rarity: 'uncommon',
+    shopPrice: 40,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        var hasRare = ctx.word.split('').some(function (l) { return l === 'X' || l === 'Q' || l === 'Z'; });
+        if (hasRare) Items.applyBonusDamage(ctx, 2);
+      }
+    }
+  });
+
+  def({
+    id: 'foreword',
+    name: 'Foreword',
+    hint: '+1 bonus damage for each unused tile in your rack after playing a word.',
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        var unusedCount = (ctx.player.rack || []).length - ctx.tilesUsed.length;
+        if (unusedCount > 0) Items.applyBonusDamage(ctx, unusedCount);
+      }
+    }
+  });
+
   Items.getRackCapacity = function (player) {
     var capacity = 7;
     (player.items || []).forEach(function (itemId) {

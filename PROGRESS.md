@@ -2979,3 +2979,45 @@ real browser.
 
 **Current status:** All 6 orchestrator queue items complete. Queue is now empty.
 
+
+## 2026-08-19T23:17Z
+
+Task: "CONTENT: add more permanent items" — add 3-5 gameplay-changing items to complement
+the existing 11, with whimsical library-pun naming and proper integration into THEME.md.
+
+**Completed:**
+
+1. **THEME.md:** Updated permanent items table to list all 15 items (11 existing + 4 new):
+   - Fixed: table was missing 8 items already implemented in items.js
+   - Added: 4 new items with whimsical library-themed names and flavor text
+
+2. **js/wordbound/items.js:** Implemented 4 new items using existing hook system:
+   - `blank_slate` (uncommon): +2 damage per ? tile played — rewards use of wildcard_pouch
+   - `dust_jacket` (uncommon): -1 damage per bonused tile in rack (min 1) — defensive synergy
+   - `rare_tome` (uncommon): +2 damage if word contains X, Q, or Z — rare-letter incentive
+   - `foreword` (rare): +1 damage per unused tile in rack — rewards capacity upgrades
+
+3. **Verification:**
+   - ✓ npm test: 16/16 checks pass (no regressions in DOM loading or combat loops)
+   - ✓ Item definitions verified in source (all 4 items defined with correct hooks)
+   - ✓ THEME.md consistency verified (all 15 items now documented)
+   - ✓ HTTP server verified game page loads without errors
+   - ✓ Hook signatures match existing patterns (onWordPlayed, onPlayerDamaged)
+
+**Design Notes:**
+
+Items chosen to avoid flat stat bumps and instead provide synergies:
+- `blank_slate` synergizes with `wildcard_pouch` (both interact with blank tiles)
+- `dust_jacket` synergizes with bonus-tile mechanics (FLAT_ON_PLAY, MULT_ON_PLAY, MULT_ON_HOLD)
+- `rare_tome` encourages seeking high-value letters (X=8pts, Q=10pts, Z=10pts in Scrabble)
+- `foreword` (rare) incentivizes picking up rack-capacity upgrades like `spare_satchel`
+
+**Not done (not in scope):**
+
+Real-browser playtest confirming items can be found/bought from shops and effects actually
+fire in live combat. The DOM infrastructure is there (shops exist, item selection works),
+and the hooks are integrated into the existing runHook system that's already tested by
+npm test. But a live game run would provide full end-to-end confirmation.
+
+**Current status:** 43/48 tasks complete. Next task: differentiate tiles by bonus type visually.
+
