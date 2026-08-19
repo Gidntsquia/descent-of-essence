@@ -2607,3 +2607,30 @@ Awaiting new tasks in GOALS.md or feedback from Jaxon before resuming work.
 
 Routine will remain idle.
 
+---
+
+## 2026-08-19T22:29Z (orchestrator QA pass, not a routine run)
+
+Periodic real-browser QA check, first pass since the 0x-trait floor fix, the
+consolidated unplayable-rack safety net, and the widened Scribe deck all landed.
+Pulled to origin/main tip (only PROGRESS.md idle-check-ins since, no code changes).
+`npm test` clean (16/16).
+
+Ran 6 full real-browser (Playwright) playthroughs, 3 forced onto the Scribe
+character specifically to stress-test both fixes at once (the character most prone
+to the old softlock, now also benefiting from the softened trait floors). Each combat
+turn also directly asserted `Lexicon.hasPlayableWord(rack)` was true before playing,
+as an independent real-time check that the safety net is actually doing its job
+rather than trusting it silently.
+
+**Zero uncaught page errors, zero console errors, zero behavioral findings.**
+**4 of 6 runs reached VICTORY**, including 3 of the 3 forced-Scribe runs -- a marked
+jump from the ~1-in-10ish win rate seen in QA passes before today's balance fixes.
+None of the 6 runs needed the reshuffle safety net to trigger at all (rack was
+always independently verified playable), consistent with the widened Scribe deck
+doing its job of making the trap state rarer in the first place. Shop, treasure,
+event, rest, and consumable flows all exercised without issue; shop double-purchases
+again produced zero duplicate items.
+
+No new tickets. Nothing needs the routine's attention this cycle.
+
