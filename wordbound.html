@@ -22,6 +22,7 @@
     <div class="run-header">
       <div id="player-hp-display" class="hp-display"></div>
       <div id="floor-label" class="floor-label"></div>
+      <button id="btn-view-deck" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;">Deck</button>
     </div>
     <div id="items-owned" class="items-owned"></div>
     <div id="message-log" class="message-log"></div>
@@ -47,6 +48,12 @@
       <h2>Add a tile to your deck?</h2>
       <div id="tile-reward-choices" class="treasure-choices"></div>
       <button id="btn-skip-tile-reward" class="btn btn-secondary tile-reward-skip">Skip</button>
+    </div>
+
+    <div id="deck-viewer-panel" class="treasure-panel hidden">
+      <h2>Your Deck</h2>
+      <div id="deck-tiles-list" class="treasure-choices"></div>
+      <button id="btn-close-deck-viewer" class="btn btn-secondary" style="margin-top: 10px;">Close</button>
     </div>
   </div>
 

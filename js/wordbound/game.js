@@ -30,7 +30,8 @@
     messages: [],
     treasureOptions: null,
     tileRewardOptions: null,
-    pendingAfterTileReward: null // 'advanceFloor' | 'nextNode'
+    pendingAfterTileReward: null, // 'advanceFloor' | 'nextNode'
+    deckViewerOpen: false
   };
   Game._state = state; // exposed for headless/browser test inspection only
 
@@ -234,6 +235,18 @@
     }
   }
 
+  // ---- deck viewer --------------------------------------------------------
+
+  Game.openDeckViewer = function () {
+    state.deckViewerOpen = true;
+    render();
+  };
+
+  Game.closeDeckViewer = function () {
+    state.deckViewerOpen = false;
+    render();
+  };
+
   // ---- rendering ---------------------------------------------------------
 
   function show(id) {
@@ -271,6 +284,12 @@
     var log_ = $('message-log');
     log_.innerHTML = state.messages.map(function (m) { return '<div>' + escapeHtml(m) + '</div>'; }).join('');
     log_.scrollTop = log_.scrollHeight;
+
+    $('deck-viewer-panel').classList.toggle('hidden', !state.deckViewerOpen);
+    if (state.deckViewerOpen) {
+      renderDeckViewer();
+      return;
+    }
 
     $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'TILE_REWARD');
     $('combat-panel').classList.toggle('hidden', !state.combatActive);
@@ -349,6 +368,26 @@
     });
   }
 
+  function renderDeckViewer() {
+    var el = $('deck-tiles-list');
+    el.innerHTML = '';
+    if (!state.deck || state.deck.length === 0) {
+      el.innerHTML = '<p style="text-align: center; color: #b8ac8a;">Deck is empty</p>';
+      return;
+    }
+    var sorted = state.deck.slice().sort(function (a, b) {
+      return a.letter.localeCompare(b.letter);
+    });
+    sorted.forEach(function (tile) {
+      var div = document.createElement('div');
+      div.className = 'treasure-choice';
+      var bonusDesc = Tiles.describeBonus(tile.bonus);
+      div.innerHTML = '<strong>' + escapeHtml(tile.letter) + '</strong>' + (bonusDesc ? '<br>' + escapeHtml(bonusDesc) : '');
+      div.style.cursor = 'default';
+      el.appendChild(div);
+    });
+  }
+
   function renderCombat() {
     var m = state.monster;
     var hpRatio = m.maxHp > 0 ? m.hp / m.maxHp : 0;
@@ -401,6 +440,8 @@
     $('btn-gameover-continue').addEventListener('click', Game.returnToMainMenu);
     $('btn-victory-continue').addEventListener('click', Game.returnToMainMenu);
     $('btn-skip-tile-reward').addEventListener('click', Game.skipTileReward);
+    $('btn-view-deck').addEventListener('click', Game.openDeckViewer);
+    $('btn-close-deck-viewer').addEventListener('click', Game.closeDeckViewer);
 
     $('btn-submit-word').addEventListener('click', function () {
       var input = $('word-input');
