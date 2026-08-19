@@ -58,7 +58,7 @@
     if (!def) throw new Error('Monsters.createMonster: unknown defId "' + defId + '"');
     return {
       defId: defId, name: def.name, hp: def.maxHp, maxHp: def.maxHp,
-      attack: def.attack, traitPhases: def.traitPhases, isBoss: false
+      attack: def.attack, traitPhases: def.traitPhases, isBoss: false, tier: def.tier
     };
   };
 

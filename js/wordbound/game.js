@@ -744,8 +744,10 @@
     var trait = Traits.TRAITS[activeTraitId];
 
     var info = $('monster-info');
+    var tierClass = m.isBoss ? 'boss-tier' : (m.tier ? 'tier-' + m.tier : '');
+    var tierGlyph = getTierGlyph(m.isBoss, m.tier);
     info.innerHTML =
-      '<div class="monster-name' + (m.isBoss ? ' boss-name' : '') + '">' + escapeHtml(m.name) + '</div>' +
+      '<div class="monster-name ' + tierClass + '">' + tierGlyph + ' ' + escapeHtml(m.name) + '</div>' +
       '<div class="monster-hp-bar"><div id="monster-hp-fill" class="monster-hp-fill" style="width:' + Math.max(0, hpRatio * 100) + '%"></div></div>' +
       '<div class="monster-hp-text">' + m.hp + ' / ' + m.maxHp + ' HP</div>' +
       '<div class="monster-weakness">Weakness: ' + escapeHtml(trait.hint) + '</div>';
@@ -811,6 +813,14 @@
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
+  }
+
+  function getTierGlyph(isBoss, tier) {
+    if (isBoss) return '👑';
+    if (tier === 'weak') return '📄';
+    if (tier === 'normal') return '📖';
+    if (tier === 'strong') return '📚';
+    return '📖';
   }
 
   // ---- boot ---------------------------------------------------------

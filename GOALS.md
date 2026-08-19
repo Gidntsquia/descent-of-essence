@@ -128,13 +128,12 @@ Rules for the routine:
       WORDBOUND title with styling (.version-info class, muted gold color). Established semantic
       versioning convention in GOALS.md rules (bump minor for features, patch for bugs, move to
       v1.0 at launch).
-- [ ] Add a visual way to tell monsters/bosses apart at a glance beyond just the name text.
-      boss-name CSS class already exists (redder text) -- build on that rather than replacing it.
-      No image assets are available (no way to source/generate art in this pipeline), so this has
-      to be CSS/typography/motion-based: consider a colored accent border or icon-like Unicode
-      glyph per monster tier (weak/normal/strong/boss), or a small per-monster color derived
-      deterministically from its id/trait. Keep it consistent with THEME.md's aesthetic (warm
-      parchment/gold, not a clashing new palette).
+- [x] Add a visual way to tell monsters/bosses apart at a glance beyond just the name text.
+      Completed 2026-08-19T09:16Z: Added tier-based Unicode glyphs before monster names
+      (📄 weak, 📖 normal, 📚 strong, 👑 boss) and tier-based CSS color classes (tier-weak,
+      tier-normal, tier-strong, boss-tier) with subtle text-shadow highlights for strong/boss.
+      All colors consistent with parchment/gold theme. Tier field added to monster object
+      structure in createMonster(). All 12 npm tests pass.
 - [ ] Headless "playtest" via a simulation script (test/simulate.js or similar, committed since
       it's genuinely useful going forward): load the actual game modules (same jsdom or vm-shim
       technique as test/dom-check.js) and drive many simulated runs with a simple heuristic player

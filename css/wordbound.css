@@ -185,7 +185,12 @@ body {
 }
 
 .monster-name { font-size: 1.3rem; color: #f0d789; margin-bottom: 8px; }
-.boss-name { color: #e08a8a; }
+
+/* Tier-based styling */
+.tier-weak { color: #a89a7a; }
+.tier-normal { color: #f0d789; }
+.tier-strong { color: #fce5b2; text-shadow: 0 0 8px rgba(252, 229, 178, 0.3); }
+.boss-tier { color: #e08a8a; text-shadow: 0 0 8px rgba(224, 138, 138, 0.3); }
 
 .monster-hp-bar {
   background: #14110b;
