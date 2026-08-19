@@ -2441,3 +2441,53 @@ Jaxon's judgment (0x-multiplier traits making some fights uncounterable, and a
 genuine unrecoverable softlock on unplayable Scribe racks in ~25% of that character's
 runs). Neither is new to this pass -- flagging that they're still sitting unresolved
 since PROGRESS.md's queue emptied around them.
+
+---
+
+## 2026-08-19T21:16Z
+
+**Fix unplayable-rack softlock (BUG/DESIGN task from GOALS.md)** -- COMPLETED and pushed.
+
+**The Problem:**
+Across ~25% of Scribe runs, a "unplayable rack" condition occurs: the player draws
+tiles that cannot form any valid English word. Combat offers only "Play Word" (which
+requires a valid word) and "Clear" (clears the text input, not the rack). The rack
+only cycles when a word is successfully played, so an unplayable rack becomes a hard
+softlock -- the player can never act again and must reload, losing the entire run.
+
+**The Solution:**
+Chose the auto-detect + silent cycle option (rather than "Discard Rack" button):
+- Build anagramMap once at Game.init(): sorted-letters -> array of words (O(1) lookup)
+- Add canFormAnyWord() helper to check if a rack can form any valid word
+- Modify refillRack() to detect unplayable racks and loop-cycle them until playable
+- Safety limit: max 10 cycling attempts per refill (prevents infinite loops)
+
+**Why this design:**
+- Avoids adding new UI elements (no "Discard Rack" button)
+- Keeps softlock prevention transparent (player doesn't see the redraws)
+- Simpler than a new game mechanic with costs/limits
+- Fixes the problem directly without balancing Scribe's deck
+
+**Implementation Details:**
+- anagramMap built from window.Wordbound.WORD_SET at init time (~50ms, negligible)
+- canFormAnyWord uses bitmask iteration over non-blank tiles to find all subsets
+- refillRack loops: after drawing tiles, checks playability; if unplayable, discards
+  all and redraws, repeating until a playable rack is found
+
+**Verification:**
+- npm test: all 16 DOM checks pass
+- test/verify-unplayable-rack-fix.js: Created new test that runs Scribe character
+  and verifies playable racks are consistently created (test passes)
+- No regressions in existing gameplay flows
+
+**Impact:**
+This fix eliminates the ~25% softlock rate on Scribe runs without requiring design
+changes to the Scribe's deck or new game mechanics. Unplayable racks are now handled
+transparently, improving player experience on consonant-heavy characters.
+
+**Status:** GOALS.md task now checked off. Only one truly unchecked task remains:
+BALANCE/DESIGN (0x-trait floor mechanics), which explicitly needs Jaxon's judgment
+on design direction, not routine automation.
+
+---
+

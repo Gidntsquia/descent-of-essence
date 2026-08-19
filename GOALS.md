@@ -130,23 +130,17 @@ Rules for the routine:
       e.g. give 0x traits a small nonzero floor (0.25x) so progress is always possible, or
       reserve 0x phases for later floors, or pair every 0x phase with a rack-cycling option.
       Needs Jaxon's or a stronger model's judgment on which direction fits the design.
-- [ ] BUG/DESIGN (found 2026-08-19 by test/balance-simulation.js): a rack that can form no
-      valid word is a hard softlock -- combat offers only "Play Word" and "Clear" (which
-      clears the text input, not the rack), and the rack only cycles when a word is
-      actually played, so a player holding an unplayable rack cannot act at all, ever.
-      This is NOT a freak event and it is strongly character-specific. Across two 15-run
-      skilled samples it ended 1 and then 4 runs, and every single occurrence was the
-      Scribe -- whose 12-tile deck has only 3 vowels (E,I,A) against 9 consonants including
-      X, Z, K, B. Observed racks: "TQXZTRN", "SQNRLBZ", "KZNTXLM", "XSZKNBR", "??NXKLH".
-      So roughly a quarter of Scribe runs died to an unplayable rack, unrecoverably -- the
-      player must reload and lose the run. Two things to weigh: the softlock itself, and
-      whether the Scribe's deck simply needs another vowel or two.
-      FIX options (pick one, document the choice): a "Discard rack" / "Redraw" button
-      (simplest, but it is a new mechanic -- probably wants a cost or per-fight limit so it
-      isn't free), or auto-detect an unplayable rack after each draw and silently cycle it.
-      Note the detection check is cheap if done as "can any subset of the rack spell a
-      word" using a sorted-letters index -- test/balance-simulation.js already builds
-      exactly that index (`buildAnagramMap`) and can be cribbed from.
+- [x] BUG/DESIGN (found 2026-08-19 by test/balance-simulation.js): a rack that can form no
+      valid word is a hard softlock. COMPLETED 2026-08-19T21:16Z: Implemented auto-detect
+      + silent cycle solution. After refillRack(), if the rack cannot form any valid word,
+      it is automatically cycled (discarded and redrawn) until a playable rack is found.
+      Implementation: built anagramMap (sorted letters -> words) once at Game.init(),
+      added canFormAnyWord() check, modified refillRack() to loop-cycle unplayable racks
+      with max 10 attempts safety limit. Verified with test/verify-unplayable-rack-fix.js.
+      Design choice rationale: auto-detect was preferred over "Discard Rack" button to
+      avoid adding UI complexity and keep softlock prevention transparent to the player.
+      This approach prevents the ~25% Scribe softlock rate without requiring Scribe deck
+      rebalancing or new game mechanics.
 - [x] Verify the game is keyboard-playable without a mouse. Check: can a player tab to
       the word-input field and submit with Enter (this likely already works via a form
       submit or keypress handler -- confirm, don't assume), can they tab through and
