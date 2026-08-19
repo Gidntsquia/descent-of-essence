@@ -40,7 +40,15 @@
   // to its trait-phase switches -- reported as "the boss fight doesn't work." HP
   // pools and trait puzzles are untouched; this only buys a bit more breathing room.
   bdef({
-    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 5, floor: 1, goldDrop: [15, 25],
+    // Attack 5 -> 4 on 2026-08-19 (test/balance-simulation.js, 30 runs): the
+    // floor-1 boss ended 40% of skilled runs -- more than every other floor-1
+    // monster combined (all zero) -- while the floor-2 boss ended none. Its
+    // second phase (palindromic) deals 0x on any non-palindrome, and palindromes
+    // are near-unformable from a 7-8 tile rack, so below half HP the fight is a
+    // pure race against its attack. 20 player HP / 5 = 4 turns; /4 = 5 turns.
+    // This widens that window without touching the trait; see PROGRESS.md --
+    // the 0x-floor phase is the real cause and needs a design call, not a stat.
+    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 4, floor: 1, goldDrop: [15, 25],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'vowelHungry' },
       { hpThreshold: 0.5, traitId: 'palindromic' }

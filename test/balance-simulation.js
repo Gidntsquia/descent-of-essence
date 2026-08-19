@@ -1,369 +1,486 @@
 #!/usr/bin/env node
-/**
- * Systematic difficulty/balance simulation across all 3 floors.
- *
- * Plays 10-15 headless runs with random valid word selection.
- * Records statistics per run to identify balance outliers.
- */
+//
+// test/balance-simulation.js -- systematic difficulty/balance simulation.
+//
+// Plays many full runs headlessly by driving the REAL game API (Game.startRun,
+// Game.enterCurrentNode, Game.submitWord, ...) inside a single jsdom document,
+// then reports per-floor win rates and per-monster kill rates so numeric
+// outliers stand out (one monster killing far more runs than its floor peers).
+//
+// It deliberately does NOT reimplement the combat loop -- an independent
+// reimplementation would measure the simulation's balance, not the game's.
+// The page is loaded once and Game.startRun() is called per run, because
+// parsing the 2.5MB wordlist takes ~3s and doing that per run would dominate
+// the runtime.
+//
+// Two bot strategies bracket skilled vs. unskilled play:
+//   best  -- exhaustive search, plays the highest-damage word available
+//   first -- plays the first playable word it finds (any damage > 0)
+//
+// Usage: node test/balance-simulation.js [runsPerStrategy]   (default 15)
+//
+// LIMITATIONS (don't over-read the numbers):
+//   - The bot never uses blank ('?') tiles, consumables, or the rack-reorder
+//     UI, and always takes shop/treasure/event option ordering greedily.
+//     So these win rates are a floor, not a ceiling, on human performance.
+//   - jsdom has no Web Audio API; audio paths are inert here (already true of
+//     npm test). Nothing in this script depends on them.
 
-const { chromium } = require('@playwright/test');
-const http = require('http');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
 
-const PORT = 9877;
-const NUM_RUNS = process.argv[2] ? parseInt(process.argv[2]) : 2; // Default to 2 runs for quick test
-let server;
+const RUNS_PER_STRATEGY = parseInt(process.argv[2], 10) || 15;
+const STRATEGIES = ['best', 'first'];
 
-// Start HTTP server
-async function startServer() {
-  return new Promise((resolve) => {
-    server = http.createServer((req, res) => {
-      let filePath = path.join(__dirname, '..', req.url === '/' ? 'wordbound.html' : req.url);
-      fs.readFile(filePath, (err, data) => {
-        if (err) {
-          res.writeHead(404);
-          res.end('Not found');
-          return;
-        }
-        const ext = path.extname(filePath);
-        let contentType = 'text/html';
-        if (ext === '.js') contentType = 'application/javascript';
-        if (ext === '.css') contentType = 'text/css';
-        res.writeHead(200, { 'Content-Type': contentType });
-        res.end(data);
-      });
-    });
-    server.listen(PORT, resolve);
-  });
+// Safety caps so a stalled run (e.g. a trait the bot can never beat) ends as a
+// recorded stall instead of hanging the whole simulation.
+const MAX_WORDS_PER_COMBAT = 40;
+const MAX_NODES_PER_RUN = 120;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ---- word finding ---------------------------------------------------------
+
+// sorted-letters -> [words]. Built once. Lets us go from "which subset of the
+// rack am I holding" straight to the words it can spell, instead of testing
+// 200k words against the rack every turn.
+function buildAnagramMap(wordlist, maxLen) {
+  const map = new Map();
+  for (const word of wordlist) {
+    if (word.length < 2 || word.length > maxLen) continue;
+    const key = word.split('').sort().join('');
+    const bucket = map.get(key);
+    if (bucket) bucket.push(word);
+    else map.set(key, [word]);
+  }
+  return map;
 }
 
-// Play a single run and record statistics
-async function playRun(page, runNumber) {
+// Every word the current rack can spell, with the damage it would actually
+// deal -- predicted the same way Combat.playWord computes it, so the bot picks
+// on real damage rather than raw score (traits can zero a high-scoring word).
+function findPlayableWords(win, anagramMap, rack, monster, opts) {
+  const { Lexicon, Traits, Tiles } = win.Wordbound;
+  const usable = rack.filter((t) => t.letter !== '?');
+  const n = usable.length;
+  if (n < 2) return [];
+
+  const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
+  const trait = Traits.TRAITS[Traits.activeTraitForHpRatio(monster.traitPhases, hpRatio)];
+
+  const results = [];
+  const seen = new Set();
+  const stopAtFirst = opts && opts.stopAtFirstDamaging;
+
+  for (let mask = 1; mask < 1 << n; mask++) {
+    const subset = [];
+    for (let i = 0; i < n; i++) if (mask & (1 << i)) subset.push(usable[i]);
+    if (subset.length < 2) continue;
+
+    const key = subset.map((t) => t.letter).sort().join('');
+    const words = anagramMap.get(key);
+    if (!words) continue;
+
+    for (const word of words) {
+      if (seen.has(word)) continue;
+      seen.add(word);
+
+      const formed = Lexicon.canFormFromRack(word, rack);
+      if (!formed.possible) continue;
+
+      const score = Lexicon.scoreWord(word, formed.tilesUsed);
+      const usedIds = new Set(formed.tilesUsed.map((t) => t.id));
+      let holdMult = 1;
+      for (const tile of rack) {
+        if (usedIds.has(tile.id)) continue;
+        if (tile.bonus && tile.bonus.type === Tiles.BONUS_TYPES.MULT_ON_HOLD) holdMult *= tile.bonus.amount;
+      }
+      const traitMult = trait ? trait.multiplier(word, formed.tilesUsed) : 1;
+      const damage = Math.round(score.total * holdMult * traitMult);
+
+      results.push({ word, damage });
+      if (stopAtFirst && damage > 0) return results;
+    }
+  }
+  return results;
+}
+
+function chooseWord(candidates, strategy) {
+  if (candidates.length === 0) return null;
+  if (strategy === 'first') {
+    const damaging = candidates.find((c) => c.damage > 0);
+    return (damaging || candidates[0]).word;
+  }
+  let best = candidates[0];
+  for (const c of candidates) if (c.damage > best.damage) best = c;
+  return best.word;
+}
+
+// ---- run driver -----------------------------------------------------------
+
+async function playRun(win, anagramMap, strategy, runIndex) {
+  const Game = win.Wordbound.Game;
+  const state = Game._state;
+
+  // Rotate characters so no single loadout dominates the sample.
+  const characters = Object.keys(win.Wordbound.Characters.CHARACTER_DEFS || { archivist: 1 });
+  const characterId = characters[runIndex % characters.length];
+
+  // Game.startRun does NOT clear state.combatActive/state.monster -- in the real
+  // game that's unreachable (you only reach it from the main menu, after combat
+  // has already ended), but this harness can abandon a run mid-combat, and the
+  // stale flag would make every later run start "already fighting" the previous
+  // monster with an empty rack. Reset it here rather than changing game code.
+  state.combatActive = false;
+  state.monster = null;
+
+  Game.startRun(characterId);
+
   const run = {
-    number: runNumber,
+    strategy,
+    characterId,
     won: false,
-    floorsReached: 1,
-    deathCause: null,
-    deathFloor: 1,
-    goldEarned: 0,
-    itemsCollected: 0,
-    turnsPerFloor: [0, 0, 0],
-    monstersFaced: [],
-    timestamp: new Date().toISOString()
+    stalled: false,
+    softlock: null,
+    deathFloor: null,
+    killedBy: null,
+    killedByIsBoss: false,
+    wordsPlayedInFatalFight: null,
+    floorsCleared: 0,
+    encounters: [],   // { defId, name, isBoss, floor, words, damageTaken, playerDied }
+    bossReachStats: [], // { floor, gold, items } captured on entering each boss node
   };
 
-  try {
-    // Navigate to game
-    await page.goto(`http://localhost:${PORT}/wordbound.html`, {
-      waitUntil: 'networkidle'
-    });
+  let nodeSteps = 0;
 
-    // Wait for game to load
-    await page.waitForFunction(() => window.Wordbound?.Game, { timeout: 15000 });
+  while (nodeSteps++ < MAX_NODES_PER_RUN) {
+    if (state.screen === 'GAME_OVER' || state.screen === 'VICTORY') break;
 
-    // Select character (archivist = first option)
-    const characterOptions = await page.locator('.character-option').count();
-    if (characterOptions > 0) {
-      await page.click('.character-option:first-child');
-      await page.waitForTimeout(300);
+    if (state.screen === 'TILE_REWARD') {
+      // Always take a reward -- skipping is strictly worse for a bot with no
+      // deck-thinning strategy, and taking it is what a new player does.
+      const opts = state.tileRewardOptions;
+      if (opts && opts.length) Game.pickTileReward(opts[0].id);
+      else Game.skipTileReward();
+      continue;
     }
 
-    // Play until win or death (max 300 turns per run to prevent infinite loops)
-    let totalTurns = 0;
-    const maxTurns = 300;
+    if (state.screen === 'TREASURE') {
+      const opts = state.treasureOptions;
+      if (opts && opts.length) Game.pickTreasureItem(opts[0]);
+      continue;
+    }
 
-    while (totalTurns < maxTurns) {
-      totalTurns++;
+    if (state.screen === 'SHOP') {
+      // Buy anything affordable, once each. Game.buyItem does NOT reject an
+      // already-owned permanent item (a real bug -- see PROGRESS.md), so
+      // re-offering the same id would stack its hooks and wildly distort these
+      // numbers. Track what we bought and skip repeats, which is what a player
+      // who understands the items would do anyway.
+      const boughtHere = new Set();
+      for (const id of state.shopOptions || []) {
+        if (boughtHere.has(id)) continue;
+        const goldBefore = state.player.gold;
+        Game.buyItem(id);
+        if (state.player.gold < goldBefore) boughtHere.add(id);
+      }
+      Game.leaveShop();
+      continue;
+    }
 
-      // Check game state
-      const state = await page.evaluate(() => {
-        const gameOver = !document.getElementById('screen-game-over').classList.contains('hidden');
-        const victory = !document.getElementById('screen-victory').classList.contains('hidden');
-        const combat = !document.getElementById('combat-panel').classList.contains('hidden');
-        const nodeMap = !document.getElementById('node-map').classList.contains('hidden');
+    if (state.screen === 'EVENT') {
+      Game.chooseEventOption(0);
+      continue;
+    }
 
-        return { gameOver, victory, combat, nodeMap };
-      });
+    if (state.combatActive) {
+      const monster = state.monster;
+      const node = state.floor.nodes[state.currentNodeIndex];
+      const isBoss = node && node.type === 'boss';
+      const encounter = {
+        defId: monster.defId,
+        name: monster.name,
+        isBoss,
+        tier: monster.tier || (isBoss ? 'boss' : 'unknown'),
+        floor: state.floorNumber,
+        words: 0,
+        damageTaken: 0,
+        playerDied: false,
+      };
+      run.encounters.push(encounter);
 
-      if (state.gameOver) {
-        run.won = false;
-        const deathText = await page.evaluate(() => {
-          return document.getElementById('game-over-stats')?.textContent || 'Unknown';
+      if (isBoss) {
+        run.bossReachStats.push({
+          floor: state.floorNumber,
+          gold: state.player.gold,
+          items: state.player.items.length,
         });
-        run.deathCause = deathText.split('\n')[0].substring(0, 50);
-        break;
       }
 
-      if (state.victory) {
-        run.won = true;
-        run.deathCause = 'Victory';
-        run.floorsReached = 3;
-        break;
-      }
-
-      // Handle map navigation
-      if (state.nodeMap && !state.combat) {
-        const nodeInfo = await page.evaluate(() => {
-          const current = document.querySelector('.node-pill.node-current');
-          if (!current) return null;
-
-          // Extract floor from node position
-          const nodes = Array.from(document.querySelectorAll('.node-pill'));
-          const idx = nodes.indexOf(current);
-          const floor = Math.floor(idx / 8) + 1;
-
-          return {
-            isCurrent: true,
-            floor: Math.min(floor, 3),
-            type: current.className.match(/node-(\w+)/)?.[ 1] || 'unknown',
-            text: current.textContent.trim()
+      while (state.combatActive && encounter.words < MAX_WORDS_PER_COMBAT) {
+        const candidates = findPlayableWords(win, anagramMap, state.player.rack, state.monster, {
+          stopAtFirstDamaging: strategy === 'first',
+        });
+        const word = chooseWord(candidates, strategy);
+        if (!word) {
+          // The rack can spell NO valid word at all. There is no discard or
+          // redraw action in combat (only "Play Word" and "Clear", which just
+          // clears the text input), so a real player in this position is hard
+          // softlocked -- they cannot act, and the rack only cycles when a word
+          // is played. Recorded as its own outcome, not lumped in with stalls.
+          run.softlock = {
+            monster: state.monster.name,
+            floor: state.floorNumber,
+            rack: state.player.rack.map((t) => t.letter).join(''),
           };
-        });
+          break;
+        }
 
-        if (nodeInfo?.isCurrent) {
-          run.floorsReached = Math.max(run.floorsReached, nodeInfo.floor);
+        const hpBefore = state.player.hp;
+        Game.submitWord(word);
+        encounter.words++;
+        // submitWord defers rack cycling + counterattack by TILE_PLAY_ANIM_MS
+        // (220ms in game.js) so the tile-play animation is visible. Wait past
+        // that, or we'd read state mid-turn.
+        await sleep(260);
+        encounter.damageTaken += Math.max(0, hpBefore - state.player.hp);
 
-          // Click to enter node
-          await page.click('.node-pill.node-current');
-          await page.waitForTimeout(400);
-          continue;
+        if (state.screen === 'GAME_OVER') {
+          encounter.playerDied = true;
+          run.killedBy = monster.name;
+          run.killedByDefId = monster.defId;
+          run.killedByIsBoss = isBoss;
+          run.deathFloor = encounter.floor;
+          run.wordsPlayedInFatalFight = encounter.words;
+          break;
         }
       }
 
-      // Handle combat
-      if (state.combat) {
-        // Get current rack and monster
-        const info = await page.evaluate(() => {
-          const rack = Array.from(document.querySelectorAll('.rack-tile')).map(t => t.textContent.trim());
-          const monsterName = document.querySelector('.monster-name')?.textContent?.trim() || 'Unknown';
-          return { rack, monsterName };
-        });
-
-        if (!info.rack || info.rack.length === 0) {
-          await page.waitForTimeout(300);
-          continue;
-        }
-
-        run.monstersFaced.push(info.monsterName);
-
-        // Get valid words from the game
-        const validWords = await page.evaluate(() => {
-          if (!window.Wordbound?.Lexicon) return [];
-
-          const rack = Array.from(document.querySelectorAll('.rack-tile')).map(t => t.textContent.trim());
-          const Lexicon = window.Wordbound.Lexicon;
-
-          // Generate candidate words (2-8 letters)
-          const candidates = [];
-
-          // Try simple combinations
-          for (let len = 2; len <= Math.min(rack.length, 8); len++) {
-            for (let i = 0; i < rack.length; i++) {
-              for (let j = i + 1; j <= Math.min(i + len, rack.length); j++) {
-                const word = rack.slice(i, j).join('').toUpperCase();
-                if (window.Wordbound.WORD_SET?.has(word)) {
-                  candidates.push(word);
-                }
-              }
-            }
-          }
-
-          return [...new Set(candidates)].slice(0, 5);
-        });
-
-        if (validWords && validWords.length > 0) {
-          // Play a random valid word
-          const word = validWords[Math.floor(Math.random() * validWords.length)];
-          await page.fill('#word-input', word);
-          await page.click('#btn-submit-word');
-
-          run.turnsPerFloor[run.floorsReached - 1]++;
-
-          await page.waitForTimeout(400);
-        } else {
-          // No valid words found, wait a bit
-          await page.waitForTimeout(500);
-        }
+      if (state.combatActive) {
+        // Hit the per-combat cap without resolving: record and abandon the run.
+        run.stalled = true;
+        run.deathFloor = state.floorNumber;
+        break;
       }
-
-      if (totalTurns % 50 === 0) {
-        // Timeout protection
-        await page.waitForTimeout(100);
-      }
+      continue;
     }
 
-    // Record final statistics
-    run.goldEarned = await page.evaluate(() => {
-      const text = document.getElementById('gold-display')?.textContent || '0';
-      const match = text.match(/(\d+)/);
-      return parseInt(match?.[1] || 0);
-    });
-
-    run.itemsCollected = await page.evaluate(() => {
-      return document.querySelectorAll('#items-owned .item-chip').length;
-    });
-
-    // Update floor based on screens
-    if (await page.locator('#screen-victory:not(.hidden)').count() > 0) {
-      run.floorsReached = 3;
-    } else if (await page.locator('#screen-game-over:not(.hidden)').count() > 0) {
-      const gameOverText = await page.evaluate(() => {
-        return document.getElementById('game-over-stats')?.textContent || '';
-      });
-      const floorMatch = gameOverText.match(/Floor (\d+)/);
-      run.deathFloor = floorMatch ? parseInt(floorMatch[1]) : 1;
-      run.floorsReached = run.deathFloor;
+    if (state.screen === 'RUN') {
+      Game.enterCurrentNode();
+      continue;
     }
 
-  } catch (error) {
-    run.error = error.message;
+    // Unknown screen -- bail rather than spin.
+    run.stalled = true;
+    break;
   }
 
+  if (nodeSteps >= MAX_NODES_PER_RUN) run.stalled = true;
+  run.won = state.screen === 'VICTORY';
+  run.floorsCleared = run.won ? 3 : Math.max(0, (run.deathFloor || state.floorNumber) - 1);
+  run.finalGold = state.player.gold;
+  run.finalItems = state.player.items.length;
   return run;
 }
 
-async function main() {
-  try {
-    await startServer();
-    console.log(`Starting balance simulation (${NUM_RUNS} runs)\n`);
+// ---- reporting ------------------------------------------------------------
 
-    const browser = await chromium.launch({
-      executablePath: '/opt/pw-browsers/chromium',
-      headless: true,
-      args: ['--disable-dev-shm-usage']
-    });
+function analyze(runs) {
+  const perMonster = new Map();
+  const perFloor = { 1: { entered: 0, cleared: 0 }, 2: { entered: 0, cleared: 0 }, 3: { entered: 0, cleared: 0 } };
+  const bossReach = { 1: [], 2: [], 3: [] };
 
-    const results = [];
+  for (const run of runs) {
+    const floorsEntered = new Set(run.encounters.map((e) => e.floor));
+    for (const f of floorsEntered) {
+      if (!perFloor[f]) continue;
+      perFloor[f].entered++;
+      if (run.won || (run.deathFloor && run.deathFloor > f)) perFloor[f].cleared++;
+    }
+    for (const b of run.bossReachStats) {
+      if (bossReach[b.floor]) bossReach[b.floor].push(b);
+    }
+    for (const e of run.encounters) {
+      const key = e.defId + '|' + e.floor;
+      if (!perMonster.has(key)) {
+        perMonster.set(key, {
+          defId: e.defId, name: e.name, floor: e.floor, tier: e.tier,
+          encounters: 0, kills: 0, totalWords: 0, totalDamageTaken: 0,
+        });
+      }
+      const m = perMonster.get(key);
+      m.encounters++;
+      m.totalWords += e.words;
+      m.totalDamageTaken += e.damageTaken;
+      if (e.playerDied) m.kills++;
+    }
+  }
 
-    // Run simulations
-    for (let i = 1; i <= NUM_RUNS; i++) {
-      const context = await browser.createBrowserContext();
-      const page = await context.newPage();
+  const monsters = [...perMonster.values()].map((m) => ({
+    ...m,
+    killRate: m.encounters ? m.kills / m.encounters : 0,
+    avgWords: m.encounters ? m.totalWords / m.encounters : 0,
+    avgDamageTaken: m.encounters ? m.totalDamageTaken / m.encounters : 0,
+  }));
 
-      console.log(`Run ${i}/${NUM_RUNS}...`);
+  return { monsters, perFloor, bossReach };
+}
 
-      const run = await playRun(page, i);
-      results.push(run);
+function pct(x) { return (x * 100).toFixed(0) + '%'; }
 
-      const status = run.won ? '✓ WON' : `✗ LOST (Floor ${run.floorsReached})`;
-      console.log(`  ${status} - ${run.goldEarned} gold, ${run.itemsCollected} items, ${run.monstersFaced.length} monsters`);
+function report(allRuns) {
+  const lines = [];
+  const say = (s) => { console.log(s); lines.push(s); };
 
-      await page.close();
-      await context.close();
+  say('\n================ BALANCE SIMULATION ================');
+  say(`Runs: ${allRuns.length} (${RUNS_PER_STRATEGY} per strategy)`);
+
+  for (const strategy of STRATEGIES) {
+    const runs = allRuns.filter((r) => r.strategy === strategy);
+    const wins = runs.filter((r) => r.won).length;
+    const stalls = runs.filter((r) => r.stalled).length;
+    say(`\n--- strategy: ${strategy} (${runs.length} runs) ---`);
+    const softlocks = runs.filter((r) => r.softlock);
+    say(`  wins: ${wins}/${runs.length} (${pct(wins / runs.length)})   stalled: ${stalls}   softlocked: ${softlocks.length}`);
+    if (softlocks.length) {
+      say('  UNPLAYABLE-RACK SOFTLOCKS (no valid word formable, and combat has no discard action):');
+      for (const r of softlocks) {
+        say(`    ${r.characterId} floor ${r.softlock.floor} vs ${r.softlock.monster}: rack "${r.softlock.rack}"`);
+      }
     }
 
-    await browser.close();
+    const { monsters, perFloor, bossReach } = analyze(runs);
 
-    // Analyze results
-    const analysis = {
-      totalRuns: results.length,
-      wins: results.filter(r => r.won).length,
-      losses: results.filter(r => !r.won).length,
-      winRate: ((results.filter(r => r.won).length / results.length) * 100).toFixed(1),
-      averageGold: (results.reduce((s, r) => s + r.goldEarned, 0) / results.length).toFixed(1),
-      averageItems: (results.reduce((s, r) => s + r.itemsCollected, 0) / results.length).toFixed(1),
-      avgFloorsReached: (results.reduce((s, r) => s + r.floorsReached, 0) / results.length).toFixed(1),
+    say('  floor clear rate (of runs that entered that floor):');
+    for (const f of [1, 2, 3]) {
+      const s = perFloor[f];
+      say(`    floor ${f}: ${s.cleared}/${s.entered}` + (s.entered ? ` (${pct(s.cleared / s.entered)})` : ''));
+    }
 
-      // Cause of death frequency
-      deathCauses: {},
+    say('  state on reaching each boss (avg):');
+    for (const f of [1, 2, 3]) {
+      const b = bossReach[f];
+      if (!b.length) { say(`    floor ${f} boss: never reached`); continue; }
+      const g = (b.reduce((s, x) => s + x.gold, 0) / b.length).toFixed(1);
+      const i = (b.reduce((s, x) => s + x.items, 0) / b.length).toFixed(1);
+      say(`    floor ${f} boss: reached ${b.length}x, avg ${g} gold, ${i} items`);
+    }
 
-      // Monsters by floor
-      monstersByFloor: {
-        1: {},
-        2: {},
-        3: {}
-      },
-
-      // Floor difficulty
-      floorWinRates: {
-        1: { wins: 0, attempts: 0 },
-        2: { wins: 0, attempts: 0 },
-        3: { wins: 0, attempts: 0 }
+    say('  per-monster (kills = runs ended by it / times encountered):');
+    for (const f of [1, 2, 3]) {
+      const onFloor = monsters.filter((m) => m.floor === f).sort((a, b) => b.killRate - a.killRate);
+      if (!onFloor.length) continue;
+      say(`    floor ${f}:`);
+      for (const m of onFloor) {
+        say(`      ${m.name.padEnd(28)} ${String(m.kills).padStart(2)}/${String(m.encounters).padStart(2)} kills (${pct(m.killRate).padStart(4)})` +
+            `  avg ${m.avgWords.toFixed(1)} words, ${m.avgDamageTaken.toFixed(1)} dmg taken  [${m.tier}]`);
       }
-    };
+    }
 
-    // Process results
-    results.forEach((run, idx) => {
-      // Count death causes
-      if (run.deathCause && run.deathCause !== 'Victory') {
-        analysis.deathCauses[run.deathCause] = (analysis.deathCauses[run.deathCause] || 0) + 1;
-      }
-
-      // Record which monsters appeared per floor
-      const monstersPerFloor = Math.ceil(run.monstersFaced.length / 3);
-      for (let floor = 1; floor <= Math.min(run.floorsReached, 3); floor++) {
-        const startIdx = (floor - 1) * monstersPerFloor;
-        const endIdx = floor * monstersPerFloor;
-        run.monstersFaced.slice(startIdx, endIdx).forEach(monster => {
-          analysis.monstersByFloor[floor][monster] = (analysis.monstersByFloor[floor][monster] || 0) + 1;
-        });
-
-        // Track floor win rates (runs that reached/passed this floor)
-        if (run.floorsReached >= floor) {
-          analysis.floorWinRates[floor].attempts++;
-          if (run.won || run.floorsReached > floor) {
-            analysis.floorWinRates[floor].wins++;
+    // Outlier detection: a monster is flagged only against its OWN floor's
+    // peers of the same kind (boss vs. non-boss). Floor-appropriate escalation
+    // is intended, so cross-floor comparison would flag it as a false positive.
+    say('  outliers vs. same-floor peers:');
+    let flagged = 0;
+    for (const f of [1, 2, 3]) {
+      for (const boss of [false, true]) {
+        const peers = monsters.filter((m) => m.floor === f && (m.tier === 'boss') === boss && m.encounters >= 3);
+        if (peers.length < 2) continue;
+        const meanDmg = peers.reduce((s, m) => s + m.avgDamageTaken, 0) / peers.length;
+        for (const m of peers) {
+          if (meanDmg > 0 && m.avgDamageTaken > meanDmg * 1.6) {
+            say(`    HARD  floor ${f} ${m.name}: ${m.avgDamageTaken.toFixed(1)} dmg taken vs. ${meanDmg.toFixed(1)} floor avg`);
+            flagged++;
+          } else if (meanDmg > 0 && m.avgDamageTaken < meanDmg * 0.4) {
+            say(`    EASY  floor ${f} ${m.name}: ${m.avgDamageTaken.toFixed(1)} dmg taken vs. ${meanDmg.toFixed(1)} floor avg`);
+            flagged++;
           }
         }
       }
-    });
-
-    // Print results
-    console.log('\n=== BALANCE SIMULATION RESULTS ===\n');
-    console.log(`Runs: ${analysis.totalRuns}`);
-    console.log(`Wins: ${analysis.wins}/${analysis.totalRuns} (${analysis.winRate}%)`);
-    console.log(`Avg floors reached: ${analysis.avgFloorsReached}/3`);
-    console.log(`Avg gold per run: ${analysis.averageGold}`);
-    console.log(`Avg items per run: ${analysis.averageItems}\n`);
-
-    console.log('Floor win rates:');
-    Object.entries(analysis.floorWinRates).forEach(([floor, stats]) => {
-      const rate = stats.attempts > 0 ? ((stats.wins / stats.attempts) * 100).toFixed(1) : 'N/A';
-      console.log(`  Floor ${floor}: ${stats.wins}/${stats.attempts} (${rate}%)`);
-    });
-
-    console.log('\nMost common death causes:');
-    Object.entries(analysis.deathCauses)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .forEach(([cause, count]) => {
-        console.log(`  ${cause}: ${count} times (${(count/analysis.losses*100).toFixed(1)}% of deaths)`);
-      });
-
-    // Check for balance outliers
-    const outliers = [];
-    Object.entries(analysis.deathCauses).forEach(([cause, count]) => {
-      const percentage = count / analysis.losses * 100;
-      if (percentage > 25) {
-        outliers.push({ cause, count, percentage });
-      }
-    });
-
-    if (outliers.length > 0) {
-      console.log('\n⚠️  BALANCE OUTLIERS (>25% of deaths):');
-      outliers.forEach(({ cause, count, percentage }) => {
-        console.log(`  ${cause}: ${count} times (${percentage.toFixed(1)}%)`);
-      });
-    } else {
-      console.log('\n✓ No major balance outliers detected');
     }
-
-    // Save results
-    fs.writeFileSync(
-      path.join(__dirname, 'balance-simulation-results.json'),
-      JSON.stringify({ results, analysis }, null, 2)
-    );
-
-    console.log('\nFull results saved to test/balance-simulation-results.json');
-    process.exit(0);
-
-  } catch (error) {
-    console.error('Error:', error);
-    process.exit(1);
-  } finally {
-    if (server) server.close();
+    if (!flagged) say('    (none -- no monster is >1.6x or <0.4x its floor peers on damage dealt to the player)');
   }
+
+  say('\n===================================================');
+  return lines.join('\n');
 }
 
-main();
+// ---- main -----------------------------------------------------------------
+
+async function main() {
+  const htmlPath = path.join(__dirname, '..', 'wordbound.html');
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const pageErrors = [];
+
+  const dom = new JSDOM(html, {
+    url: 'file://' + htmlPath,
+    runScripts: 'dangerously',
+    resources: 'usable',
+    pretendToBeVisual: true,
+  });
+  dom.window.addEventListener('error', (e) => {
+    pageErrors.push((e.error && e.error.stack) || e.message);
+  });
+
+  await new Promise((resolve) => {
+    if (dom.window.document.readyState === 'complete') return resolve();
+    dom.window.addEventListener('load', resolve);
+  });
+  await sleep(500);
+
+  const win = dom.window;
+  if (!(win.Wordbound && win.Wordbound.Game)) {
+    console.error('Game did not initialize. Page errors:');
+    pageErrors.forEach((e) => console.error('  ' + e));
+    process.exit(1);
+  }
+
+  // Achievement unlocks persist in localStorage and would change the item pool
+  // partway through the sample. Reset once so every run sees the same pool.
+  // (Achievements.reset() touches localStorage unguarded, unlike save/loadProgress
+  // -- under jsdom's file:// opaque origin that throws. Not fatal here.)
+  try {
+    if (win.Wordbound.Achievements && win.Wordbound.Achievements.reset) {
+      win.Wordbound.Achievements.reset();
+    }
+  } catch (e) {
+    console.log('  (achievement reset skipped: ' + e.message + ')');
+  }
+
+  const maxLen = 9; // rack capacity ceiling with items; longer words are unplayable
+  console.log(`Building anagram index over ${win.Wordbound.WORDLIST.length} words...`);
+  const anagramMap = buildAnagramMap(win.Wordbound.WORDLIST, maxLen);
+  console.log(`  ${anagramMap.size} letter-multiset keys indexed.`);
+
+  const allRuns = [];
+  for (const strategy of STRATEGIES) {
+    for (let i = 0; i < RUNS_PER_STRATEGY; i++) {
+      const run = await playRun(win, anagramMap, strategy, i);
+      allRuns.push(run);
+      const outcome = run.won ? 'WON'
+        : run.softlock ? `SOFTLOCK F${run.softlock.floor} vs ${run.softlock.monster} (unplayable rack "${run.softlock.rack}")`
+        : run.stalled ? 'STALL'
+        : `died F${run.deathFloor} to ${run.killedBy}`;
+      console.log(`  [${strategy}] run ${i + 1}/${RUNS_PER_STRATEGY} (${run.characterId}): ${outcome}`);
+    }
+  }
+
+  const text = report(allRuns);
+
+  if (pageErrors.length) {
+    console.log(`\n!! ${pageErrors.length} uncaught page error(s) during simulation:`);
+    pageErrors.slice(0, 5).forEach((e) => console.log('  ERR: ' + e));
+  } else {
+    console.log('\nZero uncaught page errors across all runs.');
+  }
+
+  fs.writeFileSync(
+    path.join(__dirname, 'balance-simulation-results.json'),
+    JSON.stringify({ runsPerStrategy: RUNS_PER_STRATEGY, runs: allRuns, report: text, pageErrors }, null, 2)
+  );
+  console.log('Full results: test/balance-simulation-results.json');
+  process.exit(0);
+}
+
+main().catch((e) => { console.error('SCRIPT CRASHED:', e); process.exit(1); });

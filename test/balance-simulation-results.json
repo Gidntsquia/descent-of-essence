@@ -1,0 +1,2908 @@
+{
+  "runsPerStrategy": 15,
+  "runs": [
+    {
+      "strategy": "best",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 3,
+      "killedBy": "The Unabridged, Unbound",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 4,
+      "floorsCleared": 2,
+      "encounters": [
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 6,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "spinesplinter",
+          "name": "Spine Splinter",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "warden",
+          "name": "The Hoarder",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_unabridged",
+          "name": "The Unabridged Terror",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 6,
+          "playerDied": false
+        },
+        {
+          "defId": "spinesplinter",
+          "name": "Spine Splinter",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 2,
+          "damageTaken": 3,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_sovereign",
+          "name": "The Unabridged, Unbound",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 3,
+          "words": 4,
+          "damageTaken": 15,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 159,
+          "items": 2
+        },
+        {
+          "floor": 2,
+          "gold": 114,
+          "items": 7
+        },
+        {
+          "floor": 3,
+          "gold": 129,
+          "items": 10
+        }
+      ],
+      "killedByDefId": "boss_sovereign",
+      "finalGold": 129,
+      "finalItems": 10
+    },
+    {
+      "strategy": "best",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": true,
+      "softlock": {
+        "monster": "The Vowel Slurper",
+        "floor": 1,
+        "rack": "??NXKLH"
+      },
+      "deathFloor": 1,
+      "killedBy": null,
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": null,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 0,
+          "damageTaken": 0,
+          "playerDied": false
+        }
+      ],
+      "bossReachStats": [],
+      "finalGold": 25,
+      "finalItems": 3
+    },
+    {
+      "strategy": "best",
+      "characterId": "keeper",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 3,
+      "killedBy": "The Unabridged, Unbound",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 6,
+      "floorsCleared": 2,
+      "encounters": [
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 3,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "warden",
+          "name": "The Hoarder",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_unabridged",
+          "name": "The Unabridged Terror",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_sovereign",
+          "name": "The Unabridged, Unbound",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 3,
+          "words": 6,
+          "damageTaken": 20,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 41,
+          "items": 3
+        },
+        {
+          "floor": 2,
+          "gold": 5,
+          "items": 6
+        },
+        {
+          "floor": 3,
+          "gold": 26,
+          "items": 9
+        }
+      ],
+      "killedByDefId": "boss_sovereign",
+      "finalGold": 26,
+      "finalItems": 9
+    },
+    {
+      "strategy": "best",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 3,
+      "killedBy": "The Unabridged, Unbound",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 4,
+      "floorsCleared": 2,
+      "encounters": [
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 6,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "warden",
+          "name": "The Hoarder",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "spinesplinter",
+          "name": "Spine Splinter",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_unabridged",
+          "name": "The Unabridged Terror",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "spinesplinter",
+          "name": "Spine Splinter",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "spinesplinter",
+          "name": "Spine Splinter",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_sovereign",
+          "name": "The Unabridged, Unbound",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 3,
+          "words": 4,
+          "damageTaken": 20,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 41,
+          "items": 3
+        },
+        {
+          "floor": 2,
+          "gold": 52,
+          "items": 6
+        },
+        {
+          "floor": 3,
+          "gold": 51,
+          "items": 9
+        }
+      ],
+      "killedByDefId": "boss_sovereign",
+      "finalGold": 51,
+      "finalItems": 9
+    },
+    {
+      "strategy": "best",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": true,
+      "softlock": {
+        "monster": "The Vowelmaw",
+        "floor": 1,
+        "rack": "SQNRLBZ"
+      },
+      "deathFloor": 1,
+      "killedBy": null,
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": null,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 8,
+          "playerDied": false
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 75,
+          "items": 3
+        }
+      ],
+      "finalGold": 75,
+      "finalItems": 3
+    },
+    {
+      "strategy": "best",
+      "characterId": "keeper",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 3,
+      "killedBy": "The Unabridged, Unbound",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 6,
+      "floorsCleared": 2,
+      "encounters": [
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 8,
+          "damageTaken": 6,
+          "playerDied": false
+        },
+        {
+          "defId": "warden",
+          "name": "The Hoarder",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "warden",
+          "name": "The Hoarder",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_unabridged",
+          "name": "The Unabridged Terror",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 2,
+          "words": 3,
+          "damageTaken": 5,
+          "playerDied": false
+        },
+        {
+          "defId": "spinesplinter",
+          "name": "Spine Splinter",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 2,
+          "damageTaken": 1,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 3,
+          "damageTaken": 5,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_sovereign",
+          "name": "The Unabridged, Unbound",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 3,
+          "words": 6,
+          "damageTaken": 15,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 27,
+          "items": 3
+        },
+        {
+          "floor": 2,
+          "gold": 26,
+          "items": 5
+        },
+        {
+          "floor": 3,
+          "gold": 53,
+          "items": 7
+        }
+      ],
+      "killedByDefId": "boss_sovereign",
+      "finalGold": 53,
+      "finalItems": 7
+    },
+    {
+      "strategy": "best",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 3,
+      "killedBy": "The Card Catalog",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 1,
+      "floorsCleared": 2,
+      "encounters": [
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 1,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "warden",
+          "name": "The Hoarder",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 3,
+          "damageTaken": 8,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_unabridged",
+          "name": "The Unabridged Terror",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "warden",
+          "name": "The Hoarder",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 2,
+          "damageTaken": 3,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 1,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 93,
+          "items": 3
+        },
+        {
+          "floor": 2,
+          "gold": 66,
+          "items": 7
+        }
+      ],
+      "killedByDefId": "sentinel",
+      "finalGold": 149,
+      "finalItems": 7
+    },
+    {
+      "strategy": "best",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": true,
+      "softlock": {
+        "monster": "Echo Pup",
+        "floor": 1,
+        "rack": "KZNTXLM"
+      },
+      "deathFloor": 1,
+      "killedBy": null,
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": null,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 0,
+          "damageTaken": 0,
+          "playerDied": false
+        }
+      ],
+      "bossReachStats": [],
+      "finalGold": 6,
+      "finalItems": 2
+    },
+    {
+      "strategy": "best",
+      "characterId": "keeper",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Vowelmaw",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 11,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 11,
+          "damageTaken": 17,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 34,
+          "items": 4
+        }
+      ],
+      "killedByDefId": "boss_vowelmaw",
+      "finalGold": 34,
+      "finalItems": 4
+    },
+    {
+      "strategy": "best",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Vowelmaw",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 4,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 9,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 31,
+          "items": 3
+        }
+      ],
+      "killedByDefId": "boss_vowelmaw",
+      "finalGold": 31,
+      "finalItems": 3
+    },
+    {
+      "strategy": "best",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 3,
+      "killedBy": "The Unabridged, Unbound",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 4,
+      "floorsCleared": 2,
+      "encounters": [
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "warden",
+          "name": "The Hoarder",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_unabridged",
+          "name": "The Unabridged Terror",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 6,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_sovereign",
+          "name": "The Unabridged, Unbound",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 3,
+          "words": 4,
+          "damageTaken": 20,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 116,
+          "items": 3
+        },
+        {
+          "floor": 2,
+          "gold": 143,
+          "items": 6
+        },
+        {
+          "floor": 3,
+          "gold": 143,
+          "items": 9
+        }
+      ],
+      "killedByDefId": "boss_sovereign",
+      "finalGold": 143,
+      "finalItems": 9
+    },
+    {
+      "strategy": "best",
+      "characterId": "keeper",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 3,
+      "killedBy": "The Unabridged, Unbound",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 4,
+      "floorsCleared": 2,
+      "encounters": [
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 5,
+          "damageTaken": 8,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 1,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "spinesplinter",
+          "name": "Spine Splinter",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_unabridged",
+          "name": "The Unabridged Terror",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 2,
+          "words": 3,
+          "damageTaken": 8,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "warden",
+          "name": "The Hoarder",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_sovereign",
+          "name": "The Unabridged, Unbound",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 3,
+          "words": 4,
+          "damageTaken": 13,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 80,
+          "items": 3
+        },
+        {
+          "floor": 2,
+          "gold": 94,
+          "items": 8
+        },
+        {
+          "floor": 3,
+          "gold": 126,
+          "items": 10
+        }
+      ],
+      "killedByDefId": "boss_sovereign",
+      "finalGold": 126,
+      "finalItems": 10
+    },
+    {
+      "strategy": "best",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 3,
+      "killedBy": "The Unabridged, Unbound",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 5,
+      "floorsCleared": 2,
+      "encounters": [
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_unabridged",
+          "name": "The Unabridged Terror",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_sovereign",
+          "name": "The Unabridged, Unbound",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 3,
+          "words": 5,
+          "damageTaken": 20,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 90,
+          "items": 2
+        },
+        {
+          "floor": 2,
+          "gold": 62,
+          "items": 5
+        },
+        {
+          "floor": 3,
+          "gold": 30,
+          "items": 8
+        }
+      ],
+      "killedByDefId": "boss_sovereign",
+      "finalGold": 30,
+      "finalItems": 8
+    },
+    {
+      "strategy": "best",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": true,
+      "softlock": {
+        "monster": "Binding Strap",
+        "floor": 1,
+        "rack": "XSZKNBR"
+      },
+      "deathFloor": 1,
+      "killedBy": null,
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": null,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 0,
+          "damageTaken": 0,
+          "playerDied": false
+        }
+      ],
+      "bossReachStats": [],
+      "finalGold": 0,
+      "finalItems": 2
+    },
+    {
+      "strategy": "best",
+      "characterId": "keeper",
+      "won": true,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": null,
+      "killedBy": null,
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": null,
+      "floorsCleared": 3,
+      "encounters": [
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 6,
+          "damageTaken": 10,
+          "playerDied": false
+        },
+        {
+          "defId": "spinesplinter",
+          "name": "Spine Splinter",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 3,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "spinesplinter",
+          "name": "Spine Splinter",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 2,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_unabridged",
+          "name": "The Unabridged Terror",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 2,
+          "words": 2,
+          "damageTaken": 3,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 3,
+          "words": 2,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "sentinel",
+          "name": "The Card Catalog",
+          "isBoss": false,
+          "tier": "strong",
+          "floor": 3,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_sovereign",
+          "name": "The Unabridged, Unbound",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 3,
+          "words": 5,
+          "damageTaken": 19,
+          "playerDied": false
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 69,
+          "items": 3
+        },
+        {
+          "floor": 2,
+          "gold": 39,
+          "items": 6
+        },
+        {
+          "floor": 3,
+          "gold": 22,
+          "items": 8
+        }
+      ],
+      "finalGold": 73,
+      "finalItems": 8
+    },
+    {
+      "strategy": "first",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "Echo Pup",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 1,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 12,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 3,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "golempup",
+      "finalGold": 25,
+      "finalItems": 1
+    },
+    {
+      "strategy": "first",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": true,
+      "softlock": {
+        "monster": "The Vowelmaw",
+        "floor": 1,
+        "rack": "BBTKRRN"
+      },
+      "deathFloor": 1,
+      "killedBy": null,
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": null,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 8,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 4,
+          "playerDied": false
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 36,
+          "items": 4
+        }
+      ],
+      "finalGold": 36,
+      "finalItems": 4
+    },
+    {
+      "strategy": "first",
+      "characterId": "keeper",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Consonant Constrictor",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 1,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 1,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 6,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 7,
+          "damageTaken": 12,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 1,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "serpent",
+      "finalGold": 32,
+      "finalItems": 2
+    },
+    {
+      "strategy": "first",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Consonant Constrictor",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 5,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 5,
+          "damageTaken": 14,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "serpent",
+      "finalGold": 4,
+      "finalItems": 2
+    },
+    {
+      "strategy": "first",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "Echo Pup",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 3,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 9,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 5,
+          "damageTaken": 8,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 3,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "golempup",
+      "finalGold": 17,
+      "finalItems": 3
+    },
+    {
+      "strategy": "first",
+      "characterId": "keeper",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "Echo Pup",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 2,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 6,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 7,
+          "damageTaken": 12,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "golempup",
+      "finalGold": 11,
+      "finalItems": 3
+    },
+    {
+      "strategy": "first",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Consonant Constrictor",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 5,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 5,
+          "damageTaken": 20,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "serpent",
+      "finalGold": 0,
+      "finalItems": 1
+    },
+    {
+      "strategy": "first",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Vowelmaw",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 1,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 9,
+          "playerDied": false
+        },
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 1,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 39,
+          "items": 3
+        }
+      ],
+      "killedByDefId": "boss_vowelmaw",
+      "finalGold": 39,
+      "finalItems": 3
+    },
+    {
+      "strategy": "first",
+      "characterId": "keeper",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Vowelmaw",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 1,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "golempup",
+          "name": "Echo Pup",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 8,
+          "damageTaken": 7,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 3,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 5,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 3,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 1,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 16,
+          "items": 3
+        }
+      ],
+      "killedByDefId": "boss_vowelmaw",
+      "finalGold": 16,
+      "finalItems": 3
+    },
+    {
+      "strategy": "first",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Consonant Constrictor",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 4,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 6,
+          "playerDied": false
+        },
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 14,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "serpent",
+      "finalGold": 2,
+      "finalItems": 1
+    },
+    {
+      "strategy": "first",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "Quoth",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 2,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "serpent",
+          "name": "The Consonant Constrictor",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 8,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 8,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "raven",
+      "finalGold": 13,
+      "finalItems": 2
+    },
+    {
+      "strategy": "first",
+      "characterId": "keeper",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Vowelmaw",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 16,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "slime",
+          "name": "The Vowel Slurper",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 3,
+          "playerDied": false
+        },
+        {
+          "defId": "wisp",
+          "name": "Filler Word",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 1,
+          "playerDied": false
+        },
+        {
+          "defId": "glossary",
+          "name": "The Glossary",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 5,
+          "damageTaken": 0,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 16,
+          "damageTaken": 14,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 12,
+          "items": 3
+        }
+      ],
+      "killedByDefId": "boss_vowelmaw",
+      "finalGold": 12,
+      "finalItems": 3
+    },
+    {
+      "strategy": "first",
+      "characterId": "archivist",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "Quoth",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 5,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 5,
+          "damageTaken": 20,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "raven",
+      "finalGold": 0,
+      "finalItems": 1
+    },
+    {
+      "strategy": "first",
+      "characterId": "scribe",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "The Vowelmaw",
+      "killedByIsBoss": true,
+      "wordsPlayedInFatalFight": 1,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "gremlin",
+          "name": "The Fidget",
+          "isBoss": false,
+          "tier": "weak",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 2,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 8,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 3,
+          "damageTaken": 8,
+          "playerDied": false
+        },
+        {
+          "defId": "boss_vowelmaw",
+          "name": "The Vowelmaw",
+          "isBoss": true,
+          "tier": "boss",
+          "floor": 1,
+          "words": 1,
+          "damageTaken": 4,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [
+        {
+          "floor": 1,
+          "gold": 21,
+          "items": 3
+        }
+      ],
+      "killedByDefId": "boss_vowelmaw",
+      "finalGold": 21,
+      "finalItems": 3
+    },
+    {
+      "strategy": "first",
+      "characterId": "keeper",
+      "won": false,
+      "stalled": false,
+      "softlock": null,
+      "deathFloor": 1,
+      "killedBy": "Quoth",
+      "killedByIsBoss": false,
+      "wordsPlayedInFatalFight": 2,
+      "floorsCleared": 0,
+      "encounters": [
+        {
+          "defId": "bindingstrap",
+          "name": "Binding Strap",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 4,
+          "damageTaken": 6,
+          "playerDied": false
+        },
+        {
+          "defId": "appendix",
+          "name": "The Appendix",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 6,
+          "damageTaken": 10,
+          "playerDied": false
+        },
+        {
+          "defId": "raven",
+          "name": "Quoth",
+          "isBoss": false,
+          "tier": "normal",
+          "floor": 1,
+          "words": 2,
+          "damageTaken": 4,
+          "playerDied": true
+        }
+      ],
+      "bossReachStats": [],
+      "killedByDefId": "raven",
+      "finalGold": 10,
+      "finalItems": 2
+    }
+  ],
+  "report": "\n================ BALANCE SIMULATION ================\nRuns: 30 (15 per strategy)\n\n--- strategy: best (15 runs) ---\n  wins: 1/15 (7%)   stalled: 4   softlocked: 4\n  UNPLAYABLE-RACK SOFTLOCKS (no valid word formable, and combat has no discard action):\n    scribe floor 1 vs The Vowel Slurper: rack \"??NXKLH\"\n    scribe floor 1 vs The Vowelmaw: rack \"SQNRLBZ\"\n    scribe floor 1 vs Echo Pup: rack \"KZNTXLM\"\n    scribe floor 1 vs Binding Strap: rack \"XSZKNBR\"\n  floor clear rate (of runs that entered that floor):\n    floor 1: 9/15 (60%)\n    floor 2: 9/9 (100%)\n    floor 3: 1/9 (11%)\n  state on reaching each boss (avg):\n    floor 1 boss: reached 12x, avg 71.3 gold, 2.9 items\n    floor 2 boss: reached 9x, avg 66.8 gold, 6.2 items\n    floor 3 boss: reached 8x, avg 72.5 gold, 8.8 items\n  per-monster (kills = runs ended by it / times encountered):\n    floor 1:\n      The Vowelmaw                  2/12 kills ( 17%)  avg 4.0 words, 5.8 dmg taken  [boss]\n      Echo Pup                      0/ 6 kills (  0%)  avg 0.8 words, 0.0 dmg taken  [normal]\n      Binding Strap                 0/ 7 kills (  0%)  avg 1.4 words, 1.7 dmg taken  [normal]\n      The Fidget                    0/10 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [weak]\n      Quoth                         0/11 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [normal]\n      The Glossary                  0/ 7 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [weak]\n      The Vowel Slurper             0/ 8 kills (  0%)  avg 0.9 words, 0.0 dmg taken  [weak]\n      The Consonant Constrictor     0/ 8 kills (  0%)  avg 2.0 words, 3.0 dmg taken  [normal]\n      Filler Word                   0/ 6 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [weak]\n      The Appendix                  0/ 5 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [normal]\n    floor 2:\n      The Fidget                    0/ 2 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [weak]\n      The Glossary                  0/ 4 kills (  0%)  avg 1.3 words, 0.3 dmg taken  [weak]\n      Spine Splinter                0/ 5 kills (  0%)  avg 1.2 words, 0.6 dmg taken  [strong]\n      The Hoarder                   0/ 7 kills (  0%)  avg 1.3 words, 1.1 dmg taken  [strong]\n      The Unabridged Terror         0/ 9 kills (  0%)  avg 2.1 words, 4.4 dmg taken  [boss]\n      The Vowel Slurper             0/ 1 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [weak]\n      Binding Strap                 0/ 3 kills (  0%)  avg 1.3 words, 0.0 dmg taken  [normal]\n      The Card Catalog              0/ 1 kills (  0%)  avg 2.0 words, 6.0 dmg taken  [strong]\n      Filler Word                   0/ 2 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [weak]\n      Quoth                         0/ 3 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [normal]\n      Echo Pup                      0/ 3 kills (  0%)  avg 1.3 words, 0.3 dmg taken  [normal]\n      The Appendix                  0/ 2 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [normal]\n    floor 3:\n      The Unabridged, Unbound       7/ 8 kills ( 88%)  avg 4.8 words, 17.8 dmg taken  [boss]\n      The Card Catalog              1/10 kills ( 10%)  avg 1.5 words, 1.7 dmg taken  [strong]\n      Spine Splinter                0/ 4 kills (  0%)  avg 1.3 words, 0.3 dmg taken  [strong]\n      Binding Strap                 0/ 4 kills (  0%)  avg 1.3 words, 1.0 dmg taken  [normal]\n      Echo Pup                      0/ 1 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [normal]\n      Quoth                         0/ 4 kills (  0%)  avg 1.0 words, 0.0 dmg taken  [normal]\n      The Consonant Constrictor     0/ 4 kills (  0%)  avg 1.5 words, 0.5 dmg taken  [normal]\n      The Hoarder                   0/ 2 kills (  0%)  avg 1.5 words, 1.5 dmg taken  [strong]\n  outliers vs. same-floor peers:\n    EASY  floor 1 Echo Pup: 0.0 dmg taken vs. 0.5 floor avg\n    HARD  floor 1 Binding Strap: 1.7 dmg taken vs. 0.5 floor avg\n    EASY  floor 1 The Fidget: 0.0 dmg taken vs. 0.5 floor avg\n    EASY  floor 1 Quoth: 0.0 dmg taken vs. 0.5 floor avg\n    EASY  floor 1 The Glossary: 0.0 dmg taken vs. 0.5 floor avg\n    EASY  floor 1 The Vowel Slurper: 0.0 dmg taken vs. 0.5 floor avg\n    HARD  floor 1 The Consonant Constrictor: 3.0 dmg taken vs. 0.5 floor avg\n    EASY  floor 1 Filler Word: 0.0 dmg taken vs. 0.5 floor avg\n    EASY  floor 1 The Appendix: 0.0 dmg taken vs. 0.5 floor avg\n    HARD  floor 2 The Hoarder: 1.1 dmg taken vs. 0.4 floor avg\n    EASY  floor 2 Binding Strap: 0.0 dmg taken vs. 0.4 floor avg\n    EASY  floor 2 Quoth: 0.0 dmg taken vs. 0.4 floor avg\n    EASY  floor 3 Spine Splinter: 0.3 dmg taken vs. 0.7 floor avg\n    HARD  floor 3 The Card Catalog: 1.7 dmg taken vs. 0.7 floor avg\n    EASY  floor 3 Quoth: 0.0 dmg taken vs. 0.7 floor avg\n\n--- strategy: first (15 runs) ---\n  wins: 0/15 (0%)   stalled: 1   softlocked: 1\n  UNPLAYABLE-RACK SOFTLOCKS (no valid word formable, and combat has no discard action):\n    scribe floor 1 vs The Vowelmaw: rack \"BBTKRRN\"\n  floor clear rate (of runs that entered that floor):\n    floor 1: 0/15 (0%)\n    floor 2: 0/0\n    floor 3: 0/0\n  state on reaching each boss (avg):\n    floor 1 boss: reached 5x, avg 24.8 gold, 3.2 items\n    floor 2 boss: never reached\n    floor 3 boss: never reached\n  per-monster (kills = runs ended by it / times encountered):\n    floor 1:\n      The Vowelmaw                  4/ 5 kills ( 80%)  avg 4.0 words, 4.8 dmg taken  [boss]\n      Echo Pup                      3/ 6 kills ( 50%)  avg 3.7 words, 5.5 dmg taken  [normal]\n      Quoth                         3/ 6 kills ( 50%)  avg 2.3 words, 6.7 dmg taken  [normal]\n      The Consonant Constrictor     4/ 9 kills ( 44%)  avg 4.4 words, 10.8 dmg taken  [normal]\n      Binding Strap                 0/ 4 kills (  0%)  avg 3.5 words, 7.0 dmg taken  [normal]\n      The Vowel Slurper             0/ 7 kills (  0%)  avg 3.1 words, 3.1 dmg taken  [weak]\n      The Fidget                    0/ 7 kills (  0%)  avg 1.9 words, 1.1 dmg taken  [weak]\n      Filler Word                   0/ 3 kills (  0%)  avg 2.3 words, 1.7 dmg taken  [weak]\n      The Glossary                  0/ 6 kills (  0%)  avg 3.5 words, 2.0 dmg taken  [weak]\n      The Appendix                  0/ 4 kills (  0%)  avg 3.8 words, 7.0 dmg taken  [normal]\n  outliers vs. same-floor peers:\n    EASY  floor 1 The Fidget: 1.1 dmg taken vs. 5.0 floor avg\n    HARD  floor 1 The Consonant Constrictor: 10.8 dmg taken vs. 5.0 floor avg\n    EASY  floor 1 Filler Word: 1.7 dmg taken vs. 5.0 floor avg\n\n===================================================",
+  "pageErrors": []
+}

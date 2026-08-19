@@ -64,7 +64,7 @@ Rules for the routine:
       Added loading spinner + "Loading dictionary..." message to main menu (visible
       during page load, hides when Game.init completes). Solution addresses the issue
       without requiring wordlist lazy-loading or file splitting.
-- [ ] Run a systematic difficulty/balance simulation across all 3 floors. Write a
+- [x] Run a systematic difficulty/balance simulation across all 3 floors. Write a
       Playwright script (or extend an existing one under test/) that plays many runs
       (aim for 20-30) using a few different word-selection strategies (e.g. "always
       best-scoring word available" and "first playable word found," to bracket skilled
@@ -79,6 +79,69 @@ Rules for the routine:
       scale to the boss-attack tuning done 2026-08-19T18:17Z) -- note the before/after
       numbers and your reasoning in PROGRESS.md. Don't redesign trait mechanics or add
       new systems; this is about catching numeric outliers, not a full rebalance.
+      COMPLETED 2026-08-19T19:57Z: rewrote test/balance-simulation.js to drive the real
+      Game API in jsdom (the old skeleton used a Puppeteer-only call and a broken
+      word-finder, and had never run). 30 runs, 2 strategies. Headline: The Vowelmaw
+      (floor-1 boss) ended 40% of skilled runs -- more than every other floor-1 monster
+      combined -- while the floor-2 boss ended none. Applied the one sanctioned numeric
+      tune (Vowelmaw attack 5 -> 4); re-measured: kill rate 40% -> 17%, floor-1 clear
+      33% -> 60%. Three findings ticketed above rather than fixed here (out of scope):
+      duplicate shop purchases, 0x-floor trait design, unplayable-rack softlock.
+      Full numbers in PROGRESS.md.
+- [ ] BUG (found 2026-08-19 by test/balance-simulation.js, verified reachable in the real UI):
+      the shop lets you buy the same permanent item over and over, paying full price each
+      time, and its hooks STACK. `Game.buyItem` (game.js) checks affordability but never
+      checks `state.player.items.indexOf(actualId) !== -1`; `renderShop()` re-renders from
+      `state.shopOptions`, which is only rolled once on entering the shop (`rollShopOptions`
+      filters owned items at roll time, so it never re-filters after a purchase), and the
+      button is only disabled on affordability. So a player with enough gold can click the
+      same item 4x. Effects genuinely stack: 4x Wildcard Pouch put 8 blank tiles into the
+      draw pile per fight, which is how the simulation surfaced it (racks of "???????").
+      Stacking Spare Satchel similarly inflates rack capacity without limit.
+      FIX: in `Game.buyItem`, for non-consumable items only (consumables are meant to be
+      re-buyable), return early with a log line if the item is already owned. Optionally
+      also re-roll or re-render so the bought item stops being offered. Consumables must
+      stay stackable -- don't guard those.
+      VERIFY: `npm test`, plus assert that buying the same item id twice leaves
+      `state.player.items` with one copy and deducts gold only once.
+- [ ] BALANCE/DESIGN (found 2026-08-19 by test/balance-simulation.js, 30 runs -- needs a
+      design call, deliberately NOT changed by the routine): traits whose multiplier floor
+      is 0 make a monster nearly immune rather than merely harder, and that one property,
+      not HP/attack, decides how hard every fight in the game is.
+      Measured (skilled bot, 15 runs): The Vowelmaw (floor-1 boss) ended 40% of runs --
+      more than every other floor-1 monster combined, which ended zero -- while The
+      Unabridged Terror (floor-2 boss, higher HP AND higher attack) ended none and died in
+      2.3 words. The first boss is currently the hardest gate in the game, ahead of both
+      later bosses: a progression inversion.
+      CAUSE: `palindromic` (Vowelmaw phase 2, below 50% HP) returns 0 for any non-palindrome,
+      and palindromes are essentially unformable from a 7-8 tile rack, so the back half of
+      that fight is a pure race against its attack with no counterplay. Same shape for
+      `alphabetic` (0x) and `shortFuse` (0x). By contrast the floor-2 boss's phases
+      (`lengthy`, `rareSeeker`) both floor at 1x, so they are pure damage bonuses with no
+      downside -- which is why it is a pushover despite better stats.
+      The routine applied the one sanctioned numeric mitigation (Vowelmaw attack 5 -> 4, see
+      monsters.js) but that only widens the survival window; it does not give the player
+      counterplay. A real fix is a trait-mechanics decision that was explicitly out of scope:
+      e.g. give 0x traits a small nonzero floor (0.25x) so progress is always possible, or
+      reserve 0x phases for later floors, or pair every 0x phase with a rack-cycling option.
+      Needs Jaxon's or a stronger model's judgment on which direction fits the design.
+- [ ] BUG/DESIGN (found 2026-08-19 by test/balance-simulation.js): a rack that can form no
+      valid word is a hard softlock -- combat offers only "Play Word" and "Clear" (which
+      clears the text input, not the rack), and the rack only cycles when a word is
+      actually played, so a player holding an unplayable rack cannot act at all, ever.
+      This is NOT a freak event and it is strongly character-specific. Across two 15-run
+      skilled samples it ended 1 and then 4 runs, and every single occurrence was the
+      Scribe -- whose 12-tile deck has only 3 vowels (E,I,A) against 9 consonants including
+      X, Z, K, B. Observed racks: "TQXZTRN", "SQNRLBZ", "KZNTXLM", "XSZKNBR", "??NXKLH".
+      So roughly a quarter of Scribe runs died to an unplayable rack, unrecoverably -- the
+      player must reload and lose the run. Two things to weigh: the softlock itself, and
+      whether the Scribe's deck simply needs another vowel or two.
+      FIX options (pick one, document the choice): a "Discard rack" / "Redraw" button
+      (simplest, but it is a new mechanic -- probably wants a cost or per-fight limit so it
+      isn't free), or auto-detect an unplayable rack after each draw and silently cycle it.
+      Note the detection check is cheap if done as "can any subset of the rack spell a
+      word" using a sorted-letters index -- test/balance-simulation.js already builds
+      exactly that index (`buildAnagramMap`) and can be cribbed from.
 - [x] Verify the game is keyboard-playable without a mouse. Check: can a player tab to
       the word-input field and submit with Enter (this likely already works via a form
       submit or keypress handler -- confirm, don't assume), can they tab through and
