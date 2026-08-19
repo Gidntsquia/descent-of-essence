@@ -34,7 +34,9 @@
     deckViewerOpen: false,
     itemInspectorOpen: false,
     itemInspectorId: null,
-    lastRackTileIds: [] // track tile IDs from previous render to detect new tiles
+    lastRackTileIds: [], // track tile IDs from previous render to detect new tiles
+    draggedTileId: null, // track which tile is being dragged for reordering
+    dragOverIndex: null // track which position we're hovering over
   };
   Game._state = state; // exposed for headless/browser test inspection only
 
@@ -262,6 +264,35 @@
     render();
   };
 
+  // ---- rack reordering --------------------------------------------------------
+
+  function startTileDrag(tileId) {
+    state.draggedTileId = tileId;
+  }
+
+  function endTileDrag() {
+    state.draggedTileId = null;
+    state.dragOverIndex = null;
+  }
+
+  function reorderRackOnDrop(dropIndex) {
+    if (state.draggedTileId === null || dropIndex === null) return;
+    var dragIndex = -1;
+    for (var i = 0; i < state.player.rack.length; i++) {
+      if (state.player.rack[i].id === state.draggedTileId) {
+        dragIndex = i;
+        break;
+      }
+    }
+    if (dragIndex === -1) return;
+    if (dragIndex === dropIndex) return; // no change
+    var tile = state.player.rack[dragIndex];
+    state.player.rack.splice(dragIndex, 1);
+    var insertIndex = dropIndex > dragIndex ? dropIndex - 1 : dropIndex;
+    state.player.rack.splice(insertIndex, 0, tile);
+    render();
+  }
+
   // ---- rendering ---------------------------------------------------------
 
   function show(id) {
@@ -434,9 +465,12 @@
     var rack = $('rack-display');
     rack.innerHTML = '';
     var currentRackIds = [];
-    state.player.rack.forEach(function (tile) {
+    state.player.rack.forEach(function (tile, index) {
       var btn = document.createElement('button');
       btn.type = 'button';
+      btn.draggable = true;
+      btn.setAttribute('data-tile-id', tile.id);
+      btn.setAttribute('data-tile-index', index);
       var isNewTile = state.lastRackTileIds.indexOf(tile.id) === -1;
       btn.className = 'letter-tile' + (tile.bonus ? ' has-bonus' : '') + (isNewTile ? ' new-tile' : '');
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
@@ -446,6 +480,23 @@
         $('word-input').value += (tile.letter === '?' ? '' : tile.letter);
         $('word-input').focus();
       });
+      btn.addEventListener('dragstart', function (e) {
+        startTileDrag(tile.id);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      btn.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        state.dragOverIndex = index;
+      });
+      btn.addEventListener('dragleave', function () {
+        state.dragOverIndex = null;
+      });
+      btn.addEventListener('drop', function (e) {
+        e.preventDefault();
+        reorderRackOnDrop(index);
+      });
+      btn.addEventListener('dragend', endTileDrag);
       rack.appendChild(btn);
       currentRackIds.push(tile.id);
     });
