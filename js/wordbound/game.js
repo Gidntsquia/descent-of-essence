@@ -22,6 +22,32 @@
   var isPlayingMusic = false;
   var currentMusicMode = null; // 'normal' or 'boss'
 
+  // Audio settings (volume + mute) persisted separately from achievements.js's
+  // save -- otherwise every fresh page load silently reset the player's chosen
+  // volume/mute back to the 10% default, even if they'd explicitly changed it.
+  var AUDIO_SETTINGS_KEY = 'wordbound_audio_settings';
+  var audioSettings = { volume: 0.1, muted: false };
+  (function loadAudioSettings() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      var stored = localStorage.getItem(AUDIO_SETTINGS_KEY);
+      if (!stored) return;
+      var parsed = JSON.parse(stored);
+      if (typeof parsed.volume === 'number') audioSettings.volume = Math.max(0, Math.min(1, parsed.volume));
+      if (typeof parsed.muted === 'boolean') audioSettings.muted = parsed.muted;
+    } catch (e) {
+      // localStorage unavailable or corrupt saved value -- fall back to defaults
+    }
+  })();
+  function saveAudioSettings() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify(audioSettings));
+    } catch (e) {
+      // localStorage unavailable (private browsing, storage full, etc.) -- not fatal
+    }
+  }
+
   var state = {
     screen: 'MAIN_MENU',
     selectedCharacter: null,
@@ -669,7 +695,7 @@
       if (!musicGainNode) {
         musicGainNode = ctx.createGain();
         musicGainNode.connect(ctx.destination);
-        musicGainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+        musicGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, ctx.currentTime);
       }
 
       currentMusicMode = isBoss ? 'boss' : 'normal';
@@ -774,16 +800,23 @@
   }
 
   function setMusicVolume(volume) {
+    audioSettings.volume = Math.max(0, Math.min(1, volume));
+    audioSettings.muted = false; // moving the slider implies "I want sound"
+    saveAudioSettings();
     if (musicGainNode) {
-      musicGainNode.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), audioContext.currentTime);
+      musicGainNode.gain.setValueAtTime(audioSettings.volume, audioContext.currentTime);
     }
   }
 
   function toggleMusicMute() {
-    if (!musicGainNode) return;
-    var currentVolume = musicGainNode.gain.value;
-    musicGainNode.gain.setValueAtTime(currentVolume > 0 ? 0 : 0.1, audioContext.currentTime);
-    return musicGainNode.gain.value > 0;
+    audioSettings.muted = !audioSettings.muted;
+    saveAudioSettings();
+    if (musicGainNode) {
+      // Restore the actual chosen volume on unmute, not a hardcoded default --
+      // previously this reset to 0.1 regardless of what the slider was set to.
+      musicGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, audioContext.currentTime);
+    }
+    return !audioSettings.muted;
   }
 
   // ---- rack reordering --------------------------------------------------------
@@ -1275,6 +1308,11 @@
       var volume = this.value / 100;
       setMusicVolume(volume);
     });
+
+    // Reflect the loaded (persisted) audio settings in the UI immediately,
+    // rather than always showing the 10%/unmuted defaults on a fresh page load.
+    $('music-volume').value = Math.round(audioSettings.volume * 100);
+    $('btn-toggle-music').textContent = audioSettings.muted ? '🔇' : '🔊';
 
     render();
   };

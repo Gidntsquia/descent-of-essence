@@ -44,6 +44,67 @@ Rules for the routine:
 
 ## Queue
 
+- [x] Persist audio settings (mute + volume) across sessions. Confirmed via grep on
+      2026-08-19 that only achievements.js wrote to localStorage -- the music
+      mute/volume controls didn't persist at all. DONE 2026-08-19T18:50Z (Claude,
+      direct fix, not the routine): added a 'wordbound_audio_settings' localStorage
+      key (volume + muted), loaded on module init and applied to musicGainNode's
+      initial gain and the slider/mute-icon UI on Game.init. Also fixed a related
+      bug found while in there: toggleMusicMute() previously hardcoded 0.1 as the
+      unmute volume regardless of what the slider was actually set to -- now
+      restores the real saved volume. Verified with Playwright: set volume to 75%,
+      muted, reloaded the page, confirmed slider/icon reflected the saved state,
+      then unmuted and confirmed it restored 0.75 (not 0.1). npm test 16/16, plus a
+      quick combat regression check, both clean.
+- [ ] Investigate wordlist.js load time on a slow connection. js/wordbound/wordlist.js
+      is ~2.5MB (204,217 words, flagged as a known tradeoff when the dictionary was
+      expanded on 2026-08-19 but never actually measured). Use Playwright to throttle
+      network (page.route with an artificial delay, or Chrome DevTools Protocol's
+      Network.emulateNetworkConditions if reachable via Playwright's CDP session) to
+      simulate a slow 3G-ish connection and measure actual time-to-playable. If it's
+      genuinely slow (multiple seconds), consider: (a) a loading indicator on the main
+      menu so it doesn't look frozen, and/or (b) lazy-loading the wordlist only when
+      "New Run" is clicked rather than blocking initial page paint. Don't do a bigger
+      architectural change (like splitting the list or a build step) without flagging
+      it as a separate, bigger task first -- this one is scoped to "measure, then add
+      a loading indicator if warranted."
+- [ ] Run a systematic difficulty/balance simulation across all 3 floors. Write a
+      Playwright script (or extend an existing one under test/) that plays many runs
+      (aim for 20-30) using a few different word-selection strategies (e.g. "always
+      best-scoring word available" and "first playable word found," to bracket skilled
+      vs. unskilled play) and records: win rate per floor, most common cause/point of
+      death (which monster or boss, roughly what turn), and average gold/items by the
+      time each floor's boss is reached. Look specifically for outliers -- a monster or
+      boss that's dramatically harder or easier than its neighbors on the same floor,
+      not just "the game is hard" in general (floor-appropriate challenge is fine and
+      intended). If you find a clear outlier (e.g. one floor-2 monster kills far more
+      runs than every other floor-2 monster combined), it's fine to make a small,
+      clearly-documented numeric tuning adjustment (HP/attack by ~15-20%, similar in
+      scale to the boss-attack tuning done 2026-08-19T18:17Z) -- note the before/after
+      numbers and your reasoning in PROGRESS.md. Don't redesign trait mechanics or add
+      new systems; this is about catching numeric outliers, not a full rebalance.
+- [ ] Verify the game is keyboard-playable without a mouse. Check: can a player tab to
+      the word-input field and submit with Enter (this likely already works via a form
+      submit or keypress handler -- confirm, don't assume), can they tab through and
+      activate rack tiles, shop items, treasure/event choices, and the deck-viewer/
+      item-inspector/consumables panels' close buttons using only Tab and Enter/Space?
+      Fix anything that's actually unreachable via keyboard (e.g. missing tabindex on
+      a clickable div, a handler only wired to 'click' and not keyboard-equivalent
+      activation). This is a baseline accessibility/UX correctness check, not a
+      request for a new keybinding scheme -- don't add hotkeys or remap anything that
+      already works.
+- [ ] Spot-check responsive/mobile layout at a few common small-screen widths (e.g.
+      375px and 414px, typical phone viewport widths) using Playwright's
+      page.setViewportSize -- take screenshots (page.screenshot, save under a scratch
+      path, describe what you see in PROGRESS.md since you can't literally look at the
+      image) or programmatically check for horizontal overflow / elements clipped off
+      screen (element.scrollWidth > window.innerWidth, or bounding boxes extending past
+      the viewport) across the main menu, character select, a combat screen, and the
+      shop panel. Fix clear, low-risk CSS overflow/sizing issues if found (e.g. a fixed
+      -width element that should be responsive); don't attempt a full mobile redesign
+      in one pass -- note anything bigger as a new gap in ROADMAP.md instead of forcing
+      it.
+
 - [x] CRITICAL, fix immediately, highest priority in the queue: the game is currently 100%
       unplayable. Clicking "New Run" on the main menu results in a completely blank page --
       every single screen (main menu, character select, run, game-over, victory) ends up

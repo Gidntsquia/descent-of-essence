@@ -1963,3 +1963,33 @@ cycle.
 **Next action:** Awaiting new tasks in GOALS.md to resume work.
 
 Routine will idle until new tasks are added.
+
+---
+
+## 2026-08-19T18:48Z (Claude, direct improvement pass -- not a routine run)
+
+Jaxon asked how the game could be improved with minimal input from him. GOALS.md's
+queue was genuinely empty and ROADMAP.md's "known gaps" were mostly stale (touch
+support, replayability, itch.io-readiness all resolved since that list was last
+accurate). Refilled the queue with five well-scoped, taste-independent tasks the
+routine can grind through without needing Jaxon's creative input: audio settings
+persistence, wordlist load-time investigation, a systematic balance-simulation pass
+across all 3 floors, keyboard-playability verification, and a mobile/small-screen
+layout spot-check. Full details on each are in GOALS.md.
+
+Also picked off the fastest one directly (continuing today's pattern of fixing
+low-risk, fully-diagnosed issues myself rather than only ticketing): audio
+mute/volume settings weren't persisted anywhere -- only achievements.js wrote to
+localStorage. Added a separate 'wordbound_audio_settings' key, loaded on init and
+applied to both the audio graph and the UI (slider position, mute icon) so a
+returning player sees their last setting instead of the 10%-unmuted default every
+time. Also fixed a related bug found in the same code: toggleMusicMute() hardcoded
+0.1 as the restore-on-unmute volume regardless of what the player had actually set
+the slider to -- now correctly restores the real saved volume.
+
+Verified with Playwright: set volume to 75%, muted, reloaded the page, confirmed the
+slider and mute icon reflected the saved state on load, then unmuted and confirmed
+it restored 0.75 (not the old hardcoded 0.1). `npm test` 16/16 clean, plus a quick
+real-browser combat regression check.
+
+Four tasks remain in the queue for the hourly routine.
