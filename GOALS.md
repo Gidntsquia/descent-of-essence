@@ -34,17 +34,15 @@ Rules for the routine:
       display name only), update the main-menu tagline in wordbound.html to fit, and optionally
       show the floor's name alongside "Floor N / 3" in renderRun() (game.js) if it fits the HUD
       cleanly. Small, mechanical, should be low-risk.
-- [ ] Expand the dictionary (js/wordbound/wordlist.js) -- it's only ~10k common words right now
-      (first20hours/google-10000-english), so many valid words get rejected. This machine already
-      has a much bigger public-domain list locally at /usr/share/dict/words (~236k entries,
-      Webster's Second via macOS) -- do NOT fetch anything from the internet, that local file is
-      sufficient and license-safe. Rebuild WORDS/WORD_SET using the SAME filtering pipeline already
-      documented in wordlist.js's header (alphabetic only, length 2-15, deduped, uppercased) applied
-      to /usr/share/dict/words instead, and additionally drop any entry that isn't all-lowercase in
-      the source (that file capitalizes proper nouns like "Aaron" -- Wordbound has no proper-noun
-      concept). Update the header comment to describe the new source. Note the final word count in
-      PROGRESS.md. Pure data swap -- same WORD_SET Set-of-strings shape, don't touch Lexicon or
-      anything that reads this file.
+- [x] Expand the dictionary (js/wordbound/wordlist.js) -- was only ~10k common words, so many valid
+      words were getting rejected. Done directly on 2026-08-19 (not by the cloud routine -- the
+      source file, /usr/share/dict/words, only exists on Jaxon's local Mac, not the cloud sandbox,
+      so this was never completable there as originally scoped). Rebuilt WORDS/WORD_SET from that
+      local system dictionary (~236k entries, Webster's Second, public domain) using the filtering
+      pipeline already documented in wordlist.js's header (lowercase-alphabetic in the source only --
+      drops proper nouns --, length 2-15, deduped, uppercased). Final count: 204,217 words (up from
+      ~10k). File grew from ~95KB to ~2.5MB -- fine for a static site, but flagging in case load time
+      on slow connections ever becomes worth revisiting.
 - [ ] Add a deck viewer: a button on the run screen showing every tile in state.deck (game.js) --
       not just the current rack -- with letter + bonus description (Tiles.describeBonus) per tile,
       sorted however reads clearly. Viewable any time during a run, not just mid-combat. Follow the

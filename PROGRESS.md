@@ -55,3 +55,39 @@ to spot-check if it can't render one either.
 Also note: the reward screen offers a Skip button even though Jaxon's spec didn't
 explicitly ask for one -- added because requirement #2 said "you *can* add" a tile,
 which reads as optional. Flagging in case that's not what was wanted.
+
+---
+
+## 2026-08-19T03:12Z
+
+**IMPORTANT for whoever picks up the next task:** the hourly routine is temporarily
+PAUSED (`enabled: false`). Read this whole entry before assuming anything is broken
+in the code.
+
+What happened: a manually-triggered run (session cse_017NbPx6jo1U7kAo3gTxZXdg,
+02:59-03:07 UTC) did excellent work -- completed the QA pass, applied the THEME.md
+naming, built a deck viewer, built an item inspector, and added rack animation +
+drag-to-reorder (5 of the then-remaining 6 tasks). But **every commit failed to push
+with `403 Forbidden`**, and the whole session's work was stranded in that sandbox and
+is now unrecoverable -- none of it reached `main`. Diagnosis: this repo's only
+collaborator is Jaxon's own GitHub account (checked via `gh api
+repos/Gidntsquia/descent-of-essence/collaborators`); there's no bot/app installed with
+push access, so the cloud routine's sandbox had no credential to push with at all. The
+repo is public, so cloning/reading worked fine, which is why the run got all the way
+through doing real work before failing at the very last step.
+
+This means **every future run will hit the identical wall** until Jaxon connects
+GitHub write access for the Claude Code cloud environment (this needs to happen on
+claude.ai directly -- not something fixable from inside a routine run). I've paused
+the routine and flagged this to him directly rather than let it keep burning cycles on
+work that can't land.
+
+**Queue status is NOT what a stranded session's local commits would suggest.** As
+actually reflected on `main`: task 1 (deck rework) and task 4 (dictionary, done
+separately -- see the entry above this one from the live session, not the routine)
+are the only ones checked off. Tasks 2 (QA pass), 3 (theme), 5 (deck viewer), 6 (item
+inspector), and 7 (rack animation/drag) are still unchecked and still need doing --
+the stranded session's work on them is gone, not merged. Don't skip them thinking
+they're done. Whoever resumes this queue after the routine is re-enabled: start from
+task 2 as normal. The good news is a single Haiku run demonstrably got through 5 of
+those in under 8 minutes once before, so redoing them shouldn't be slow.
