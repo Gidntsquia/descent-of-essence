@@ -602,3 +602,29 @@ errors, but was effectively inaudible. Analysis found the problem:
 **Testing:** npm test passes, all 12 DOM checks clean.
 
 **Current status:** 11 of 14 tasks complete. Next: add version number/build identifier (Task 3).
+
+---
+
+## 2026-08-19T09:14Z
+
+**Add a version number/build identifier (Task 3 from new queue)** -- COMPLETED and pushed.
+
+**What was implemented:**
+- Added version display "v0.1" to the main menu below the WORDBOUND title
+- Created `.version-info` CSS class with muted gold color (#9a8b6f), small font size (0.85rem),
+  and subtle letter-spacing (0.05em) to match the parchment/archive aesthetic
+- Established semantic versioning convention in GOALS.md rules section:
+  * Bump minor version (v0.1 → v0.2) for feature additions or significant polish
+  * Bump patch version (v0.1.1) for user-facing bug fixes only
+  * Move to v1.0 after successful itch.io launch and stabilization
+  * Future tasks should bump the version when completing feature work or major polish
+
+**Testing:** npm test passes all 12 DOM checks, no errors from the new version display.
+
+**Rationale:** Started at v0.1 because the game now has full core features (Slay the Spire
+deck system, themed monsters, comprehensive 204k+ word dictionary, animations, drag-to-reorder,
+combat feedback effects, synthesized audio/music, and touch support). This represents a
+complete, feature-rich release candidate ready for itch.io launch. Future feature tasks
+will bump to v0.2, v0.3, etc. as development continues.
+
+**Current status:** 12 of 14 tasks complete. Next: visual distinction for monsters/bosses (Task 4).
