@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wordbound</title>
+<link rel="stylesheet" href="css/wordbound.css">
+</head>
+<body>
+<div id="wb-root">
+
+  <div id="screen-main-menu" class="screen">
+    <div class="panel main-menu-panel">
+      <h1 class="game-title">WORDBOUND</h1>
+      <p class="tagline">Spell your way through the deep. Every monster has a weakness -- find the word that hits it.</p>
+      <p class="menu-goal">Fight through 3 floors. Defeat each floor's boss to descend. Beat the floor 3 boss to win the run.</p>
+      <button id="btn-new-run" class="btn btn-primary">New Run</button>
+    </div>
+  </div>
+
+  <div id="screen-run" class="screen hidden">
+    <div class="run-header">
+      <div id="player-hp-display" class="hp-display"></div>
+      <div id="floor-label" class="floor-label"></div>
+    </div>
+    <div id="items-owned" class="items-owned"></div>
+    <div id="message-log" class="message-log"></div>
+
+    <div id="node-map" class="node-map"></div>
+
+    <div id="combat-panel" class="combat-panel hidden">
+      <div id="monster-info" class="monster-info"></div>
+      <div id="rack-display" class="rack-display"></div>
+      <div class="word-input-row">
+        <input id="word-input" type="text" maxlength="15" autocomplete="off" spellcheck="false" placeholder="Type or click letters..." />
+        <button id="btn-submit-word" class="btn btn-primary">Play Word</button>
+        <button id="btn-clear-word" class="btn btn-secondary">Clear</button>
+      </div>
+    </div>
+
+    <div id="treasure-panel" class="treasure-panel hidden">
+      <h2>Choose an item</h2>
+      <div id="treasure-choices" class="treasure-choices"></div>
+    </div>
+  </div>
+
+  <div id="screen-game-over" class="screen hidden">
+    <div class="panel">
+      <h1>You Died</h1>
+      <p id="game-over-stats"></p>
+      <button id="btn-gameover-continue" class="btn btn-primary">Main Menu</button>
+    </div>
+  </div>
+
+  <div id="screen-victory" class="screen hidden">
+    <div class="panel">
+      <h1>Victory!</h1>
+      <p id="victory-stats"></p>
+      <button id="btn-victory-continue" class="btn btn-primary">Main Menu</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/core/namespace.js"></script>
+<script src="js/core/rng.js"></script>
+<script src="js/wordbound/wordlist.js"></script>
+<script src="js/wordbound/lexicon.js"></script>
+<script src="js/wordbound/traits.js"></script>
+<script src="js/wordbound/monsters.js"></script>
+<script src="js/wordbound/combat.js"></script>
+<script src="js/wordbound/items.js"></script>
+<script src="js/wordbound/floor.js"></script>
+<script src="js/wordbound/game.js"></script>
+<script>window.Wordbound.Game.init();</script>
+</body>
+</html>

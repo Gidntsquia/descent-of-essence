@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Descent of Essence</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game-root">
+  <!-- Screen containers. Visibility is toggled by Game.UI.Screens.show
+       (stateName) via a `.hidden` class (see style.css). Static structural
+       markup lives here; dynamic content is populated by the
+       Screens.render*() functions in js/ui/screens.js. All buttons use
+       data-action (+ data-*-id where relevant) for the single delegated
+       click handler registered via Screens.onAction() -- see the header
+       comment in js/ui/screens.js for the full data-action catalog. -->
+
+  <div id="screen-main-menu" class="screen hidden">
+    <div class="screen-panel main-menu-panel">
+      <h1 class="game-title">Descent of Essence</h1>
+      <div class="menu-goal">Fight through 3 floors. Defeat each floor's boss to descend. Beat floor 3's boss to win the run.</div>
+      <div id="main-menu-best-floor" class="menu-subtext">Best floor reached: 0</div>
+      <div class="menu-actions">
+        <button id="btn-new-run" class="btn btn-primary" data-action="new-run">New Run</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-character-select" class="screen hidden">
+    <div class="screen-panel character-select-panel">
+      <h2>Select a Character</h2>
+      <div id="character-select-list" class="character-card-list"></div>
+    </div>
+  </div>
+
+  <div id="screen-run" class="screen hidden">
+    <div class="run-layout">
+      <div id="hud" class="hud-container"></div>
+      <div class="canvas-wrapper">
+        <canvas id="game-canvas" width="616" height="504"></canvas>
+      </div>
+      <div id="message-log" class="message-log-container"></div>
+    </div>
+  </div>
+
+  <div id="screen-game-over" class="screen hidden">
+    <div class="screen-panel">
+      <h2>You Died</h2>
+      <div id="game-over-stats" class="run-stats"></div>
+      <button id="btn-continue-gameover" class="btn btn-primary" data-action="continue-gameover">Main Menu</button>
+    </div>
+  </div>
+
+  <div id="screen-victory" class="screen hidden">
+    <div class="screen-panel">
+      <h2>Victory!</h2>
+      <div id="victory-stats" class="run-stats"></div>
+      <button id="btn-continue-victory" class="btn btn-primary" data-action="continue-victory">Main Menu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Script load order matters: classic scripts (no type="module", so this
+     works from file:// with no build step and no CORS issues). Every file
+     may reference other packages' functions inside function bodies, but must
+     never call across packages at top-level/load time. -->
+
+<!-- core -->
+<script src="js/core/namespace.js"></script>
+<script src="js/core/constants.js"></script>
+<script src="js/core/rng.js"></script>
+<script src="js/core/utils.js"></script>
+
+<!-- data -->
+<script src="js/data/items.js"></script>
+<script src="js/data/consumables.js"></script>
+<script src="js/data/enemies.js"></script>
+<script src="js/data/bosses.js"></script>
+<script src="js/data/characters.js"></script>
+
+<!-- systems -->
+<script src="js/systems/entities.js"></script>
+<script src="js/systems/items_engine.js"></script>
+<script src="js/systems/combat.js"></script>
+<script src="js/systems/ai.js"></script>
+<script src="js/systems/dungeon.js"></script>
+<script src="js/systems/save.js"></script>
+
+<!-- ui -->
+<script src="js/ui/renderer.js"></script>
+<script src="js/ui/hud.js"></script>
+<script src="js/ui/messageLog.js"></script>
+<script src="js/ui/input.js"></script>
+<script src="js/ui/screens.js"></script>
+
+<!-- orchestration, written last -->
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,442 @@
+:root {
+  --color-bg: #14121a;
+  --color-panel: #1f1c29;
+  --color-border: #3a3550;
+  --color-text: #e8e4f0;
+  --color-text-dim: #a29cc0;
+  --color-accent: #7c5cff;
+  --color-gold: #f2c14e;
+  --color-hp: #e0455f;
+  --color-danger: #ff5566;
+  --font-main: 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Courier New', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-main);
+}
+
+#game-root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* ==========================================================================
+   Package D: screen / HUD / shop / canvas styling.
+   Visibility convention: `.hidden` -> display:none. Screens.show() toggles
+   this class on the top-level containers listed in screens.js.
+   ========================================================================== */
+
+.hidden {
+  display: none !important;
+}
+
+button {
+  font-family: var(--font-main);
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn {
+  background: var(--color-panel);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-small {
+  padding: 0.35em 0.8em;
+  font-size: 0.85em;
+}
+
+/* ---- generic full-screen containers ---- */
+
+.screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100vh;
+  padding: 2em 1em;
+}
+
+.screen-panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 2em;
+  max-width: 720px;
+  width: 100%;
+}
+
+.screen-panel h2 {
+  margin-top: 0;
+}
+
+/* ---- main menu ---- */
+
+.main-menu-panel {
+  text-align: center;
+}
+
+.game-title {
+  font-size: 2.4em;
+  margin: 0 0 0.3em;
+  color: var(--color-accent);
+}
+
+.menu-goal {
+  color: var(--color-text);
+  max-width: 32em;
+  margin: 0 auto 1em;
+  line-height: 1.5;
+}
+
+.menu-subtext {
+  color: var(--color-text-dim);
+  margin-bottom: 1.5em;
+}
+
+.menu-actions {
+  display: flex;
+  gap: 1em;
+  justify-content: center;
+}
+
+.empty-hint {
+  color: var(--color-text-dim);
+  font-style: italic;
+}
+
+/* ---- character select ---- */
+
+.character-card-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75em;
+}
+
+.character-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  text-align: center;
+}
+
+.character-card-locked {
+  opacity: 0.5;
+}
+
+.character-card-name {
+  font-weight: 600;
+  font-size: 1.1em;
+}
+
+.character-card-desc {
+  font-size: 0.85em;
+  color: var(--color-text-dim);
+  flex-grow: 1;
+}
+
+.character-card-locked-label {
+  color: var(--color-text-dim);
+  font-style: italic;
+}
+
+/* ---- run screen (canvas + HUD + log) ---- */
+
+.run-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+  padding: 1em;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.canvas-wrapper {
+  position: relative; /* anchor point for the telegraph overlay */
+  line-height: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#game-canvas {
+  display: block;
+  background: var(--color-bg);
+}
+
+.renderer-telegraph {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 0.4em 0.6em;
+  background: rgba(224, 69, 95, 0.85);
+  color: #ffffff;
+  font-weight: 700;
+  text-align: center;
+  font-size: 0.95em;
+  pointer-events: none;
+}
+
+/* ---- HUD ---- */
+
+.hud-container {
+  min-width: 220px;
+  flex-shrink: 0;
+}
+
+.hud-panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.85em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.hud-row-label {
+  color: var(--color-text-dim);
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.3em;
+}
+
+.hud-goal-text {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.5em 0.6em;
+  font-size: 0.85em;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.hud-minimap {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.hud-map-cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 2px;
+}
+
+.hud-map-empty {
+  background: transparent;
+}
+
+.hud-map-unvisited {
+  opacity: 0.4;
+}
+
+.hud-map-current {
+  outline: 2px solid #ffffff;
+  outline-offset: -2px;
+}
+
+.hud-row-vitals {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35em;
+}
+
+.hud-hp-bar {
+  position: relative;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  height: 1.4em;
+  overflow: hidden;
+}
+
+.hud-hp-fill {
+  height: 100%;
+  background: var(--color-hp);
+  width: 100%;
+  transition: width 0.2s ease;
+}
+
+.hud-hp-fill.hud-hp-low {
+  background: var(--color-danger);
+}
+
+.hud-hp-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  font-family: var(--font-mono);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.hud-gold-text {
+  color: var(--color-gold);
+  font-weight: 600;
+}
+
+.hud-floor-text {
+  color: var(--color-text-dim);
+  font-size: 0.9em;
+}
+
+.hud-icon-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  min-height: 1.6em;
+}
+
+.hud-item-icon {
+  position: relative;
+  width: 2em;
+  height: 2em;
+  border-radius: 5px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75em;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.hud-icon-badge {
+  position: absolute;
+  bottom: -0.4em;
+  right: -0.4em;
+  background: var(--color-accent);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.65em;
+  min-width: 1.3em;
+  height: 1.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.2em;
+}
+
+.hud-status-badge {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.15em 0.5em;
+  font-size: 0.75em;
+  color: var(--color-text-dim);
+}
+
+/* ---- message log ---- */
+
+.message-log-container {
+  min-width: 220px;
+  max-width: 260px;
+  flex-shrink: 0;
+}
+
+.message-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.6em;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  height: 504px; /* matches canvas height (ROOM_TILE_H * TILE_SIZE) */
+  overflow-y: auto;
+  font-size: 0.8em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.log-entry {
+  color: var(--color-text-dim);
+  line-height: 1.3;
+}
+
+.log-entry:last-child {
+  color: var(--color-text);
+}
+
+/* ---- run stats (game over / victory) ---- */
+
+.run-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  margin: 1em 0 1.5em;
+}
+
+.stat-line {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.3em;
+  color: var(--color-text-dim);
+}
+
+.stat-line span:last-child {
+  color: var(--color-text);
+  font-weight: 600;
+}
