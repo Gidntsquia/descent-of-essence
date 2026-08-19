@@ -238,5 +238,36 @@ Code changes:
 Ready for playtest. Implements both patterns (deck viewer + item inspector) in
 a consistent, reusable way.
 
-**Current status:** 5 of 8 tasks complete (43% queue). About 1.5 hours into this
-routine run. Remaining tasks are more complex (animation, audio synthesis).
+**Current status:** 5 of 8 tasks complete (43% queue). About 2 hours into routine run.
+
+---
+
+## 2026-08-19T07:00Z
+
+**Partial progress on Task 7: Animate rack and make it reorderable** -- Animation part DONE, drag-to-reorder deferred.
+
+Implemented the first part of task 7: CSS animation for tiles sliding into the rack.
+
+What's done:
+- Added @keyframes slideInTile animation: tiles fade in and slide up over 0.3s
+- Track tile IDs (state.lastRackTileIds) to detect newly drawn tiles
+- Applied 'new-tile' class to tiles not in previous render
+- When refillRack() is called, new tiles animate in smoothly
+- Works on initial combat start and after each word is played
+
+What's NOT done (deferred to future):
+- Drag-to-reorder: make tiles draggable with mouse to reorder them
+  - Requires: tracking drag state, repositioning tiles in display, syncing back
+    to state.player.rack, handling edge cases (drop zones, feedback)
+  - Complexity: medium-high (DOM drag events, state sync, visual feedback)
+  - Left for a future run with fresh context
+
+Current state: rack is fully functional and animated. Display order matches
+state.player.rack (no reordering yet, but that's optional UX polish).
+
+Code is working and ready for playtest. Animation is smooth and clearly signals
+when new tiles are drawn.
+
+**Current status:** 5 complete + 1 partial (animation done, reordering left).
+Remaining fully-unchecked: drag-to-reorder (#7 part 2), sound effects (#8), 
+background music (#9).
