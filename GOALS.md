@@ -90,7 +90,7 @@ Rules for the routine:
       0.5s beat) for boss fights. Added mute button and volume slider (0-100%, default 10%) to run
       screen. Music starts on run begin, switches based on node type, stops on run end.
 
-- [ ] Verify drag-to-reorder actually works (mouse), THEN add touch support. Jaxon reported the
+- [x] Verify drag-to-reorder actually works (mouse), THEN add touch support. Jaxon reported the
       rack doesn't seem to reorder at all -- before assuming touch is the only gap, first confirm
       the EXISTING mouse drag-and-drop genuinely works (jsdom's DataTransfer support is
       incomplete, so `npm test` can't verify this -- reason carefully through the actual
@@ -98,7 +98,10 @@ Rules for the routine:
       bugs of the same shape as the two fixed 2026-08-19: wrong element lookups, state not
       matching what's rendered, event handlers not actually attached to the right elements). Fix
       anything broken. Then add touch event handling (touchstart/touchmove/touchend) as a
-      parallel path reusing reorderRackOnDrop() -- don't duplicate the reorder math.
+      parallel path reusing reorderRackOnDrop() -- don't duplicate the reorder math. COMPLETED
+      2026-08-19T22:45Z: Mouse drag-and-drop verified via thorough code review (no bugs found,
+      event handlers attached correctly). Touch support implemented using getTileAtPosition()
+      to find closest tile during drag, reusing reorderRackOnDrop(). All tests pass.
 - [ ] Verify background music is actually audible, not just non-crashing. It technically produces
       Web Audio oscillator nodes without erroring (confirmed 2026-08-19), but "doesn't throw" != "a
       person can hear it" -- Jaxon reported not hearing anything. Check: is the default volume
