@@ -178,6 +178,7 @@
 
     var tag = result.multiplier === 0 ? ' -- no effect!' : result.multiplier > 1 ? ' -- weak point!' : '';
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
+    animateDamage(result.damage);
 
     if (state.monster.hp <= 0) {
       onMonsterDefeated();
@@ -190,6 +191,7 @@
     Items.runHook('onPlayerDamaged', dmgCtx, state.player);
     state.player.hp = Math.max(0, state.player.hp - dmgCtx.damage);
     log(state.monster.name + ' hits you for ' + dmgCtx.damage + '.');
+    if (dmgCtx.damage > 0) animatePlayerDamage();
 
     if (state.player.hp <= 0) {
       state.combatActive = false;
@@ -263,6 +265,38 @@
     state.itemInspectorId = null;
     render();
   };
+
+  // ---- combat animations --------------------------------------------------------
+
+  function animateDamage(damage) {
+    if (damage <= 0) return;
+    var hpFill = $('monster-hp-fill');
+    hpFill.classList.remove('flash-damage');
+    void hpFill.offsetWidth; // trigger reflow to restart animation
+    hpFill.classList.add('flash-damage');
+    setTimeout(function () { hpFill.classList.remove('flash-damage'); }, 300);
+
+    var monsterInfo = $('monster-info');
+    var dmgNum = document.createElement('div');
+    dmgNum.className = 'damage-number';
+    if (damage > 30) dmgNum.classList.add('critical');
+    else if (damage < 5) dmgNum.classList.add('weak');
+    else dmgNum.classList.add('normal');
+    dmgNum.textContent = damage;
+    dmgNum.style.left = '50%';
+    dmgNum.style.top = '50%';
+    dmgNum.style.transform = 'translate(-50%, -50%)';
+    monsterInfo.appendChild(dmgNum);
+    setTimeout(function () { dmgNum.remove(); }, 1000);
+  }
+
+  function animatePlayerDamage() {
+    var hpDisplay = $('player-hp-display');
+    hpDisplay.classList.remove('take-damage');
+    void hpDisplay.offsetWidth; // trigger reflow to restart animation
+    hpDisplay.classList.add('take-damage');
+    setTimeout(function () { hpDisplay.classList.remove('take-damage'); }, 400);
+  }
 
   // ---- rack reordering --------------------------------------------------------
 

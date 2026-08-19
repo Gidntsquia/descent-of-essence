@@ -72,7 +72,14 @@ body {
   margin-bottom: 8px;
 }
 
+@keyframes playerDamageFlash {
+  0% { color: #ff6060; }
+  100% { color: #e08a8a; }
+}
 .hp-display { color: #e08a8a; font-weight: bold; }
+.hp-display.take-damage {
+  animation: playerDamageFlash 0.4s ease-out;
+}
 .floor-label { color: #b8ac8a; }
 
 .items-owned {
@@ -139,12 +146,35 @@ body {
 
 .combat-panel { margin-top: 12px; }
 
+@keyframes floatDamage {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-60px);
+    opacity: 0;
+  }
+}
+.damage-number {
+  position: absolute;
+  font-weight: bold;
+  font-size: 1.5rem;
+  pointer-events: none;
+  animation: floatDamage 1s ease-out forwards;
+}
+.damage-number.critical { color: #e08a8a; }
+.damage-number.normal { color: #f0d789; }
+.damage-number.weak { color: #9ab88a; }
+
 .monster-info {
   background: #241f17;
   border: 1px solid #4a4130;
   border-radius: 8px;
   padding: 14px 18px;
   margin-bottom: 16px;
+  position: relative;
+  overflow: visible;
 }
 
 .monster-name { font-size: 1.3rem; color: #f0d789; margin-bottom: 8px; }
@@ -157,7 +187,20 @@ body {
   overflow: hidden;
   margin-bottom: 4px;
 }
+@keyframes hpFlash {
+  0% { background: #e08a8a; }
+  50% { background: #a03c3c; }
+  100% { background: #a03c3c; }
+}
+@keyframes hpShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(2px); }
+  75% { transform: translateX(-2px); }
+}
 .monster-hp-fill { background: #a03c3c; height: 100%; transition: width 0.2s; }
+.monster-hp-fill.flash-damage {
+  animation: hpFlash 0.3s ease-out, hpShake 0.15s ease-out;
+}
 .monster-hp-text { font-size: 0.85rem; color: #b8ac8a; margin-bottom: 8px; }
 .monster-weakness { font-size: 0.9rem; color: #9ab88a; font-style: italic; }
 
