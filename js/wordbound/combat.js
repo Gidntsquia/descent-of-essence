@@ -8,10 +8,14 @@
 //   playWord(player, monster, word, rng)
 //     -> null if the word isn't formable/valid (caller should reject before
 //        spending a turn), otherwise:
-//        { word, tilesUsed, score, activeTraitId, multiplier, damage,
-//          monsterDied }
+//        { word, tilesUsed, score, holdMult, activeTraitId, multiplier,
+//          damage, monsterDied }
+//        tilesUsed is the array of tiles.js Tile objects spent. holdMult is
+//        the combined MULT_ON_HOLD multiplier from tiles left in the rack.
+//        multiplier is just the trait (weakness/resistance) multiplier.
+//        damage = round(score.total * holdMult * multiplier).
 //     On success, mutates player.rack (removes used tiles) and monster.hp.
-//     Does NOT refill the rack or advance the turn -- caller's job.
+//     Does NOT refill/discard the rack or advance the turn -- caller's job.
 //
 //   monsterAttack(player, monster)
 //     -> { damage } and mutates player.hp (clamped at 0). Flat damage for
@@ -25,27 +29,39 @@
   Combat.playWord = function (player, monster, word) {
     var Lexicon = window.Wordbound.Lexicon;
     var Traits = window.Wordbound.Traits;
+    var Tiles = window.Wordbound.Tiles;
 
     if (!Lexicon.isValidWord(word)) return null;
     var formed = Lexicon.canFormFromRack(word, player.rack);
     if (!formed.possible) return null;
 
     var score = Lexicon.scoreWord(word.toUpperCase(), formed.tilesUsed);
+
+    Lexicon.removeTiles(player.rack, formed.tilesUsed);
+
+    // MULT_ON_HOLD bonuses come from tiles left in the rack after the played
+    // ones are removed -- Lexicon.scoreWord never sees those, only combat.js
+    // has the full rack.
+    var holdMult = 1;
+    player.rack.forEach(function (tile) {
+      if (tile.bonus && tile.bonus.type === Tiles.BONUS_TYPES.MULT_ON_HOLD) holdMult *= tile.bonus.amount;
+    });
+
     var hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
     var activeTraitId = Traits.activeTraitForHpRatio(monster.traitPhases, hpRatio);
     var trait = Traits.TRAITS[activeTraitId];
-    var multiplier = trait ? trait.multiplier(word.toUpperCase(), formed.tilesUsed) : 1;
-    var damage = Math.round(score.total * multiplier);
+    var traitMultiplier = trait ? trait.multiplier(word.toUpperCase(), formed.tilesUsed) : 1;
+    var damage = Math.round(score.total * holdMult * traitMultiplier);
 
-    Lexicon.removeTiles(player.rack, formed.tilesUsed);
     monster.hp = Math.max(0, monster.hp - damage);
 
     return {
       word: word.toUpperCase(),
       tilesUsed: formed.tilesUsed,
       score: score,
+      holdMult: holdMult,
       activeTraitId: activeTraitId,
-      multiplier: multiplier,
+      multiplier: traitMultiplier,
       damage: damage,
       monsterDied: monster.hp <= 0
     };

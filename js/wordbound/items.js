@@ -9,9 +9,15 @@
 //     id, name, hint, rarity,
 //     statMods: { rackCapacityBonus, damageReductionFlat },
 //     hooks: {
-//       onRunStart(ctx)      ctx = { player, bag }
-//       onDraw(ctx)          ctx = { player, drawnTiles, bag, rng }
+//       onRunStart(ctx)      ctx = { player, pileState } -- fires at the
+//                            start of every fight; pileState is that fight's
+//                            { drawPile, discardPile } (see tiles.js), still
+//                            empty of a drawn rack at this point.
+//       onDraw(ctx)          ctx = { player, drawnTiles, pileState, rng }
+//                            drawnTiles is the array of Tile objects just
+//                            drawn (tiles.js); hooks may mutate it in place.
 //       onWordPlayed(ctx)    ctx = { player, monster, word, tilesUsed, result }
+//                            tilesUsed is the array of Tile objects played.
 //                            result is the object Combat.playWord returned;
 //                            hooks may add to result.damage (already applied
 //                            to monster.hp by the caller's follow-up) or heal
@@ -56,18 +62,19 @@
     hooks: {
       onDraw: function (ctx) {
         var VOWELS = ['A', 'E', 'I', 'O', 'U'];
-        var hasVowel = ctx.drawnTiles.some(function (t) { return VOWELS.indexOf(t) !== -1; });
+        var hasVowel = ctx.drawnTiles.some(function (t) { return VOWELS.indexOf(t.letter) !== -1; });
         if (hasVowel || ctx.drawnTiles.length === 0) return;
-        var bagVowelIdx = -1;
-        for (var i = ctx.bag.length - 1; i >= 0; i--) {
-          if (VOWELS.indexOf(ctx.bag[i]) !== -1) { bagVowelIdx = i; break; }
+        var pool = ctx.pileState.drawPile;
+        var vowelIdx = -1;
+        for (var i = pool.length - 1; i >= 0; i--) {
+          if (VOWELS.indexOf(pool[i].letter) !== -1) { vowelIdx = i; break; }
         }
-        if (bagVowelIdx === -1) return;
-        var vowel = ctx.bag.splice(bagVowelIdx, 1)[0];
+        if (vowelIdx === -1) return;
+        var vowelTile = pool.splice(vowelIdx, 1)[0];
         var swapIdx = ctx.rng ? ctx.rng.randInt(0, ctx.drawnTiles.length - 1) : 0;
         var displaced = ctx.drawnTiles[swapIdx];
-        ctx.drawnTiles[swapIdx] = vowel;
-        ctx.bag.push(displaced);
+        ctx.drawnTiles[swapIdx] = vowelTile;
+        pool.push(displaced);
       }
     }
   });
@@ -75,11 +82,12 @@
   def({
     id: 'wildcard_pouch',
     name: 'Wildcard Pouch',
-    hint: 'Adds 2 extra blank tiles to your bag at the start of each floor.',
+    hint: 'Adds 2 extra blank tiles to your draw pile at the start of every fight.',
     rarity: 'uncommon',
     hooks: {
       onRunStart: function (ctx) {
-        ctx.bag.push('?', '?');
+        var Tiles = window.Wordbound.Tiles;
+        ctx.pileState.drawPile.push(Tiles.createTile('?', null), Tiles.createTile('?', null));
       }
     }
   });
@@ -94,7 +102,7 @@
         var Lexicon = window.Wordbound.Lexicon;
         var best = 0;
         ctx.tilesUsed.forEach(function (t) {
-          var v = Lexicon.LETTER_VALUES[t] || 0;
+          var v = Lexicon.LETTER_VALUES[t.letter] || 0;
           if (v > best) best = v;
         });
         if (best > 0) Items.applyBonusDamage(ctx, best);

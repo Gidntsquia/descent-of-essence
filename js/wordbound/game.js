@@ -14,19 +14,23 @@
   window.Wordbound = window.Wordbound || {};
   var Game = (window.Wordbound.Game = {});
 
-  var Lexicon, Traits, Monsters, Combat, Items, Floor, RNG;
+  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG;
 
   var state = {
     screen: 'MAIN_MENU',
     player: null,
     rng: null,
-    bag: [],
+    deck: [],
+    pile: null, // { drawPile, discardPile } -- reset at the start of every fight
     floorNumber: 1,
     floor: null,
     currentNodeIndex: 0,
     monster: null,
     combatActive: false,
-    messages: []
+    messages: [],
+    treasureOptions: null,
+    tileRewardOptions: null,
+    pendingAfterTileReward: null // 'advanceFloor' | 'nextNode'
   };
   Game._state = state; // exposed for headless/browser test inspection only
 
@@ -46,6 +50,7 @@
   Game.startRun = function () {
     state.player = newPlayer();
     state.rng = RNG.create(RNG.randomSeed());
+    state.deck = Tiles.createStarterDeck();
     state.floorNumber = 1;
     state.floor = Floor.generateFloor(state.floorNumber, state.rng);
     state.currentNodeIndex = 0;
@@ -121,8 +126,9 @@
 
   function startCombat(node) {
     state.monster = node.type === 'boss' ? Monsters.createBoss(node.defId) : Monsters.createMonster(node.defId);
-    state.bag = Lexicon.createBag(state.rng);
-    Items.runHook('onRunStart', { player: state.player, bag: state.bag }, state.player);
+    state.pile = { drawPile: Tiles.shuffleIntoDrawPile(state.deck, state.rng), discardPile: [] };
+    state.player.rack = [];
+    Items.runHook('onRunStart', { player: state.player, pileState: state.pile }, state.player);
     refillRack();
     state.combatActive = true;
     log('A ' + state.monster.name + ' appears!');
@@ -133,14 +139,20 @@
     var capacity = Items.getRackCapacity(state.player);
     var needed = capacity - state.player.rack.length;
     if (needed <= 0) return;
-    var drawn = Lexicon.drawTiles(state.bag, needed);
-    if (state.bag.length === 0 && drawn.length < needed) {
-      state.bag = Lexicon.createBag(state.rng);
-      drawn = drawn.concat(Lexicon.drawTiles(state.bag, needed - drawn.length));
-    }
-    var ctx = { player: state.player, drawnTiles: drawn, bag: state.bag, rng: state.rng };
+    var drawn = Tiles.draw(state.pile, needed, state.rng);
+    var ctx = { player: state.player, drawnTiles: drawn, pileState: state.pile, rng: state.rng };
     Items.runHook('onDraw', ctx, state.player);
     state.player.rack = state.player.rack.concat(ctx.drawnTiles);
+  }
+
+  // Slay the Spire-style rack: whatever's left in the rack after a word is
+  // played (used AND unused tiles) goes to the discard pile, then the rack
+  // is fully redrawn. Tiles.draw reshuffles the discard pile back in when
+  // the draw pile runs dry, so this never stalls mid-fight.
+  function cycleRackAfterWord(tilesUsed) {
+    state.pile.discardPile = state.pile.discardPile.concat(tilesUsed, state.player.rack);
+    state.player.rack = [];
+    refillRack();
   }
 
   Game.submitWord = function (rawWord) {
@@ -166,7 +178,7 @@
       return;
     }
 
-    refillRack();
+    cycleRackAfterWord(result.tilesUsed);
 
     var dmgCtx = { player: state.player, monster: state.monster, damage: state.monster.attack || 0 };
     Items.runHook('onPlayerDamaged', dmgCtx, state.player);
@@ -188,12 +200,38 @@
     currentNode().cleared = true;
     var wasBoss = currentNode().type === 'boss';
     state.player.rack = [];
-    if (wasBoss) {
-      advanceFloor();
-      return;
-    }
-    state.currentNodeIndex += 1;
+    state.pendingAfterTileReward = wasBoss ? 'advanceFloor' : 'nextNode';
+    state.tileRewardOptions = Tiles.rollRewardOptions(state.rng, 3);
+    state.screen = 'TILE_REWARD';
     render();
+  }
+
+  Game.pickTileReward = function (tileId) {
+    var chosen = null;
+    state.tileRewardOptions.forEach(function (t) { if (t.id === tileId) chosen = t; });
+    if (chosen) {
+      state.deck.push(chosen);
+      var bonusDesc = Tiles.describeBonus(chosen.bonus);
+      log('Added ' + chosen.letter + (bonusDesc ? ' (' + bonusDesc + ')' : '') + ' to your deck.');
+    }
+    resolveTileReward();
+  };
+
+  Game.skipTileReward = function () {
+    resolveTileReward();
+  };
+
+  function resolveTileReward() {
+    state.tileRewardOptions = null;
+    var pending = state.pendingAfterTileReward;
+    state.pendingAfterTileReward = null;
+    state.screen = 'RUN';
+    if (pending === 'advanceFloor') {
+      advanceFloor();
+    } else {
+      state.currentNodeIndex += 1;
+      render();
+    }
   }
 
   // ---- rendering ---------------------------------------------------------
@@ -228,12 +266,17 @@
     log_.innerHTML = state.messages.map(function (m) { return '<div>' + escapeHtml(m) + '</div>'; }).join('');
     log_.scrollTop = log_.scrollHeight;
 
-    $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE');
+    $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'TILE_REWARD');
     $('combat-panel').classList.toggle('hidden', !state.combatActive);
     $('treasure-panel').classList.toggle('hidden', state.screen !== 'TREASURE');
+    $('tile-reward-panel').classList.toggle('hidden', state.screen !== 'TILE_REWARD');
 
     if (state.screen === 'TREASURE') {
       renderTreasure();
+      return;
+    }
+    if (state.screen === 'TILE_REWARD') {
+      renderTileReward();
       return;
     }
     if (state.combatActive) {
@@ -287,6 +330,19 @@
     });
   }
 
+  function renderTileReward() {
+    var el = $('tile-reward-choices');
+    el.innerHTML = '';
+    state.tileRewardOptions.forEach(function (tile) {
+      var btn = document.createElement('button');
+      btn.className = 'treasure-choice';
+      var bonusDesc = Tiles.describeBonus(tile.bonus);
+      btn.innerHTML = '<strong>' + escapeHtml(tile.letter) + '</strong>' + (bonusDesc ? '<br>' + escapeHtml(bonusDesc) : '');
+      btn.addEventListener('click', function () { Game.pickTileReward(tile.id); });
+      el.appendChild(btn);
+    });
+  }
+
   function renderCombat() {
     var m = state.monster;
     var hpRatio = m.maxHp > 0 ? m.hp / m.maxHp : 0;
@@ -302,17 +358,18 @@
 
     var rack = $('rack-display');
     rack.innerHTML = '';
-    state.player.rack.forEach(function (letter) {
-      var tile = document.createElement('button');
-      tile.type = 'button';
-      tile.className = 'letter-tile';
-      var val = Lexicon.LETTER_VALUES[letter] || 0;
-      tile.innerHTML = (letter === '?' ? '★' : letter) + '<sub>' + val + '</sub>';
-      tile.addEventListener('click', function () {
-        $('word-input').value += (letter === '?' ? '' : letter);
+    state.player.rack.forEach(function (tile) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'letter-tile' + (tile.bonus ? ' has-bonus' : '');
+      var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
+      btn.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
+      if (tile.bonus) btn.title = Tiles.describeBonus(tile.bonus);
+      btn.addEventListener('click', function () {
+        $('word-input').value += (tile.letter === '?' ? '' : tile.letter);
         $('word-input').focus();
       });
-      rack.appendChild(tile);
+      rack.appendChild(btn);
     });
   }
 
@@ -331,11 +388,13 @@
     Combat = window.Wordbound.Combat;
     Items = window.Wordbound.Items;
     Floor = window.Wordbound.Floor;
+    Tiles = window.Wordbound.Tiles;
     RNG = window.Game.RNG;
 
     $('btn-new-run').addEventListener('click', Game.startRun);
     $('btn-gameover-continue').addEventListener('click', Game.returnToMainMenu);
     $('btn-victory-continue').addEventListener('click', Game.returnToMainMenu);
+    $('btn-skip-tile-reward').addEventListener('click', Game.skipTileReward);
 
     $('btn-submit-word').addEventListener('click', function () {
       var input = $('word-input');

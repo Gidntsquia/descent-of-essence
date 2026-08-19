@@ -7,31 +7,30 @@
 //
 // PUBLIC API (window.Wordbound.Lexicon):
 //   LETTER_VALUES[letter] -> Scrabble point value (blank '?' = 0)
-//   LETTER_POOL[letter]   -> standard 100-tile bag distribution (no blanks
-//                            by default; items may add '?' tiles later)
-//   createBag(rng)        -> shuffled array of single-char letter strings,
-//                            built from LETTER_POOL, using the given
-//                            Wordbound RNG instance (see rng.js)
-//   drawTiles(bag, count) -> mutates `bag` (removes from the end), returns
-//                            up to `count` drawn letters (fewer if bag runs low)
+//   LETTER_POOL[letter]   -> standard letter-frequency weights, used by
+//                            tiles.js to roll reward tiles (no blanks here;
+//                            blanks come from specific item effects)
 //   isValidWord(word)     -> bool, checks the bundled dictionary. Word must
 //                            be >= 2 letters. Case-insensitive.
 //   canFormFromRack(word, rack)
-//       -> { possible: bool, tilesUsed: string[] }
-//          tilesUsed are the SPECIFIC rack letters consumed (same length as
-//          word), preferring exact letter matches over blanks so blanks are
-//          only spent when necessary. rack is an array of single-char
-//          strings, blanks represented as '?'. Does not mutate rack.
-//   removeTiles(rack, tilesUsed) -> mutates rack, removing one occurrence of
-//          each tile in tilesUsed (by value, first match).
+//       -> { possible: bool, tilesUsed: Tile[] }
+//          rack/tilesUsed are arrays of tiles.js Tile objects
+//          ({ id, letter, bonus }). tilesUsed are the SPECIFIC rack tile
+//          instances consumed (same length as word, in word order),
+//          preferring exact letter matches over blank ('?') tiles so blanks
+//          are only spent when necessary. Does not mutate rack.
+//   removeTiles(rack, tilesUsed) -> mutates rack, removing each tile in
+//          tilesUsed by matching `.id` (removes the exact instance played,
+//          not just any tile sharing its letter).
 //   scoreWord(word, tilesUsed)
-//       -> { base, lengthBonus, bingoBonus, total }
-//          base = sum of LETTER_VALUES for tilesUsed (blanks contribute 0
-//          regardless of the letter they stand in for -- standard Scrabble
-//          rule). lengthBonus = 3 points per letter beyond the 4th
-//          (5-letter word: +3, 6-letter: +6, ...). bingoBonus = +15 if
-//          tilesUsed.length === 7 (used the whole rack in one word, mirrors
-//          Scrabble's "bingo").
+//       -> { base, lengthBonus, bingoBonus, bonusFlat, bonusMult, total }
+//          base = sum of LETTER_VALUES for tilesUsed (blanks contribute 0).
+//          lengthBonus = 3 points per letter beyond the 4th. bingoBonus =
+//          +15 if tilesUsed.length === 7 (whole rack in one word). bonusFlat/
+//          bonusMult roll up each played tile's on-play bonus (see
+//          tiles.js); total = round((base+lengthBonus+bingoBonus+bonusFlat)
+//          * bonusMult). MULT_ON_HOLD bonuses are NOT included here -- those
+//          depend on tiles left in the rack, which combat.js resolves.
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -51,22 +50,6 @@
   };
   Lexicon.LETTER_POOL = LETTER_POOL;
 
-  Lexicon.createBag = function (rng) {
-    var bag = [];
-    Object.keys(LETTER_POOL).forEach(function (letter) {
-      for (var i = 0; i < LETTER_POOL[letter]; i++) bag.push(letter);
-    });
-    return rng && typeof rng.shuffle === 'function' ? rng.shuffle(bag) : bag;
-  };
-
-  Lexicon.drawTiles = function (bag, count) {
-    var drawn = [];
-    for (var i = 0; i < count && bag.length > 0; i++) {
-      drawn.push(bag.pop());
-    }
-    return drawn;
-  };
-
   Lexicon.isValidWord = function (word) {
     if (!word || word.length < 2) return false;
     var upper = word.toUpperCase();
@@ -75,8 +58,8 @@
 
   // Prefers exact-letter matches over blanks: for each letter in the word,
   // first try to consume a matching tile from the working rack copy; if
-  // none left, fall back to a '?' blank if available; otherwise the word
-  // cannot be formed.
+  // none left, fall back to a '?' blank tile if available; otherwise the
+  // word cannot be formed. rack is an array of tiles.js Tile objects.
   Lexicon.canFormFromRack = function (word, rack) {
     var upper = word.toUpperCase();
     var working = rack.slice();
@@ -84,19 +67,18 @@
 
     for (var i = 0; i < upper.length; i++) {
       var letter = upper[i];
-      var idx = working.indexOf(letter);
-      if (idx !== -1) {
-        tilesUsed.push(letter);
-        working.splice(idx, 1);
-        continue;
+      var idx = -1;
+      for (var j = 0; j < working.length; j++) {
+        if (working[j].letter === letter) { idx = j; break; }
       }
-      var blankIdx = working.indexOf('?');
-      if (blankIdx !== -1) {
-        tilesUsed.push('?');
-        working.splice(blankIdx, 1);
-        continue;
+      if (idx === -1) {
+        for (var k = 0; k < working.length; k++) {
+          if (working[k].letter === '?') { idx = k; break; }
+        }
       }
-      return { possible: false, tilesUsed: null };
+      if (idx === -1) return { possible: false, tilesUsed: null };
+      tilesUsed.push(working[idx]);
+      working.splice(idx, 1);
     }
 
     return { possible: true, tilesUsed: tilesUsed };
@@ -104,23 +86,40 @@
 
   Lexicon.removeTiles = function (rack, tilesUsed) {
     tilesUsed.forEach(function (tile) {
-      var idx = rack.indexOf(tile);
+      var idx = -1;
+      for (var i = 0; i < rack.length; i++) {
+        if (rack[i].id === tile.id) { idx = i; break; }
+      }
       if (idx !== -1) rack.splice(idx, 1);
     });
   };
 
+  // tilesUsed: array of tiles.js Tile objects, in the order they spell the
+  // word. Rolls up each tile's on-play bonus (see tiles.js BONUS_TYPES);
+  // on-hold bonuses depend on tiles NOT played, so combat.js resolves those.
   Lexicon.scoreWord = function (word, tilesUsed) {
+    var Tiles = window.Wordbound.Tiles;
     var base = 0;
+    var bonusFlat = 0;
+    var bonusMult = 1;
     for (var i = 0; i < tilesUsed.length; i++) {
-      base += LETTER_VALUES[tilesUsed[i]] || 0;
+      var tile = tilesUsed[i];
+      base += LETTER_VALUES[tile.letter] || 0;
+      if (tile.bonus) {
+        if (tile.bonus.type === Tiles.BONUS_TYPES.FLAT_ON_PLAY) bonusFlat += tile.bonus.amount;
+        else if (tile.bonus.type === Tiles.BONUS_TYPES.MULT_ON_PLAY) bonusMult *= tile.bonus.amount;
+      }
     }
     var lengthBonus = word.length > 4 ? (word.length - 4) * 3 : 0;
     var bingoBonus = tilesUsed.length === 7 ? 15 : 0;
+    var total = Math.round((base + lengthBonus + bingoBonus + bonusFlat) * bonusMult);
     return {
       base: base,
       lengthBonus: lengthBonus,
       bingoBonus: bingoBonus,
-      total: base + lengthBonus + bingoBonus
+      bonusFlat: bonusFlat,
+      bonusMult: bonusMult,
+      total: total
     };
   };
 })();

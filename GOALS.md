@@ -16,6 +16,15 @@ Rules for the routine:
 
 ## Queue
 
-- [ ] Get familiar with the codebase (index.html / Descent of Essence and wordbound.html /
-      Wordbound). Note in PROGRESS.md a short summary of the architecture and any bugs or
-      rough edges you notice, as a starting point for future tasks.
+- [x] Slay the Spire-style deck rework for Wordbound: fixed 12-tile starter deck, pick-1-of-3
+      tile reward after every fight (skippable), rare bonus tiles (flat/multiplier score bonuses,
+      on-play or on-hold), full rack discard + redraw after every word played. Implemented directly
+      in conversation on 2026-08-18 (js/wordbound/tiles.js [new], lexicon.js, combat.js, items.js,
+      game.js, wordbound.html, css/wordbound.css). See PROGRESS.md for details.
+- [ ] QA/polish pass on the deck system above: check rack and tile-reward screen UI/UX clarity
+      (especially the bonus-tile highlight and tooltip), verify item hooks (lucky_vowel,
+      wildcard_pouch) behave correctly against the new draw/discard pile model, look for edge
+      cases (empty deck+discard mid-fight, duplicate-letter tile identity, etc.), and playtest a
+      full run if possible. Fix anything clearly broken; leave genuinely ambiguous design calls
+      (e.g. reward-screen skip option, bonus tile rarity tuning) noted in PROGRESS.md for Jaxon
+      rather than guessing.
