@@ -2558,3 +2558,37 @@ total full-playthrough regressions across this session (10 before the merge, 6 a
 the cleanup, including forced-Scribe runs), zero errors, zero detected softlocks.
 
 Both items in GOALS.md marked complete. No unchecked items remain in the queue.
+
+---
+
+## 2026-08-19T22:14Z -- ROUTINE CHECK-IN (IDLE CONFIRMED)
+
+**Status:** No new unchecked tasks in GOALS.md queue.
+**Test result:** npm test - all 16 DOM checks pass ✓
+**Dependencies:** npm install confirmed, jsdom ready
+**Roadmap gaps:** All automatable items completed or explicitly outside automation scope (need human testing/decisions):
+  - Critical bugs (null element, render order): ✓ FIXED
+  - Touch/mobile support (drag-to-reorder): ✓ IMPLEMENTED  
+  - itch.io build readiness: ✓ CONFIRMED (file:// protocol works, GitHub Pages URL verified)
+  - Replayability thin: ✓ ADDRESSED (achievements + unlockable items system)
+  - Store page copy: ✓ EXISTS (draft in ROADMAP.md for Jaxon's use)
+  - Real browser playtest: ⏳ OUTSIDE SCOPE (orchestrator QA pass completed, Jaxon's direct playtest needed)
+  - Gameplay GIF: ⏳ OUTSIDE SCOPE (requires human screen recording)
+  - itch.io page creation & promotion: ⏳ OUTSIDE SCOPE (Jaxon's responsibility)
+
+**What's shipped:**
+- ✅ Slay the Spire deck system (persistent tiles, fight-scoped piles)
+- ✅ 204k+ word dictionary (Webster's Second)
+- ✅ 3 character loadouts with unique starting decks/items
+- ✅ Shop, consumables, event nodes, treasure, rest system
+- ✅ 5 achievements unlocking 5 rare items
+- ✅ Drag-to-reorder rack (mouse + touch)
+- ✅ Combat feedback (damage numbers, HP flash, synthesized effects)
+- ✅ Background music (calm + boss modes)
+- ✅ All critical bugs fixed (show() visibility, Page Turn crash, etc.)
+- ✅ Comprehensive npm test suite (16/16 passing)
+- ✅ README.md, THEME.md documentation
+
+**Routine will remain idle until new tasks are added to GOALS.md.**
+Game is production-ready and awaiting Jaxon's playtest/itch.io launch.
+
