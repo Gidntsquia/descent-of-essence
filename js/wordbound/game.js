@@ -882,6 +882,7 @@
       var btn = document.createElement('button');
       btn.className = 'treasure-choice' + (canAfford ? '' : ' shop-unavailable');
       btn.style.opacity = canAfford ? '1' : '0.6';
+      btn.disabled = !canAfford;
       var priceColor = canAfford ? '#f0d789' : '#8b7355';
       var typeLabel = isConsumable ? ' [Consumable]' : '';
       btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><span style="font-size: 0.8rem; color: #9a8b6f;">' + typeLabel + '</span><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + (def.shopPrice || 0) + ' 🪙</span>';

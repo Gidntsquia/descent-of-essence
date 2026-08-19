@@ -202,11 +202,12 @@ Rules for the routine:
         larger than normal capacity after Page Turn. `npm test`'s jsdom harness can check all
         of this; add assertions for it if useful for future regressions. DONE via
         test/verify-consumables-fix.js and test/verify-consumables-gameplay.js.
-- [ ] Minor UX polish, low priority: in renderShop() (game.js), items the player can't afford
+- [x] Minor UX polish, low priority: in renderShop() (game.js), items the player can't afford
       are styled at reduced opacity but not given the `disabled` attribute, so they're still
       technically clickable (no listener is attached, so clicking silently does nothing --
       not a crash, just not obviously "this button doesn't work" to a player). Consider
       setting `btn.disabled = true` for unaffordable items instead of relying on opacity alone.
+      DONE 2026-08-19T23:55Z.
 - [ ] Add a shop: a new node type (or extend the existing 'treasure' node, your call, document
       which you picked and why) where gold (previous task) buys permanent passive items -- reuse
       the existing Items.ITEM_DEFS system rather than inventing a parallel one; a shop just needs a
