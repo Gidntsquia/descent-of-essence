@@ -154,6 +154,15 @@ body {
 .node-event.node-current { border-color: #b8a5d8; box-shadow: 0 0 8px rgba(184, 165, 216, 0.4); }
 
 .combat-panel { margin-top: 12px; }
+.boss-combat {
+  border: 2px solid #e08a8a;
+  border-radius: 4px;
+  box-shadow: 0 0 16px rgba(224, 138, 138, 0.3), inset 0 0 16px rgba(224, 138, 138, 0.1);
+  padding: 8px;
+}
+.boss-combat #monster-info {
+  animation: bossEntrance 0.5s ease-out;
+}
 
 @keyframes floatDamage {
   0% {
@@ -211,9 +220,35 @@ body {
   25% { transform: translateX(2px); }
   75% { transform: translateX(-2px); }
 }
+@keyframes bossHpFlash {
+  0% { background: #ff6b6b; box-shadow: 0 0 8px #ff6b6b; }
+  50% { background: #8a1f1f; box-shadow: 0 0 12px #ff6b6b; }
+  100% { background: #8a1f1f; box-shadow: 0 0 8px #ff6b6b; }
+}
+@keyframes bossHpShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(4px); }
+  75% { transform: translateX(-4px); }
+}
+@keyframes bossEntrance {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
 .monster-hp-fill { background: #a03c3c; height: 100%; transition: width 0.2s; }
 .monster-hp-fill.flash-damage {
   animation: hpFlash 0.3s ease-out, hpShake 0.15s ease-out;
+}
+.boss-combat .monster-hp-fill.flash-damage {
+  animation: bossHpFlash 0.4s ease-out, bossHpShake 0.2s ease-out;
 }
 .monster-hp-text { font-size: 0.85rem; color: #b8ac8a; margin-bottom: 8px; }
 .monster-weakness { font-size: 0.9rem; color: #9ab88a; font-style: italic; }

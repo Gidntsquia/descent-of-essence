@@ -471,7 +471,7 @@
       if (result.damage > 0) playCombatSound(result.damage);
       if (dmgCtx.damage > 0) {
         animatePlayerDamage();
-        playCounterattackSound(dmgCtx.damage);
+        playCounterattackSound(dmgCtx.damage, state.monster.isBoss);
       }
     }, TILE_PLAY_ANIM_MS);
   };
@@ -710,22 +710,25 @@
     }
   }
 
-  function playCounterattackSound(damage) {
+  function playCounterattackSound(damage, isBoss) {
     try {
       var ctx = initAudioContext();
       var now = ctx.currentTime;
       var intensity = Math.min(damage / 10, 1);
-      var duration = 0.2;
+      var duration = isBoss ? 0.35 : 0.2;
+      var baseFreq = isBoss ? 65 : 100;
+      var endFreq = isBoss ? 50 : 80;
+      var gain = isBoss ? 0.2 : 0.15;
 
-      // monster counterattack: ominous low tone
+      // monster counterattack: ominous low tone (more ominous for bosses)
       var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(100, now);
-      osc.frequency.linearRampToValueAtTime(80, now + duration);
-      gain.gain.setValueAtTime(0.15 * intensity, now);
-      gain.gain.linearRampToValueAtTime(0, now + duration);
+      var gainNode = ctx.createGain();
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.linearRampToValueAtTime(endFreq, now + duration);
+      gainNode.gain.setValueAtTime(gain * intensity, now);
+      gainNode.gain.linearRampToValueAtTime(0, now + duration);
       osc.start(now);
       osc.stop(now + duration);
     } catch (e) {
@@ -1028,6 +1031,7 @@
 
     $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'EVENT');
     $('combat-panel').classList.toggle('hidden', !state.combatActive);
+    $('combat-panel').classList.toggle('boss-combat', state.combatActive && state.monster && state.monster.isBoss);
     $('treasure-panel').classList.toggle('hidden', state.screen !== 'TREASURE' && state.screen !== 'SHOP');
     $('tile-reward-panel').classList.toggle('hidden', state.screen !== 'TILE_REWARD');
     $('event-panel').classList.toggle('hidden', state.screen !== 'EVENT');
