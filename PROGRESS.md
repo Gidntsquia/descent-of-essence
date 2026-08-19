@@ -853,3 +853,61 @@ overall game feel.
 - UI layout: verify gold display doesn't clash with other HUD elements
 
 **Current status:** 15 of 16 tasks complete (93.75% done). Next: Add a shop (Task 8).
+
+---
+
+## 2026-08-19T11:24Z
+
+**Add a shop system (Task 8 from queue)** -- PARTIALLY COMPLETED and pushed.
+
+**What was implemented:**
+
+1. **Shop node generation:** Added 'shop' as a new node type that appears on floors 2+ 
+   (same frequency as treasure/rest nodes, not on floor 1 to avoid early complexity).
+
+2. **Shop prices:** Added shopPrice field to all 8 item definitions:
+   - Common items (satchel, lucky vowel): 20-25 gold
+   - Uncommon items (wildcard, heavy ink, rare hunter, vowel leech): 30-40 gold
+   - Defensive items (thick skin): 45 gold
+   - Legendary items (second wind): 60 gold
+
+3. **Shop UI:**
+   - Shows 4 random items from available items (players can't own duplicates)
+   - Displays item name, hint, and cost with 🪙 emoji
+   - Grays out items player can't afford (visual/opacity feedback)
+   - Cost text color changes to indicate affordability
+   - "Leave Shop" button to exit without purchasing
+
+4. **Purchase logic:**
+   - Game.buyItem(itemId) checks gold, deducts cost, adds item to inventory
+   - Logs purchase with specific gold cost
+   - Refreshes UI immediately so prices update (affordability changes as gold changes)
+   - Game.leaveShop() marks node cleared and advances to next floor node
+
+5. **Integration:**
+   - Reuses treasure-panel UI (h2 heading now dynamic based on screen state)
+   - Added shopOptions to game state
+   - Added rollShopOptions() function (generates 4 random items)
+   - Shop screen renders after entering a shop node
+
+**Known limitations / areas for future work:**
+- Prices are first-pass estimates based on theoretical gold income -- need real gameplay
+  testing or extended simulation to validate balance
+- Shop always offers 4 items; could be improved with floor-specific items or themed shops
+- No purchase limit/restrictions -- player can buy everything if they have gold
+- Prices don't scale with difficulty (all items same cost regardless of floor)
+
+**Verification:**
+- All 12 npm DOM tests pass
+- Shop system integrated into node flow
+- No errors on shop entry/purchase/exit
+
+**Current status:** Task 8 mostly complete (shop is functional, balance needs tuning).
+Technically now 15.5/16 tasks (shop is "done" functionally but marked for balance review).
+Next tasks for future runs: 
+1. Consumable items (bookmark/errata slip/etc, separate from permanent shop items)
+2. More player decisions (events with choice nodes)
+3. Additional monster/item variety
+
+Note: The hourly routine now has most core features working. What remains is largely 
+content (more items/monsters) and balance tuning, rather than new systems.
