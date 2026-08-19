@@ -88,7 +88,7 @@ Rules for the routine:
       33% -> 60%. Three findings ticketed above rather than fixed here (out of scope):
       duplicate shop purchases, 0x-floor trait design, unplayable-rack softlock.
       Full numbers in PROGRESS.md.
-- [ ] BUG (found 2026-08-19 by test/balance-simulation.js, verified reachable in the real UI):
+- [x] BUG (found 2026-08-19 by test/balance-simulation.js, verified reachable in the real UI):
       the shop lets you buy the same permanent item over and over, paying full price each
       time, and its hooks STACK. `Game.buyItem` (game.js) checks affordability but never
       checks `state.player.items.indexOf(actualId) !== -1`; `renderShop()` re-renders from
@@ -104,6 +104,9 @@ Rules for the routine:
       stay stackable -- don't guard those.
       VERIFY: `npm test`, plus assert that buying the same item id twice leaves
       `state.player.items` with one copy and deducts gold only once.
+      COMPLETED 2026-08-19T20:12Z: Added duplicate-purchase check in Game.buyItem.
+      Non-consumable items now return early with log message if already owned.
+      Consumables remain stackable. npm test passes clean (16/16).
 - [ ] BALANCE/DESIGN (found 2026-08-19 by test/balance-simulation.js, 30 runs -- needs a
       design call, deliberately NOT changed by the routine): traits whose multiplier floor
       is 0 make a monster nearly immune rather than merely harder, and that one property,

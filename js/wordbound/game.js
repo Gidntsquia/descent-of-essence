@@ -237,6 +237,10 @@
       log('Not enough gold! Need ' + def.shopPrice + ', have ' + state.player.gold + '.');
       return;
     }
+    if (!isConsumable && state.player.items.indexOf(actualId) !== -1) {
+      log('You already own ' + def.name + '!');
+      return;
+    }
     state.player.gold -= def.shopPrice;
     if (isConsumable) {
       state.player.consumables.push(actualId);
