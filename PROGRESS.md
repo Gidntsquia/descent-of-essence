@@ -1585,3 +1585,49 @@ Per standing instruction, did not fix this directly -- diagnosing is the orchest
 job, implementing is the hourly routine's. Sent a push notification since this is
 maximally severe (blocks 100% of play, not just a specific late-game path).
 
+
+## 2026-08-19T16:34Z
+
+**Fix critical game-breaking show() bug (HIGHEST PRIORITY)** -- COMPLETED and pushed.
+
+**The Bug:**
+When clicking "New Run" from the main menu, the game shows a completely blank page.
+Every screen (main menu, character select, run, game-over, victory) ends up with the
+`hidden` class simultaneously, making the game 100% unplayable. Root cause: the show()
+function in js/wordbound/game.js had a hardcoded array of screen IDs that never included
+'screen-character-select', which was added when character selection was implemented.
+
+**The Fix:**
+Added 'screen-character-select' to the show() function's screen array:
+```javascript
+// Before (line 817):
+['screen-main-menu', 'screen-run', 'screen-game-over', 'screen-victory']
+
+// After:
+['screen-main-menu', 'screen-character-select', 'screen-run', 'screen-game-over', 'screen-victory']
+```
+
+**Test Hardening:**
+Also implemented the recommended improvement to test/dom-check.js: added visibility
+checks that assert screens are properly shown/hidden after transitions (not just that
+"no error was thrown"). Now the test verifies:
+- screen-character-select is NOT hidden after "New Run" click
+- screen-game-over is hidden during a run
+- screen-victory is hidden during a run
+
+This hardens the test suite to catch this class of bug in the future (elements present
+and click-wired but never actually shown to the user).
+
+**Verification:**
+- npm test: 16/16 checks pass (added 3 new visibility checks)
+- All screen transitions work correctly
+- Character select screen is now properly displayed after clicking "New Run"
+
+**Note:** This fix only verifies correct DOM state in jsdom. The orchestrator's
+Playwright pass confirmed the bug existed; a follow-up real-browser playtest should
+verify that all screens past character select (shop, treasure, events, consumables,
+achievements) are still reachable and working end-to-end, since none of those were
+verified with real clicks since character select was added.
+
+**GOALS.md status:** CRITICAL task now marked complete. Game is playable again.
+
