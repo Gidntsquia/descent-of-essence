@@ -265,10 +265,12 @@ Rules for the routine:
       PROGRESS.md so it's easy to reference later. COMPLETED 2026-08-19T15:55Z: Implemented 5
       achievements (Victory, Untouched, Devastating, Collector, Overkill) unlocking 5 rare items.
       Persistent localStorage-backed system. Achievement progress shown on main menu.
-- [ ] Write a proper README.md: what the game is (link to THEME.md's pitch), a link to play it live
+- [x] Write a proper README.md: what the game is (link to THEME.md's pitch), a link to play it live
       (the GitHub Pages URL), a short gameplay GIF, a quickstart for anyone who wants to run/edit it
       locally (no build step -- just open the HTML files; mention `npm test` for the dev-only DOM
       check), and whatever else a normal project README has (license note if relevant, credits).
       For the GIF: if there's no way to record one from inside this environment, write the README
       with a placeholder/TODO for it and note clearly in PROGRESS.md that it still needs a real
-      screen recording -- don't fabricate or skip silently.
+      screen recording -- don't fabricate or skip silently. COMPLETED 2026-08-19T16:00Z: Comprehensive
+      README covering game pitch, features, play links, quickstart, project structure, development
+      guide, design philosophy, credits, and GIF placeholder clearly marked as TODO.
