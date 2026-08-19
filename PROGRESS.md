@@ -1499,3 +1499,34 @@ Remaining work (per ROADMAP.md known gaps) includes:
 
 But from a development perspective, the core game is **feature-complete and ship-ready.**
 
+---
+
+## 2026-08-19T16:05Z -- ROUTINE IDLE
+
+**GOALS.md queue status:** ALL 28 TASKS COMPLETE ✓
+
+Checked ROADMAP.md known gaps:
+- Two critical bugs (fixed in prior runs) ✓
+- Touch/mobile support (implemented in prior run) ✓  
+- Never verified in browser (requires real human playtest, outside automation scope)
+- No itch.io-ready build (confirmed GitHub Pages URL works, not a blocker)
+- Replayability thin (addressed by achievements system just added) ✓
+- Store page copy drafted (exists in ROADMAP.md) ✓
+
+**Next steps (outside automation scope):**
+1. Real browser playtest: Play through a full 3-floor run, test character select, 
+   verify difficulty curve, check UI polish and feel
+2. Screen recording: Capture a ~30s gameplay GIF for README and store page
+3. itch.io page creation: Jaxon creates project, pastes store-page copy, links to 
+   GitHub Pages URL or uploads zip
+4. Promotion: Post to communities where word-game + roguelike players are
+
+**What's left to do automatically (if new tasks are added):**
+- Additional monster/item content
+- Balance tuning via extended simulation
+- Daily/seeded-run system
+- Post-launch polish and bug fixes
+
+**Routine will now idle until new tasks are added to GOALS.md queue.**
+Game is ready for launch.
+
