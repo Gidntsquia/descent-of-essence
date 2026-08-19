@@ -221,7 +221,7 @@ Rules for the routine:
       in shop alongside permanent items. Tracked separately in state.player.consumables with UI
       panel (Consumables button in run header). Can only be used during combat. Shop displays
       consumables with [Consumable] label. Implemented 2026-08-19T13:42Z.
-- [ ] Add more player decisions so runs feel distinct from each other. Floor.js's node-map is
+- [x] Add more player decisions so runs feel distinct from each other. Floor.js's node-map is
       DELIBERATELY linear right now (see its own header comment: "no choice of path... immediately
       obvious what player needs to do") -- don't rip that out for a full branching-path redesign,
       that's a much bigger architectural change than this task should be. Instead add occasional

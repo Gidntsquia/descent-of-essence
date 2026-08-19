@@ -1135,3 +1135,58 @@ The routine can pick up any of the remaining tasks:
 
 All remaining tasks are non-blocking polish/content work. The game is ready for
 real-world playtest or itch.io launch at any point.
+
+---
+
+## 2026-08-19T14:18Z
+
+**Add event nodes with player decision points (Task from GOALS.md)** -- COMPLETED and pushed.
+
+**What was implemented:**
+
+Created a new 'event' node type that appears on all floors (~60% chance per floor) with
+2-3 choice options providing different risk/reward tradeoffs. Events keep the linear
+node-map structure intact (no branching paths) while adding internal decision points
+that make runs feel more distinct.
+
+**5 event types implemented:**
+
+1. Blood Bargain: trade 5 HP for 20 gold
+2. Tempting Tome: 50% chance to gain random item (at cost of 3 HP)
+3. Loose Page: risky 50/50 - gain 25 gold OR take 2 HP
+4. Empty Shelf: rest to heal 3 HP and skip next combat, OR search 50% item
+5. Gleaming Coin: restore full HP OR gain 10 gold
+
+**Architecture:**
+
+- Created js/wordbound/events.js with EVENT_DEFS and pickRandomEvent()
+- Extended Floor.generateFloor() to include 'event' nodes (60% per floor)
+- Added currentEvent state and pendingEventSkipNextCombat flag
+- Created startEvent(), chooseEventOption() handlers
+- Added EVENT screen state with renderEvent() function
+- Updated renderNodeMap() labels to include 'event' and 'shop'
+- Added event-panel HTML element (heading, text, choices)
+- Added event node CSS styling with purple highlight (#b8a5d8)
+- Wired skip-next-combat logic into enterCurrentNode() for Empty Shelf event
+- Loaded events.js in wordbound.html script list
+
+**Testing:**
+
+- npm test: All 12 DOM checks pass
+- Event node generation verified in floor maps
+- Event choice effects verified (state mutations work correctly)
+- Skip-next-combat logic confirmed working
+
+**Verification notes:**
+
+- Events are sprinkled randomly but not overloaded (60% per floor, not guaranteed)
+- Choice effects happen immediately and advance the map
+- Skip-next-combat flag correctly bypasses the next combat node
+- Event text and choice buttons render correctly
+- No syntax errors or DOM lookup failures
+
+**Current status:** 23 of 35+ tasks complete. Next task: "Add 3-5 more monsters and
+2-3 more items" (content addition) or cohesion pass (style/tone review).
+
+The event system is working and integrated. Full playtest in a real browser would verify
+that event text clarity and choice presentation feel intuitive to players.
