@@ -282,7 +282,7 @@
       goldDrop = (def && def.goldDrop) || [0, 0];
     }
 
-    var baseGold = Wordbound.RNG.range(goldDrop[0], goldDrop[1], state.rng);
+    var baseGold = state.rng.randInt(goldDrop[0], goldDrop[1]);
     var overkill = Math.max(0, damageDealt - monsterHpBefore);
     var bonusGold = Math.floor(overkill * 0.5);
     var totalGold = baseGold + bonusGold;

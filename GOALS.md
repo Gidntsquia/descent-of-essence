@@ -154,7 +154,7 @@ Rules for the routine:
       normally check). Show current gold somewhere in the run HUD. This is the foundation the next
       two tasks (shop, potions) depend on -- get the currency and its display solid first.
       COMPLETED 2026-08-19T11:35Z.
-- [ ] CRITICAL, fix immediately, highest priority in the queue: defeating ANY monster crashes
+- [x] CRITICAL, fix immediately, highest priority in the queue: defeating ANY monster crashes
       the game. In js/wordbound/game.js's onMonsterDefeated(), the gold-reward line calls
       `Wordbound.RNG.range(goldDrop[0], goldDrop[1], state.rng)` -- `Wordbound.RNG` does not
       exist (RNG lives at `window.Game.RNG`, exposed in this file as the `RNG` variable), and
@@ -168,7 +168,7 @@ Rules for the routine:
       confirming (a) zero errors, (b) the screen transitions to TILE_REWARD or advances floors
       correctly, (c) gold actually increased. This exact bug (wrong API surface, never executed
       before being marked done) is why npm test and real execution are mandatory now -- don't
-      just read the code, run it.
+      just read the code, run it. COMPLETED 2026-08-19T23:40Z.
 - [ ] Fix two of the three consumable items (js/wordbound/consumables.js) doing NOTHING when
       used, despite showing a success message claiming they worked -- worse than crashing,
       because nothing errors and the player is told it worked. Root cause: `effect()` for
