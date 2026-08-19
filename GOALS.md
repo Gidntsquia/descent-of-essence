@@ -208,12 +208,13 @@ Rules for the routine:
       not a crash, just not obviously "this button doesn't work" to a player). Consider
       setting `btn.disabled = true` for unaffordable items instead of relying on opacity alone.
       DONE 2026-08-19T23:55Z.
-- [ ] Add a shop: a new node type (or extend the existing 'treasure' node, your call, document
+- [x] Add a shop: a new node type (or extend the existing 'treasure' node, your call, document
       which you picked and why) where gold (previous task) buys permanent passive items -- reuse
       the existing Items.ITEM_DEFS system rather than inventing a parallel one; a shop just needs a
       gold cost per item and a purchase UI, not new item mechanics. Price items sensibly relative
       to typical gold income from the simulation task above if that's landed by now, otherwise
-      make a reasonable estimate and flag it as a first pass needing balance tuning.
+      make a reasonable estimate and flag it as a first pass needing balance tuning. COMPLETED
+      2026-08-19T11:24Z (was implemented but not checked off in task tracking).
 - [x] Add consumable one-time-use boost items: Errata Slips (library-themed correction slips).
       Three types: Errata Slip (heal 8 HP, 15 gold), Index Card Shard (+15 damage, 25 gold),
       Page Turn (draw 3 bonus tiles, 40 gold). Drop rate 12% from defeated enemies, purchasable
