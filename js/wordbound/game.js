@@ -42,7 +42,9 @@
     itemInspectorId: null,
     lastRackTileIds: [], // track tile IDs from previous render to detect new tiles
     draggedTileId: null, // track which tile is being dragged for reordering
-    dragOverIndex: null // track which position we're hovering over
+    dragOverIndex: null, // track which position we're hovering over
+    touchStartIndex: null, // for touch-based reordering
+    touchCurrentIndex: null // track position during touch drag
   };
   Game._state = state; // exposed for headless/browser test inspection only
 
@@ -536,6 +538,49 @@
     render();
   }
 
+  // Touch reordering support for mobile/tablet
+  function getTileAtPosition(x) {
+    var buttons = $('rack-display').querySelectorAll('.letter-tile');
+    var closestButton = null;
+    var closestDistance = Infinity;
+    for (var i = 0; i < buttons.length; i++) {
+      var rect = buttons[i].getBoundingClientRect();
+      var center = rect.left + rect.width / 2;
+      var distance = Math.abs(x - center);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestButton = buttons[i];
+      }
+    }
+    if (closestButton && closestButton.getAttribute('data-tile-index')) {
+      return parseInt(closestButton.getAttribute('data-tile-index'));
+    }
+    return null;
+  }
+
+  function startTouchReorder(tileId, index) {
+    state.draggedTileId = tileId;
+    state.touchStartIndex = index;
+    state.touchCurrentIndex = index;
+  }
+
+  function updateTouchReorder(touchX) {
+    var newIndex = getTileAtPosition(touchX);
+    if (newIndex !== null) {
+      state.touchCurrentIndex = newIndex;
+    }
+  }
+
+  function endTouchReorder() {
+    if (state.touchStartIndex !== null && state.touchCurrentIndex !== null &&
+        state.touchCurrentIndex !== state.touchStartIndex) {
+      reorderRackOnDrop(state.touchCurrentIndex);
+    }
+    state.draggedTileId = null;
+    state.touchStartIndex = null;
+    state.touchCurrentIndex = null;
+  }
+
   // ---- rendering ---------------------------------------------------------
 
   function show(id) {
@@ -740,6 +785,22 @@
         reorderRackOnDrop(index);
       });
       btn.addEventListener('dragend', endTileDrag);
+
+      // Touch reordering for mobile/tablet devices
+      btn.addEventListener('touchstart', function (e) {
+        startTouchReorder(tile.id, index);
+        e.preventDefault(); // prevent scrolling while dragging
+      });
+      btn.addEventListener('touchmove', function (e) {
+        if (state.draggedTileId !== null && e.touches.length > 0) {
+          updateTouchReorder(e.touches[0].clientX);
+        }
+        e.preventDefault();
+      });
+      btn.addEventListener('touchend', function () {
+        endTouchReorder();
+      });
+
       rack.appendChild(btn);
       currentRackIds.push(tile.id);
     });
