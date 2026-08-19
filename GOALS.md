@@ -248,13 +248,13 @@ Rules for the routine:
       Completed 2026-08-19T12:30Z: Reviewed all systems. Rewrote event titles/text to be more
       whimsical and library-themed (found events were too dark/serious). All other systems
       already cohesive.
-- [ ] Add character selection: 2-3 starting loadouts with different starting 12-tile decks and/or
+- [x] Add character selection: 2-3 starting loadouts with different starting 12-tile decks and/or
       starting items (some strong, some with a deliberate drawback for a different playstyle). Note
       that game.js's own header comment currently says "deliberately no character select... single
       fixed starting loadout" -- this task intentionally supersedes that earlier design decision
       per Jaxon's direct request; update that comment when you implement this so it doesn't
       contradict what's actually there. Keep the run structure (3 floors, node map) identical
-      across characters -- only the starting deck/items differ.
+      across characters -- only the starting deck/items differ. COMPLETED 2026-08-19T15:44Z.
 - [ ] Add achievement-locked unlockable items: pick a handful of achievements (your call -- e.g.
       "beat a boss without taking damage that fight," "clear a run," "deal 50+ damage in one word")
       and lock a few distinctive items behind them. This needs actual cross-run persistence, which

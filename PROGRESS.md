@@ -1279,3 +1279,76 @@ All items have meaningful interactions with existing game systems (bonus tiles, 
 
 Game is now visually, tonally, and thematically cohesive throughout. All new features (events, consumables, shop, items) fit within the "Boundless Archive" aesthetic.
 
+---
+
+## 2026-08-19T15:44Z
+
+**Add character selection (Task from GOALS.md)** -- COMPLETED and pushed.
+
+**What was implemented:**
+
+1. **Character definition system (js/wordbound/characters.js):**
+   - Created 3 distinct character loadouts with different starting decks and items
+   - The Archivist (balanced): standard 12-tile deck [A,E,I,O,U,N,R,S,T,L,D,G],
+     starting item: Spare Satchel (utility/rack capacity)
+   - The Scribe (aggressive): consonant-heavy 12-tile deck [E,I,A,R,S,T,L,N,X,Z,K,B],
+     starting items: Heavy Ink + Folio Mark (damage-focused, creates glass-cannon playstyle)
+   - The Keeper (defensive): vowel-rich 12-tile deck [A,E,I,O,U,U,N,R,S,T,L,Y],
+     starting items: Lucky Vowel + Thick Skin (defensive, easier word formation)
+
+2. **Character selection screen:**
+   - Added CHARACTER_SELECT screen state between MAIN_MENU and RUN
+   - Clicking "New Run" shows character selection panel with 3 options
+   - Each option displays character name and description
+   - Clicking a character immediately starts a run with that character's loadout
+   - "Back to Menu" button returns to main menu without starting a run
+
+3. **Game engine modifications:**
+   - Modified Game.startRun to accept optional characterId parameter
+   - Created createCharacterDeck() function to build character-specific tile arrays
+   - Modified newPlayer() to accept character definition and set starting items
+   - Updated game.js header comment (line 9-11) to reflect character select now existing
+   - Added Game.showCharacterSelect() function for menu transition
+
+4. **UI/CSS:**
+   - Added CHARACTER_SELECT screen HTML to wordbound.html
+   - Added characters.js to script loading order
+   - Added CSS styling: .character-select-panel, .character-choices, .character-option,
+     .character-name, .character-description (consistent with existing parchment/gold palette)
+
+5. **Test updates:**
+   - Updated test/dom-check.js to click through character selection before testing gameplay
+   - Added logic to detect and click first character option (.character-option) after
+     "New Run" button click
+
+**Design rationale:**
+
+- **Distinct playstyles:** Each character has a meaningful mechanical difference that
+  changes how runs play out, not just cosmetic variation
+- **Balanced progression:** All start with 12 tiles (same deck size) to maintain game
+  balance; only composition and items differ
+- **Drawback/reward tradeoffs:**
+  * Archivist: no major advantages or disadvantages, good for learning the game
+  * Scribe: high damage potential but fewer vowels = harder word formation (risk/reward)
+  * Keeper: easier word formation but less raw damage (safety vs. power)
+
+**Verification:**
+- npm test: all 13 DOM checks pass (including character selection flow)
+- No syntax errors
+- Character selection properly wired into screen state machine
+- Starting items correctly applied to player state
+
+**What still needs testing in a real browser:**
+- Visual appearance and layout of character selection cards
+- Click responsiveness of character options
+- Whether character descriptions are clear and compelling
+- If the deck composition differences actually feel meaningfully different in gameplay
+
+**Current status:** Character selection complete and integrated. 26 of 35+ tasks complete (~74% done).
+Next unchecked task: Achievement-locked unlockable items (if pursuing that path) or README.md draft.
+
+The character selection feature adds replayability value by creating distinct starting
+conditions that encourage multiple playthroughs to experience different deck compositions
+and item synergies. This supports the itch.io launch goal of "New & Popular" visibility,
+as players trying different characters provide more engagement touchpoints.
+
