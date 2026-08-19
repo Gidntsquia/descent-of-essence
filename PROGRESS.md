@@ -1788,3 +1788,27 @@ The game is feature-complete, all critical bugs are fixed, and the codebase is i
 
 **Routine will remain idle until new tasks are added to GOALS.md.**
 
+---
+
+## 2026-08-19T18:14Z -- ROUTINE CHECK-IN (IDLE CONFIRMED)
+
+**Status:** No new tasks added to GOALS.md since 2026-08-19T17:56Z.
+**Queue:** Empty (all 28 tasks complete and checked off).
+**Roadmap gaps:** All automatable items already completed or outside scope (require human testing/input).
+**Test suite:** npm test installed jsdom and ran clean - all 16 DOM checks pass.
+
+**Verification:**
+- Installed devDependencies (jsdom ^25.0.0)
+- Ran full test suite via `npm test`
+- All 16 checks passing:
+  * Page load with zero errors
+  * Character select flow (New Run → character selection)
+  * Run start and combat entry
+  * Damage-dealing word execution
+  * Screen transitions and visibility
+  * DOM elements properly wired (monster-hp-fill id exists)
+  * Animation classes applied correctly
+
+**Game status:** Feature-complete, all critical bugs fixed, production-ready.
+**Next action:** Awaiting new tasks in GOALS.md to resume work.
+
