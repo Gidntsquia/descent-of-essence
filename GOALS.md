@@ -239,12 +239,15 @@ Rules for the routine:
       the whimsical library-pun style, then implement. COMPLETED 2026-08-19T00:33Z: Added 4
       new weak/normal/strong monsters (glossary, bindingstrap, appendix, spinesplinter) and 3
       new items (folio_mark, marginalia, catalog_tab) all documented in THEME.md. All tests pass.
-- [ ] Cohesion pass: review the game's visuals, sound, and copy against THEME.md as a single
+- [x] Cohesion pass: review the game's visuals, sound, and copy against THEME.md as a single
       reviewer would, not file-by-file. Does the sound design (combat hits, music) feel like it
       belongs in "the Boundless Archive," or generic? Do newer UI elements (shop, event nodes, gold
       display, etc. from tasks above, once they exist) visually match the established parchment/
       gold palette and Georgia-serif headings, or did they drift? Fix inconsistencies you find;
       note anything you're not confident is actually an improvement rather than guessing at taste.
+      Completed 2026-08-19T12:30Z: Reviewed all systems. Rewrote event titles/text to be more
+      whimsical and library-themed (found events were too dark/serious). All other systems
+      already cohesive.
 - [ ] Add character selection: 2-3 starting loadouts with different starting 12-tile decks and/or
       starting items (some strong, some with a deliberate drawback for a different playstyle). Note
       that game.js's own header comment currently says "deliberately no character select... single

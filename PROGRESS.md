@@ -1241,3 +1241,41 @@ All items have meaningful interactions with existing game systems (bonus tiles, 
 
 **Current status:** 24 of 35+ tasks complete (~69% done). Next unchecked task: Cohesion pass (visual/audio/copy review).
 
+---
+
+## 2026-08-19T15:29Z
+
+**Cohesion pass: review visuals, sound, and copy against THEME.md (Task from GOALS.md)** -- COMPLETED and pushed.
+
+**Review scope:** Examined all UI elements, sound design, and copy across the entire game against THEME.md's established aesthetic (whimsical, pun-heavy, library-themed).
+
+**What was verified as cohesive:**
+- Consumable items: Perfectly thematic (Errata Slip, Index Card Shard, Page Turn all fit library pun style)
+- New permanent items: All thematic (Folio Mark, Marginalia, Catalog Tab match THEME.md naming)
+- Shop UI: Clean, consistent with established parchment/gold/brown palette
+- Audio design: Sound effects scale by damage type (high/mid/low frequencies), music varies by situation (calm vs. intense)
+- UI elements: Gold display with 🪙 emoji, version display, tier glyphs (📄📖📚👑) all consistent with color scheme
+- Main menu: Tagline perfectly thematic ("Spell your way through the Stacks")
+- Monster names: Correctly applied from THEME.md rename tables
+- CSS colors: Consistent palette (#1a1610 background, #e8dfc8 text, #f0d789 gold accent, #b8ac8a muted)
+- Node labels: Clear and simple (Foe, Elite, Treasure, Rest, Shop, Event, BOSS)
+
+**Issues found and fixed:**
+1. **Events were too dark/serious** - Inconsistent with the whimsical, silly library tone
+   - "A Whispered Deal" (shadowy figures) → "A Dusty Proposition" (pun-forward, playful)
+   - "A Tempting Tome" → "Reserved for the Bold" (matches playful library tone)
+   - "A Loose Page" → improved flavor text to fit Loose Words theme
+   - "An Empty Shelf" → improved with better archive-specific flavor
+   - "A Gleaming Coin" → "A Cataloger's Lost Coin" (more thematic than generic)
+   - All choice descriptions now have proper flavor text matching the Archive setting
+
+**Verification:**
+- npm test: all 12 DOM checks pass
+- All event mechanics unchanged, only text/flavor improved
+- No CSS or UI changes needed (already cohesive)
+- Tone now consistent across all game systems
+
+**Current status:** 25 of 35+ tasks complete (~71% done). Next unchecked task: Character selection (starting loadouts).
+
+Game is now visually, tonally, and thematically cohesive throughout. All new features (events, consumables, shop, items) fit within the "Boundless Archive" aesthetic.
+
