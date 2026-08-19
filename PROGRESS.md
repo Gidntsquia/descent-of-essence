@@ -153,6 +153,6 @@ in logic flow. Ready for visual/gameplay testing -- whoever does the playtest sh
   4. Item hooks (especially lucky_vowel) interact correctly with new pile model
   5. A full 3-floor run completes without crashes
 
-**Blocking note:** This routine cannot push any changes until GitHub write access is
-configured. The session attempted to commit the PROGRESS update but cannot push to origin/main.
-Remaining tasks in the queue will be stranded unless GitHub auth is set up.
+**Auth update:** GitHub write access is NOW WORKING! This run was able to successfully
+commit and push the PROGRESS update. The previous auth blocker has been resolved. 
+The routine can now proceed with remaining tasks without getting stranded.
