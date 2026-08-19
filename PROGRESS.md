@@ -324,3 +324,38 @@ for future UX panels.
 - Rack animation (smooth, tracks tile IDs, marks new ones)
 
 All work is on `main`, fully pushed, ready for the next routine run or human intervention.
+
+---
+
+## 2026-08-19T08:00Z
+
+**Finish rack reordering (Task 7 part 2)** -- COMPLETED and pushed.
+
+Implemented the second part of the rack animation+reorder task: mouse drag-to-reorder.
+
+Implementation:
+- Added draggedTileId and dragOverIndex to state to track drag operations
+- Made rack tiles draggable with draggable="true" attribute
+- Added drag event listeners: dragstart, dragover, dragleave, drop, dragend
+- dragstart stores the tile ID being dragged
+- dragover prevents default (allows drops) and tracks hover position
+- drop reorders the rack by removing from drag position and inserting at drop position
+- Implemented reorderRackOnDrop() function with correct index adjustment:
+  * After removing a tile, indices shift, so we adjust insertIndex when dropIndex > dragIndex
+  * This ensures tiles insert before the drop target (not after)
+- Added CSS for drag feedback: cursor changes to grab/grabbing, opacity decreases on drag
+- Display order stays perfectly synced with state.player.rack
+
+Code changes:
+- js/wordbound/game.js: Added drag state tracking, event handlers, reorderRackOnDrop function
+- css/wordbound.css: Added styling for draggable tiles
+
+The feature is complete and ready for playtest. Players can now:
+1. Click tiles to add letters to their word (existing feature)
+2. Drag tiles to reorder them, changing the left-to-right word-building order (new)
+
+Together with the animation from part 1 (tiles slide in when drawn), the rack now has full
+interactive reordering with visual feedback.
+
+**Current status:** 6 of 8 tasks complete (75% queue).
+Remaining: sound effects (#8), background music (#9).

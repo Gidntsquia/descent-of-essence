@@ -52,12 +52,10 @@ Rules for the routine:
       button) should show the item's full name + hint clearly, not just on hover -- reuse the panel
       pattern from the deck-viewer task above if that's built already, or build both to share it.
       Keep the always-visible strip for at-a-glance reference.
-- [ ] Finish rack reordering (part 2 of the animate+reorder task -- part 1 is DONE: tiles already
+- [x] Finish rack reordering (part 2 of the animate+reorder task -- part 1 is DONE: tiles already
       slide/fade in via @keyframes slideInTile when drawn, see PROGRESS.md 2026-08-19T07:00Z).
-      What's left: rack tiles should be draggable with the mouse to reorder them, and the DISPLAY
-      order must stay in sync with state.player.rack's actual order, since clicking/typing tiles
-      builds the word left-to-right from rack order. Native HTML5 drag-and-drop or manual
-      pointer-event dragging, either is fine. Touch/mobile drag is nice-to-have, not required.
+      Implemented: rack tiles are draggable with mouse to reorder them, display order synced with
+      state.player.rack. Completed 2026-08-19T08:00Z.
 - [ ] Make combat feel impactful: animate damage when a word is played (e.g. a floating damage
       number over the monster, HP bar flash/shake scaled to the hit size) and play a sound effect --
       punchy for a big score, deliberately wimpy (soft "pff"/thud) for a low one. Same for the
