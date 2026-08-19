@@ -26,6 +26,7 @@
       <div id="floor-label" class="floor-label"></div>
       <div style="display: flex; gap: 8px; align-items: center;">
         <button id="btn-view-deck" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;">Deck</button>
+        <button id="btn-view-consumables" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" title="View consumable items">Consumables</button>
         <div style="display: flex; align-items: center; gap: 6px;">
           <button id="btn-toggle-music" class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem; width: 32px;">🔊</button>
           <input id="music-volume" type="range" min="0" max="100" value="10" style="width: 80px; cursor: pointer;">
@@ -69,6 +70,12 @@
       <p id="inspector-item-hint" style="text-align: left; color: #b8ac8a;"></p>
       <button id="btn-close-item-inspector" class="btn btn-secondary" style="margin-top: 10px;">Close</button>
     </div>
+
+    <div id="consumables-panel" class="treasure-panel hidden">
+      <h2>Consumables</h2>
+      <div id="consumables-list" class="treasure-choices"></div>
+      <button id="btn-close-consumables" class="btn btn-secondary" style="margin-top: 10px;">Close</button>
+    </div>
   </div>
 
   <div id="screen-game-over" class="screen hidden">
@@ -98,6 +105,7 @@
 <script src="js/wordbound/monsters.js"></script>
 <script src="js/wordbound/combat.js"></script>
 <script src="js/wordbound/items.js"></script>
+<script src="js/wordbound/consumables.js"></script>
 <script src="js/wordbound/floor.js"></script>
 <script src="js/wordbound/game.js"></script>
 <script>window.Wordbound.Game.init();</script>

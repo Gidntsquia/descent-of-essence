@@ -160,14 +160,12 @@ Rules for the routine:
       gold cost per item and a purchase UI, not new item mechanics. Price items sensibly relative
       to typical gold income from the simulation task above if that's landed by now, otherwise
       make a reasonable estimate and flag it as a first pass needing balance tuning.
-- [ ] Add consumable one-time-use boost items (pick a name that fits THEME.md's library/archive
-      theme better than "potion" -- something like "Bookmark," "Errata Slip," "Loose Leaf," or your
-      own pick, add it to THEME.md first for consistency). Big one-time effect on use (heal, temp
-      damage boost, free tile, your call on the specific effects -- keep them simple and clearly
-      different from existing permanent items). Should sometimes drop from defeated enemies (small
-      chance, tune it) and be purchasable in the shop (previous task). Track them as a separate
-      inventory list from permanent items (state.player.consumables or similar), with a UI to view
-      and use them during combat.
+- [x] Add consumable one-time-use boost items: Errata Slips (library-themed correction slips).
+      Three types: Errata Slip (heal 8 HP, 15 gold), Index Card Shard (+15 damage, 25 gold),
+      Page Turn (draw 3 bonus tiles, 40 gold). Drop rate 12% from defeated enemies, purchasable
+      in shop alongside permanent items. Tracked separately in state.player.consumables with UI
+      panel (Consumables button in run header). Can only be used during combat. Shop displays
+      consumables with [Consumable] label. Implemented 2026-08-19T13:42Z.
 - [ ] Add more player decisions so runs feel distinct from each other. Floor.js's node-map is
       DELIBERATELY linear right now (see its own header comment: "no choice of path... immediately
       obvious what player needs to do") -- don't rip that out for a full branching-path redesign,

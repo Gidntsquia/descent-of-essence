@@ -72,6 +72,17 @@ similar to floor 3's boss; it's intentional, not a naming collision.
   Overdue Aisles") if there's a clean spot for it without crowding the HUD.
 - Game title stays **WORDBOUND** — do not rename the game itself.
 
+## Consumable items (one-time use boosts)
+
+Errata Slips are temporary power-ups that drop from defeated enemies or can be purchased in
+shops. Use them during combat for immediate, significant effects.
+
+| Name | Type | Effect | Flavor |
+|---|---|---|---|
+| **Errata Slip** | consumable | Heal 8 HP or restore to max (whichever is less) | A correction slip from the Archive. Stabilizes your condition. |
+| **Index Card Shard** | consumable | Gain 15 temporary bonus damage to next word (1 turn) | A fragment of the master index. Knowledge is power. |
+| **Page Turn** | consumable | Draw 3 bonus tiles, keep them without discarding (1 turn) | Skip the discard cycle once. Read ahead. |
+
 ## Applying this
 
 A separate GOALS.md task handles wiring these names into the actual game files. This

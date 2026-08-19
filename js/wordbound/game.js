@@ -41,6 +41,7 @@
     deckViewerOpen: false,
     itemInspectorOpen: false,
     itemInspectorId: null,
+    consumablesPanelOpen: false,
     lastRackTileIds: [], // track tile IDs from previous render to detect new tiles
     draggedTileId: null, // track which tile is being dragged for reordering
     dragOverIndex: null, // track which position we're hovering over
@@ -52,7 +53,7 @@
   function $(id) { return document.getElementById(id); }
 
   function newPlayer() {
-    return { hp: 20, maxHp: 20, gold: 0, rack: [], items: [], usedSecondWind: false };
+    return { hp: 20, maxHp: 20, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false };
   }
 
   function log(msg) {
@@ -145,13 +146,18 @@
 
   function rollShopOptions() {
     var owned = state.player.items;
-    var pool = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
-    var shuffled = state.rng.shuffle(pool);
+    var itemPool = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
+    var consumablePool = Wordbound.Consumables ? Object.keys(Wordbound.Consumables.CONSUMABLE_DEFS).map(function (id) { return 'c:' + id; }) : [];
+    var combined = itemPool.concat(consumablePool);
+    var shuffled = state.rng.shuffle(combined);
     return shuffled.slice(0, 4);
   }
 
   Game.buyItem = function (itemId) {
-    var def = Items.ITEM_DEFS[itemId];
+    var isConsumable = itemId.indexOf('c:') === 0;
+    var actualId = isConsumable ? itemId.substring(2) : itemId;
+    var def = isConsumable ? (Wordbound.Consumables ? Wordbound.Consumables.CONSUMABLE_DEFS[actualId] : null) : Items.ITEM_DEFS[actualId];
+
     if (!def || !def.shopPrice) {
       log('ERROR: Item not purchasable');
       return;
@@ -161,7 +167,11 @@
       return;
     }
     state.player.gold -= def.shopPrice;
-    state.player.items.push(itemId);
+    if (isConsumable) {
+      state.player.consumables.push(actualId);
+    } else {
+      state.player.items.push(actualId);
+    }
     log('You bought ' + def.name + ' for ' + def.shopPrice + ' gold.');
     render();
   };
@@ -283,6 +293,16 @@
     goldMsg += '.';
     log(goldMsg);
 
+    // Small chance to drop a consumable item
+    if (Wordbound.Consumables && state.rng.next() < Wordbound.Consumables.getConsumableDropChance()) {
+      var droppedConsumable = Wordbound.Consumables.rollConsumableDrop(state.rng);
+      if (droppedConsumable) {
+        state.player.consumables.push(droppedConsumable);
+        var consumableName = Wordbound.Consumables.CONSUMABLE_DEFS[droppedConsumable].name;
+        log('You found an ' + consumableName + '!');
+      }
+    }
+
     state.combatActive = false;
     currentNode().cleared = true;
     var wasBoss = currentNode().type === 'boss';
@@ -342,6 +362,37 @@
   Game.closeItemInspector = function () {
     state.itemInspectorOpen = false;
     state.itemInspectorId = null;
+    render();
+  };
+
+  Game.openConsumablesPanel = function () {
+    state.consumablesPanelOpen = true;
+    render();
+  };
+
+  Game.closeConsumablesPanel = function () {
+    state.consumablesPanelOpen = false;
+    render();
+  };
+
+  Game.useConsumable = function (consumableId) {
+    if (!state.combatActive || !state.monster) {
+      log('ERROR: Can only use consumables during combat');
+      return;
+    }
+    var def = Wordbound.Consumables.CONSUMABLE_DEFS[consumableId];
+    if (!def) {
+      log('ERROR: Consumable not found');
+      return;
+    }
+    var idx = state.player.consumables.indexOf(consumableId);
+    if (idx === -1) {
+      log('ERROR: You don\'t have this consumable');
+      return;
+    }
+    state.player.consumables.splice(idx, 1);
+    var result = Wordbound.Consumables.useConsumable(consumableId, { player: state.player, monster: state.monster });
+    if (result.message) log(result.message);
     render();
   };
 
@@ -678,12 +729,17 @@
 
     $('deck-viewer-panel').classList.toggle('hidden', !state.deckViewerOpen);
     $('item-inspector-panel').classList.toggle('hidden', !state.itemInspectorOpen);
+    $('consumables-panel').classList.toggle('hidden', !state.consumablesPanelOpen);
     if (state.deckViewerOpen) {
       renderDeckViewer();
       return;
     }
     if (state.itemInspectorOpen) {
       renderItemInspector();
+      return;
+    }
+    if (state.consumablesPanelOpen) {
+      renderConsumablesPanel();
       return;
     }
 
@@ -775,14 +831,17 @@
       return;
     }
     state.shopOptions.forEach(function (itemId) {
-      var def = Items.ITEM_DEFS[itemId];
+      var isConsumable = itemId.indexOf('c:') === 0;
+      var actualId = isConsumable ? itemId.substring(2) : itemId;
+      var def = isConsumable ? (Wordbound.Consumables ? Wordbound.Consumables.CONSUMABLE_DEFS[actualId] : null) : Items.ITEM_DEFS[actualId];
       if (!def) return;
       var canAfford = state.player.gold >= (def.shopPrice || 0);
       var btn = document.createElement('button');
       btn.className = 'treasure-choice' + (canAfford ? '' : ' shop-unavailable');
       btn.style.opacity = canAfford ? '1' : '0.6';
       var priceColor = canAfford ? '#f0d789' : '#8b7355';
-      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + (def.shopPrice || 0) + ' 🪙</span>';
+      var typeLabel = isConsumable ? ' [Consumable]' : '';
+      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><span style="font-size: 0.8rem; color: #9a8b6f;">' + typeLabel + '</span><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + (def.shopPrice || 0) + ' 🪙</span>';
       if (canAfford) {
         btn.addEventListener('click', function () { Game.buyItem(itemId); });
       }
@@ -827,6 +886,30 @@
       div.style.cursor = 'default';
       el.appendChild(div);
     });
+  }
+
+  function renderConsumablesPanel() {
+    var el = $('consumables-list');
+    el.innerHTML = '';
+    if (!state.player.consumables || state.player.consumables.length === 0) {
+      el.innerHTML = '<p style="text-align: center;">You have no consumables</p>';
+    } else {
+      state.player.consumables.forEach(function (consumableId) {
+        var def = Wordbound.Consumables.CONSUMABLE_DEFS[consumableId];
+        if (!def) return;
+        var btn = document.createElement('button');
+        btn.className = 'treasure-choice';
+        btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><br>' + escapeHtml(def.hint);
+        if (state.combatActive) {
+          btn.addEventListener('click', function () { Game.useConsumable(consumableId); });
+        } else {
+          btn.disabled = true;
+          btn.style.opacity = '0.5';
+          btn.style.cursor = 'not-allowed';
+        }
+        el.appendChild(btn);
+      });
+    }
   }
 
   function renderCombat() {
@@ -934,6 +1017,8 @@
     $('btn-view-deck').addEventListener('click', Game.openDeckViewer);
     $('btn-close-deck-viewer').addEventListener('click', Game.closeDeckViewer);
     $('btn-close-item-inspector').addEventListener('click', Game.closeItemInspector);
+    $('btn-view-consumables').addEventListener('click', Game.openConsumablesPanel);
+    $('btn-close-consumables').addEventListener('click', Game.closeConsumablesPanel);
 
     $('btn-submit-word').addEventListener('click', function () {
       var input = $('word-input');
