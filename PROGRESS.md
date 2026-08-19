@@ -2721,3 +2721,39 @@ try to play. The game is now significantly more playable with natural English vo
 **Current status:** 1 of 6 orchestrator queue items complete. Next task: Fix 
 deck/item/consumables panel stacking.
 
+
+## 2026-08-19T22:53Z
+
+**Fix panel stacking bug (Task 2 from orchestrator's queue)** -- COMPLETED and pushed.
+
+**The Bug:**
+Opening the deck viewer, item inspector, or consumables panel while another was already 
+open would leave both visible at once, stacking in the DOM and requiring scrolling to see 
+both. Players reported this as a UX friction point: "the UI for deck, consumables, and 
+item get appended to each other."
+
+**Root Cause:**
+Three independent `open*` functions in game.js (openDeckViewer, openItemInspector, 
+openConsumablesPanel) each only set their own visibility flag to true, never closing the 
+other two. The render() function independently toggles visibility based on each flag, so 
+multiple could be true simultaneously.
+
+**The Fix:**
+1. Added `closeAllSidePanels()` helper function that resets all three visibility flags to false
+2. Called this helper at the start of each `open*` function before setting that function's 
+   own flag to true
+3. This ensures only one panel is ever visible at a time
+
+**Verification:**
+- npm test: all 16 checks passed (no regressions)
+- Code review: render() correctly uses boolean flags to toggle `.hidden` class on each panel
+- Logic: closeAllSidePanels() resets all three flags, then each open*() sets its own flag, 
+  so only one can be true when render() is called
+
+**Impact:**
+Players can now seamlessly switch between panels without them stacking. This improves the 
+flow of exploring deck contents, item details, and consumables during runs.
+
+**Current status:** 2 of 6 orchestrator queue items complete. Next task: Simplify boss 
+traits (1 per boss, visible on map).
+

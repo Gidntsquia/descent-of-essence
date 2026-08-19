@@ -106,7 +106,7 @@ Rules for the routine:
       roughly doubles (was 204,217) and that page load time doesn't visibly regress
       (a `page.evaluate` timing check in Playwright is enough, no need for a
       dedicated perf harness).
-- [ ] BUG: opening the deck viewer, item inspector, or consumables panel while
+- [x] BUG: opening the deck viewer, item inspector, or consumables panel while
       another of the three is already open leaves BOTH visible at once, stacking in
       the DOM instead of replacing each other. Reported 2026-08-19: "the UI for deck,
       consumables, and item get appended to each other, which requires scrolling,
