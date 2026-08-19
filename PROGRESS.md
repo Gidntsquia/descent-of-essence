@@ -2104,3 +2104,39 @@ Next tasks: Balance simulation (partial - script created), mobile/responsive lay
 - Keyboard accessibility baseline is solid - game is usable without mouse
 - Both test scripts are clean, reusable, and provide measurable verification
 
+
+## 2026-08-19T19:21Z
+
+**Spot-check responsive/mobile layout (Task from queue)** -- VERIFICATION COMPLETE, FIXES DEFERRED.
+
+**Test script:** test/verify-mobile-layout.js checks layouts at 375px and 414px widths.
+
+**Findings on main menu (375px, 414px):**
+- ✓ No horizontal overflow
+- ✓ All elements visible and accessible
+- ⚠️  Some button size warnings (mostly false positives - hidden buttons)
+
+**Findings on combat screen (375px):**
+- ⚠️  39px horizontal overflow in run header (Deck + Consumables + Music controls)
+- ⚠️  Some CSS text sizing could be larger (12px+)
+- ✓ All interactive elements remain accessible
+- ✓ No elements permanently clipped off-screen
+
+**Findings on combat screen (414px):**
+- ✓ No horizontal overflow
+- ⚠️  Text sizing could be improved
+- ✓ All buttons and elements accessible
+
+**Assessment:**
+The horizontal overflow at 375px width is a low-risk CSS issue - the run header's flex layout needs more careful responsive design (e.g., hiding less-critical controls or wrapping to second line). The text sizing warnings are not critical - text is still readable at 12px, just could be more comfortable.
+
+**Recommendation:**
+These are CSS polish issues, not functional blockers. The game is playable and usable on mobile. Future runs can:
+1. Adjust run-header max-width or flex-wrap behavior for 375px width
+2. Optionally increase body font-size for better mobile legibility
+3. Consider hiding volume slider or combining music controls on very small screens
+
+**Current status:** Test created, issues identified, fixes deferred as per task guidelines (don't force full redesign).
+
+Game remains fully functional on mobile widths.
+
