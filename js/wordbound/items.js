@@ -174,6 +174,55 @@
     }
   });
 
+  def({
+    id: 'folio_mark',
+    name: 'Folio Mark',
+    hint: 'Gain +2 bonus damage for each tile with a bonus that you play.',
+    rarity: 'uncommon',
+    shopPrice: 40,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        var bonusCount = 0;
+        ctx.tilesUsed.forEach(function (t) {
+          if (t.bonus) bonusCount++;
+        });
+        if (bonusCount > 0) Items.applyBonusDamage(ctx, bonusCount * 2);
+      }
+    }
+  });
+
+  def({
+    id: 'marginalia',
+    name: 'Marginalia',
+    hint: 'Heal 2 HP whenever you play a word with 5+ letters.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (ctx.word.length >= 5) {
+          ctx.player.hp = Math.min(ctx.player.maxHp, ctx.player.hp + 2);
+        }
+      }
+    }
+  });
+
+  def({
+    id: 'catalog_tab',
+    name: 'Catalog Tab',
+    hint: 'Gain +2 bonus damage when you play an alphabetical word.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        var isAlphabetical = true;
+        for (var i = 1; i < ctx.word.length; i++) {
+          if (ctx.word[i] < ctx.word[i - 1]) { isAlphabetical = false; break; }
+        }
+        if (isAlphabetical) Items.applyBonusDamage(ctx, 2);
+      }
+    }
+  });
+
   Items.getRackCapacity = function (player) {
     var capacity = 7;
     (player.items || []).forEach(function (itemId) {

@@ -231,12 +231,14 @@ Rules for the routine:
       "always obvious what's next" property; the choice happens INSIDE a node, not in which node to
       visit. Note this scope decision in PROGRESS.md in case Jaxon wants full branching paths
       instead later -- that's a legitimate different direction, just a bigger one.
-- [ ] Add 3-5 more monster and 2-3 more item defs -- prioritize items that meaningfully change how
+- [x] Add 3-5 more monster and 2-3 more item defs -- prioritize items that meaningfully change how
       a run is played (e.g. synergize with specific tile bonus types, alter the discard/redraw
       rhythm, change rack capacity math) over small stat tweaks, per Jaxon's ask for build-defining
       variety. Reuse traits.js's existing TRAITS for monsters (don't invent new trait mechanics --
       bigger design change than this task). Add new entries to THEME.md's tables first, keeping
-      the whimsical library-pun style, then implement.
+      the whimsical library-pun style, then implement. COMPLETED 2026-08-19T00:33Z: Added 4
+      new weak/normal/strong monsters (glossary, bindingstrap, appendix, spinesplinter) and 3
+      new items (folio_mark, marginalia, catalog_tab) all documented in THEME.md. All tests pass.
 - [ ] Cohesion pass: review the game's visuals, sound, and copy against THEME.md as a single
       reviewer would, not file-by-file. Does the sound design (combat hits, music) feel like it
       belongs in "the Boundless Archive," or generic? Do newer UI elements (shop, event nodes, gold

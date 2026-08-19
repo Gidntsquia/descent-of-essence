@@ -45,6 +45,10 @@ not force a UI/data-shape change just to fit them in).
 | raven | silentE | Raven | **Quoth** | Say it out loud. Go on. |
 | sentinel | alphabetic | Sorted Sentinel | **The Card Catalog** | Everything has its proper place. EVERYTHING. |
 | warden | rareSeeker | Warden | **The Hoarder** | Collects Qs, Xs, and Zs. Very proud of the collection. |
+| glossary | vowelHungry | (new) | **The Glossary** | An alphabetical index of words, absolutely livid about disorder. |
+| bindingstrap | alphabetic | (new) | **Binding Strap** | Holds the pages together, holds the rules together, holds YOUR mistakes over your head. |
+| appendix | silentE | (new) | **The Appendix** | Supplementary material, supplementary grievances. All filed at the end. |
+| spinesplinter | doubled | (new) | **Spine Splinter** | A fragment of The Unabridged's shattered spine, sharp and determined. |
 
 ## Boss renames
 
@@ -82,6 +86,17 @@ shops. Use them during combat for immediate, significant effects.
 | **Errata Slip** | consumable | Heal 8 HP or restore to max (whichever is less) | A correction slip from the Archive. Stabilizes your condition. |
 | **Index Card Shard** | consumable | Gain 15 temporary bonus damage to next word (1 turn) | A fragment of the master index. Knowledge is power. |
 | **Page Turn** | consumable | Draw 3 bonus tiles, keep them without discarding (1 turn) | Skip the discard cycle once. Read ahead. |
+
+## Permanent items (rack & deck modifiers)
+
+Permanent upgrades that persist for the entire run once acquired. Synergize with specific
+word patterns or tile types.
+
+| Name | Rarity | Effect | Flavor |
+|---|---|---|---|
+| **Folio Mark** | uncommon | +2 bonus damage for each tile with a bonus that you play. | A bookmark marking passages of power. |
+| **Marginalia** | uncommon | Heal 2 HP when you play 5+ letter words. | Handwritten notes in the margins restore the spirit. |
+| **Catalog Tab** | uncommon | +2 bonus damage when you play an alphabetical word. | Index tabs guide you to what matters. |
 
 ## Applying this
 
