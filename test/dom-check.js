@@ -76,6 +76,13 @@ async function main() {
   await new Promise((r) => setTimeout(r, 50));
   check('starting a run produces zero errors', errors.length === 0);
 
+  // Character select screen is now shown; click on the first character option
+  const firstCharacter = document.querySelector('.character-option');
+  if (firstCharacter) {
+    firstCharacter.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 50));
+  }
+
   const nodePill = document.querySelector('.node-pill.node-current');
   check('a clickable current node exists after starting a run', !!nodePill);
   if (nodePill) {

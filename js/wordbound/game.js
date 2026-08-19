@@ -6,15 +6,15 @@
 // Screens: MAIN_MENU -> RUN (node-map <-> combat <-> treasure <-> rest) ->
 //          GAME_OVER | VICTORY -> MAIN_MENU
 //
-// Deliberately no character select, no shop, no currency -- single fixed
-// starting loadout, items are free picks at Treasure nodes. Matches the
-// design mandate from the old game's rework: make the next action obvious.
+// Character select: 3 distinct starting loadouts with different deck compositions
+// and items. Run structure (3 floors, node map) identical across characters --
+// only starting state differs. Shop and currency implemented (see tasks).
 
 (function () {
   window.Wordbound = window.Wordbound || {};
   var Game = (window.Wordbound.Game = {});
 
-  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG;
+  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters;
 
   var audioContext = null;
   var musicOscillators = [];
@@ -24,6 +24,7 @@
 
   var state = {
     screen: 'MAIN_MENU',
+    selectedCharacter: null,
     player: null,
     rng: null,
     deck: [],
@@ -54,11 +55,15 @@
 
   function $(id) { return document.getElementById(id); }
 
-  function newPlayer() {
-    return {
+  function newPlayer(characterDef) {
+    var player = {
       hp: 20, maxHp: 20, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
       bonusDamageUntilEndOfTurn: 0, skipDiscardNextTurn: false, bonusTilesToDraw: 0
     };
+    if (characterDef && characterDef.startingItems) {
+      player.items = characterDef.startingItems.slice();
+    }
+    return player;
   }
 
   function log(msg) {
@@ -68,10 +73,21 @@
 
   // ---- run lifecycle ----------------------------------------------------
 
-  Game.startRun = function () {
-    state.player = newPlayer();
+  function createCharacterDeck(characterDef) {
+    if (!characterDef || !characterDef.deckLetters) {
+      return Tiles.createStarterDeck();
+    }
+    return characterDef.deckLetters.map(function (letter) {
+      return Tiles.createTile(letter, null);
+    });
+  }
+
+  Game.startRun = function (characterId) {
+    var characterDef = characterId ? Characters.getCharacter(characterId) : Characters.getCharacter('archivist');
+    state.selectedCharacter = characterId || 'archivist';
+    state.player = newPlayer(characterDef);
     state.rng = RNG.create(RNG.randomSeed());
-    state.deck = Tiles.createStarterDeck();
+    state.deck = createCharacterDeck(characterDef);
     state.floorNumber = 1;
     state.floor = Floor.generateFloor(state.floorNumber, state.rng);
     state.currentNodeIndex = 0;
@@ -100,6 +116,11 @@
 
   Game.returnToMainMenu = function () {
     state.screen = 'MAIN_MENU';
+    render();
+  };
+
+  Game.showCharacterSelect = function () {
+    state.screen = 'CHARACTER_SELECT';
     render();
   };
 
@@ -784,6 +805,7 @@
 
   function render() {
     if (state.screen === 'MAIN_MENU') { show('screen-main-menu'); return; }
+    if (state.screen === 'CHARACTER_SELECT') { show('screen-character-select'); renderCharacterSelect(); return; }
     if (state.screen === 'GAME_OVER') { show('screen-game-over'); renderGameOver(); return; }
     if (state.screen === 'VICTORY') { show('screen-victory'); renderVictory(); return; }
     show('screen-run');
@@ -796,6 +818,23 @@
 
   function renderVictory() {
     $('victory-stats').textContent = 'You cleared all ' + Floor.TOTAL_FLOORS + ' floors. Wordbound complete.';
+  }
+
+  function renderCharacterSelect() {
+    var choices = $('character-choices');
+    choices.innerHTML = '';
+    var characterIds = Characters.getCharacterIds();
+    characterIds.forEach(function (id) {
+      var characterDef = Characters.getCharacter(id);
+      var button = document.createElement('div');
+      button.className = 'character-option';
+      button.innerHTML = '<p class="character-name">' + characterDef.name + '</p>' +
+                         '<p class="character-description">' + characterDef.description + '</p>';
+      button.addEventListener('click', function () {
+        Game.startRun(id);
+      });
+      choices.appendChild(button);
+    });
   }
 
   function getFloorName(floorNumber) {
@@ -1116,8 +1155,9 @@
     Floor = window.Wordbound.Floor;
     Tiles = window.Wordbound.Tiles;
     RNG = window.Game.RNG;
+    Characters = window.Wordbound.Characters;
 
-    $('btn-new-run').addEventListener('click', Game.startRun);
+    $('btn-new-run').addEventListener('click', Game.showCharacterSelect);
     $('btn-gameover-continue').addEventListener('click', Game.returnToMainMenu);
     $('btn-victory-continue').addEventListener('click', Game.returnToMainMenu);
     $('btn-skip-tile-reward').addEventListener('click', Game.skipTileReward);
@@ -1126,6 +1166,7 @@
     $('btn-close-item-inspector').addEventListener('click', Game.closeItemInspector);
     $('btn-view-consumables').addEventListener('click', Game.openConsumablesPanel);
     $('btn-close-consumables').addEventListener('click', Game.closeConsumablesPanel);
+    $('btn-back-to-menu').addEventListener('click', Game.returnToMainMenu);
 
     $('btn-submit-word').addEventListener('click', function () {
       var input = $('word-input');

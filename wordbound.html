@@ -19,6 +19,15 @@
     </div>
   </div>
 
+  <div id="screen-character-select" class="screen hidden">
+    <div class="panel character-select-panel">
+      <h1 class="game-title">Choose Your Path</h1>
+      <p style="text-align: center; color: #b8ac8a; margin-bottom: 20px;">Each character plays differently. Pick one and face the Archive.</p>
+      <div id="character-choices" class="character-choices"></div>
+      <button id="btn-back-to-menu" class="btn btn-secondary" style="width: 100%; margin-top: 20px;">Back to Menu</button>
+    </div>
+  </div>
+
   <div id="screen-run" class="screen hidden">
     <div class="run-header">
       <div id="player-hp-display" class="hp-display"></div>
@@ -113,6 +122,7 @@
 <script src="js/wordbound/items.js"></script>
 <script src="js/wordbound/consumables.js"></script>
 <script src="js/wordbound/events.js"></script>
+<script src="js/wordbound/characters.js"></script>
 <script src="js/wordbound/floor.js"></script>
 <script src="js/wordbound/game.js"></script>
 <script>window.Wordbound.Game.init();</script>
