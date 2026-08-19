@@ -443,8 +443,8 @@
 
         osc.type = 'sine';
         osc.frequency.setValueAtTime(notes[i], noteStart);
-        gain.gain.setValueAtTime(0.05, noteStart);
-        gain.gain.linearRampToValueAtTime(0.01, noteStart + beatDuration * 0.9);
+        gain.gain.setValueAtTime(0.25, noteStart);
+        gain.gain.linearRampToValueAtTime(0.08, noteStart + beatDuration * 0.9);
 
         osc.start(noteStart);
         osc.stop(noteStart + beatDuration * 0.95);
@@ -474,8 +474,8 @@
 
         osc.type = 'square';
         osc.frequency.setValueAtTime(notes[i], noteStart);
-        gain.gain.setValueAtTime(0.06, noteStart);
-        gain.gain.linearRampToValueAtTime(0.01, noteStart + beatDuration * 0.85);
+        gain.gain.setValueAtTime(0.30, noteStart);
+        gain.gain.linearRampToValueAtTime(0.10, noteStart + beatDuration * 0.85);
 
         osc.start(noteStart);
         osc.stop(noteStart + beatDuration * 0.9);
