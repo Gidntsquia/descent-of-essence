@@ -3239,3 +3239,30 @@ without loading the full 2.5MB WORDS array into context, per GOALS.md guidelines
 - Is the button gradient effect pleasant or does it feel gimmicky?
 
 **Current status:** 47 of 48 tasks complete. Final unchecked task: Design/Voice (rewrite for human feel).
+
+---
+
+## 2026-08-19T23:55Z -- RUN SUMMARY
+
+**Tasks completed this hourly run:**
+1. ✓ Boss fight intensity (entrance animation, enhanced HP effects, boss-specific sounds)
+2. ✓ Visual style polish (gradients, borders, button enhancements, node color hierarchy)
+
+**Queue status:** 47 of 48 tasks complete (97.9%)
+
+**Remaining task:**
+- Design/Voice pass: Rewrite game text to feel less AI-generated
+  - Trait hints (mechanical → in-world/flavor-focused)
+  - Combat log messages (fixed templates → varied phrasings)
+  - Achievement names/descriptions (audit for wit)
+  - Event node text (improve generic phrasing)
+  - Item hints (same audit)
+  - This task requires subjective judgment and substantial text rewrites
+  - Recommended: next run or human review with fresh context
+
+**Testing status:** All 16 npm DOM checks pass across both tasks.
+
+**Note:** Both completed tasks are design/feel improvements that ultimately need human
+playtest to confirm effectiveness. CSS and audio changes verified error-free but cannot
+confirm visual/audio "intenseness" or "polish" is actually improved without a human
+ear/eye. Documented limitations in PROGRESS.md entries for both tasks.
