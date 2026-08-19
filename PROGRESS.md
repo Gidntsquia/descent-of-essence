@@ -2323,3 +2323,32 @@ fast-forwards cleanly on top of the current tip. Flagging only in case that was 
 **Queue status:** the original refilled queue is now fully checked off. Three new tickets
 (above) are unchecked and are the natural next work -- #1 is a small, fully-diagnosed
 2-line fix and is the obvious one to take first.
+
+---
+
+## 2026-08-19T20:17Z
+
+**Fixed duplicate shop purchase bug** -- COMPLETED and pushed.
+
+The shop was letting players buy the same non-consumable item multiple times,
+paying full price each time, with item effects stacking. This was caused by
+Game.buyItem not checking if the item was already owned.
+
+**Fix applied:**
+Added a check in Game.buyItem after the affordability check:
+```javascript
+if (!isConsumable && state.player.items.indexOf(actualId) !== -1) {
+  log('You already own ' + def.name + '!');
+  return;
+}
+```
+
+This prevents non-consumable items from being purchased multiple times while
+keeping consumables stackable as intended (they don't have the check).
+
+**Verification:** npm test passes all 16 checks. Game is playable and the
+duplicate purchase prevention works as expected.
+
+**Status:** 92 of 95+ tasks complete. Next unchecked tasks are design-level
+decisions about trait mechanics (BALANCE/DESIGN) and softlock prevention
+(BUG/DESIGN) which are marked as needing Jaxon's judgment, not routine fixes.
