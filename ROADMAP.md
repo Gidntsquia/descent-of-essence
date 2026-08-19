@@ -39,6 +39,17 @@ quality sitting in a repo. Three things move the needle, roughly in priority ord
 (Update this list as items get resolved -- keep it accurate, it's the thing future
 runs should look at to decide what's next once GOALS.md's queue empties.)
 
+- **2026-08-19: two critical bugs shipped and were checked off despite passing code
+  review.** A null-element crash silently broke the entire combat loop after any
+  damage-dealing word (rack never cycled, counterattack never applied, no
+  re-render), and a render-ordering bug destroyed animation elements before they
+  were ever visible. Both fixed, both verified with a real headless browser
+  (Playwright), not just code review. `npm test` (test/dom-check.js, jsdom-based)
+  now exists specifically so this class of bug gets caught before a task is marked
+  done -- see GOALS.md's rules section, it's mandatory now. It can't check audio or
+  drag-and-drop (jsdom limitation); those need either real judgment or a heavier
+  Playwright-based pass, which is the orchestrator's job to run periodically rather
+  than something to set up fresh in the ephemeral hourly sandbox every time.
 - **Touch/mobile support is incomplete.** The rack drag-to-reorder feature (see
   PROGRESS.md, task 7) was built with native HTML5 drag-and-drop, which does NOT work
   on touch devices. A lot of itch.io browser-game traffic is on phones/tablets. This

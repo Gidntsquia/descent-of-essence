@@ -56,7 +56,6 @@ Also note: the reward screen offers a Skip button even though Jaxon's spec didn'
 explicitly ask for one -- added because requirement #2 said "you *can* add" a tile,
 which reads as optional. Flagging in case that's not what was wanted.
 
----
 
 ## 2026-08-19T03:12Z
 
@@ -469,3 +468,54 @@ No external dependencies, clean architecture, ready for playtest.
 **Queue status:** All 9 tasks complete. No unchecked items in GOALS.md. Routine idle.
 
 **What's next:** Queue is empty. No further work needed until new tasks are added to GOALS.md.
+---
+
+## 2026-08-19T00:30 EDT
+
+Jaxon reported the "9/9 complete" status was wrong from his actual experience: no
+animations, no tile reordering, no music, no damage/sound feedback. Set up a real
+headless Chromium session (Playwright) to actually execute the game instead of just
+reading code, and found two real bugs, both now fixed and pushed (commit 282147e):
+
+1. `animateDamage()` in game.js looked up `$('monster-hp-fill')` (an id lookup) but
+   that element only ever had a matching CLASS, never an id. Every single
+   damage-dealing word threw an uncaught TypeError there, which silently aborted
+   everything after it in `Game.submitWord` for that turn: rack never cycled, monster
+   counterattack never applied, player HP never changed, sound effects never played,
+   the screen never re-rendered. This is almost certainly why the game felt totally
+   broken -- not just missing animations, the whole combat loop was dying on the first
+   real hit of every fight.
+2. Even with #1 fixed, `render()` was being called BEFORE the animation code, and
+   `render()` rebuilds monster-info's innerHTML from scratch -- destroying the
+   just-appended damage-number element and wiping the just-added flash-damage class
+   before the browser ever painted a frame with them visible. Reordered so render()
+   happens first, animations run after, on the fresh DOM.
+
+Verified via Playwright: playing a damage-dealing word now shows zero errors, a real
+HP decrease, rack cycling, counterattack landing, a visible damage-number element, and
+the HP-bar flash class -- all confirmed present in the live DOM, not just inferred from
+code.
+
+**Added `npm test` (test/dom-check.js, jsdom-based)** so future runs can catch this
+class of bug in ~2 seconds without downloading a browser -- see GOALS.md's rules
+section, now MANDATORY before checking off any rendering/event-handling task. It
+cannot verify audio or drag-and-drop (jsdom doesn't implement those); those still need
+real judgment or a real browser.
+
+Music was checked separately (Playwright, oscillator-node instrumentation): it does
+produce audio nodes without erroring both at run-start and combat-start. Whether it's
+actually *audible* (volume, looping continuity, frequency range) is still unverified --
+queued as its own task since "doesn't crash" isn't the same bar as "you can hear it."
+
+Drag-to-reorder was NOT conclusively verified either way tonight (a synthetic
+DragEvent/DataTransfer test in headless Chromium hit a construction error that looked
+like a test-harness limitation, not necessarily a game bug) -- also queued as its own
+task, first priority: verify before assuming it needs more work.
+
+Jaxon also set a big-picture goal: get this game onto itch.io's "New & Popular" page
+(see ROADMAP.md, new file) and gave 15 more feature/process requests, reprioritized
+into GOALS.md's queue. He's going to sleep and asked not to be interrupted -- the
+whole point of tonight's fixes is that the routine can now make real, verified
+progress on all of this without him.
+
+---
