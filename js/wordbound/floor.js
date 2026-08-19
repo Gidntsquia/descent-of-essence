@@ -68,11 +68,13 @@
     var hasElite = Floor.ELITE_FLOOR_NUMBERS.indexOf(floorNumber) !== -1;
     var hasRest = floorNumber >= 2;
     var hasShop = floorNumber >= 2;
+    var hasEvent = floorNumber >= 1; // events on all floors
 
     var specials = ['treasure'];
     if (hasElite) specials.push('elite');
     if (hasRest) specials.push('rest');
     if (hasShop) specials.push('shop');
+    if (hasEvent && rng.chance(0.6)) specials.push('event'); // 60% chance per floor
 
     var fillerCount = nodeCount - 1 - specials.length; // -1 reserves the guaranteed first combat node
     if (fillerCount < 0) fillerCount = 0;
@@ -88,6 +90,7 @@
       if (type === 'combat') defId = pickCombatDefId(floorNumber, rng);
       else if (type === 'elite') defId = pickEliteDefId(rng);
       else if (type === 'boss') defId = pickBossDefId(floorNumber);
+      else if (type === 'event') defId = (window.Wordbound && window.Wordbound.Events) ? window.Wordbound.Events.pickRandomEvent(rng) : null;
       return { id: 'node' + (nextNodeId++), type: type, defId: defId, cleared: false };
     });
 

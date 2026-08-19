@@ -38,6 +38,8 @@
     shopOptions: null,
     tileRewardOptions: null,
     pendingAfterTileReward: null, // 'advanceFloor' | 'nextNode'
+    currentEvent: null, // { id, def: EventDef, name, text, choices }
+    pendingEventSkipNextCombat: false, // if true, skip next combat node
     deckViewerOpen: false,
     itemInspectorOpen: false,
     itemInspectorId: null,
@@ -112,6 +114,15 @@
     if (!node || node.cleared) return;
 
     if (node.type === 'combat' || node.type === 'elite' || node.type === 'boss') {
+      // Check if an event (like Empty Shelf) skipped this combat
+      if (state.pendingEventSkipNextCombat) {
+        state.pendingEventSkipNextCombat = false;
+        log('You skip the next encounter.');
+        node.cleared = true;
+        state.currentNodeIndex += 1;
+        render();
+        return;
+      }
       startCombat(node);
     } else if (node.type === 'treasure') {
       state.screen = 'TREASURE';
@@ -121,6 +132,8 @@
       state.screen = 'SHOP';
       state.shopOptions = rollShopOptions();
       render();
+    } else if (node.type === 'event') {
+      startEvent(node);
     } else if (node.type === 'rest') {
       var healed = Math.round(state.player.maxHp * 0.5);
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + healed);
@@ -184,6 +197,36 @@
     state.currentNodeIndex += 1;
     state.screen = 'RUN';
     state.shopOptions = null;
+    render();
+  };
+
+  // ---- events ---------------------------------------------------------
+
+  function startEvent(node) {
+    var Events = window.Wordbound && window.Wordbound.Events;
+    if (!Events || !Events.EVENT_DEFS[node.defId]) return;
+    var eventDef = Events.EVENT_DEFS[node.defId];
+    state.currentEvent = {
+      id: node.defId,
+      def: eventDef,
+      name: eventDef.name,
+      text: eventDef.text,
+      choices: eventDef.choices
+    };
+    state.screen = 'EVENT';
+    render();
+  }
+
+  Game.chooseEventOption = function (choiceIndex) {
+    if (!state.currentEvent || !state.currentEvent.choices || choiceIndex < 0 || choiceIndex >= state.currentEvent.choices.length) return;
+    var choice = state.currentEvent.choices[choiceIndex];
+    var result = choice.effect(state);
+    if (result) log(result);
+
+    currentNode().cleared = true;
+    state.currentNodeIndex += 1;
+    state.currentEvent = null;
+    state.screen = 'RUN';
     render();
   };
 
@@ -786,10 +829,11 @@
       return;
     }
 
-    $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD');
+    $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'EVENT');
     $('combat-panel').classList.toggle('hidden', !state.combatActive);
     $('treasure-panel').classList.toggle('hidden', state.screen !== 'TREASURE' && state.screen !== 'SHOP');
     $('tile-reward-panel').classList.toggle('hidden', state.screen !== 'TILE_REWARD');
+    $('event-panel').classList.toggle('hidden', state.screen !== 'EVENT');
 
     if (state.screen === 'TREASURE') {
       renderTreasure();
@@ -801,6 +845,10 @@
     }
     if (state.screen === 'TILE_REWARD') {
       renderTileReward();
+      return;
+    }
+    if (state.screen === 'EVENT') {
+      renderEvent();
       return;
     }
     if (state.combatActive) {
@@ -836,7 +884,7 @@
   function renderNodeMap() {
     var el = $('node-map');
     el.innerHTML = '';
-    var labels = { combat: 'Foe', elite: 'Elite', treasure: 'Treasure', rest: 'Rest', boss: 'BOSS' };
+    var labels = { combat: 'Foe', elite: 'Elite', treasure: 'Treasure', rest: 'Rest', shop: 'Shop', event: 'Event', boss: 'BOSS' };
     state.floor.nodes.forEach(function (node, i) {
       var pill = document.createElement('div');
       pill.className = 'node-pill node-' + node.type;
@@ -954,6 +1002,21 @@
         el.appendChild(btn);
       });
     }
+  }
+
+  function renderEvent() {
+    if (!state.currentEvent) return;
+    $('event-panel-heading').textContent = state.currentEvent.name;
+    $('event-panel-text').textContent = state.currentEvent.text;
+    var el = $('event-choices');
+    el.innerHTML = '';
+    state.currentEvent.choices.forEach(function (choice, index) {
+      var btn = document.createElement('button');
+      btn.className = 'treasure-choice';
+      btn.textContent = choice.text;
+      btn.addEventListener('click', function () { Game.chooseEventOption(index); });
+      el.appendChild(btn);
+    });
   }
 
   function renderCombat() {

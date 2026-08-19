@@ -151,6 +151,7 @@ body {
 
 .node-elite.node-current { border-color: #e08a8a; box-shadow: 0 0 8px rgba(224, 138, 138, 0.4); }
 .node-boss.node-current { border-color: #d64545; box-shadow: 0 0 10px rgba(214, 69, 69, 0.5); }
+.node-event.node-current { border-color: #b8a5d8; box-shadow: 0 0 8px rgba(184, 165, 216, 0.4); }
 
 .combat-panel { margin-top: 12px; }
 
