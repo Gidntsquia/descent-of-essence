@@ -1919,3 +1919,27 @@ npm test: 16/16 checks pass. Game is feature-complete and ship-ready.
 
 Routine will idle until new work is queued.
 
+---
+
+## 2026-08-19T18:29Z (orchestrator QA pass, not a routine run)
+
+Periodic real-browser QA check, run right after the direct fixes above (e617cb9) to
+confirm they didn't regress anything and to catch whatever the routine might do next.
+Pulled to origin/main tip first (already current -- e617cb9 is still HEAD, nothing new
+from the routine since). `npm test` clean (16/16).
+
+Ran 5 full real-browser (Playwright) playthroughs with a best-word-scoring bot,
+covering combat, tile rewards, treasure, shop, event, rest, and consumable-usage flows.
+Coverage this pass: shop visited 8 times across 4 runs (8 items purchased), treasure
+visited 13 times, events visited 4 times, rest nodes visited 6 times, consumables used
+4 times. **Zero uncaught page errors, zero console errors, zero behavioral findings.**
+All 5 runs ended in GAME_OVER (none reached VICTORY against the smart-word bot), which
+is a difficulty/balance observation, not a bug -- consistent with prior playtesting.
+
+This also serves as regression confirmation for the animations/Page-Turn/vowelless/
+music/boss-tuning fixes from the entry just above: no new issues surfaced from any of
+those systems in this pass.
+
+No tickets added -- queue remains as-is. Nothing needs the routine's attention this
+cycle.
+
