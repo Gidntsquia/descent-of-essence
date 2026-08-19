@@ -188,8 +188,6 @@
 
     var tag = result.multiplier === 0 ? ' -- no effect!' : result.multiplier > 1 ? ' -- weak point!' : '';
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
-    animateDamage(result.damage);
-    if (result.damage > 0) playCombatSound(result.damage);
 
     if (state.monster.hp <= 0) {
       onMonsterDefeated();
@@ -202,10 +200,6 @@
     Items.runHook('onPlayerDamaged', dmgCtx, state.player);
     state.player.hp = Math.max(0, state.player.hp - dmgCtx.damage);
     log(state.monster.name + ' hits you for ' + dmgCtx.damage + '.');
-    if (dmgCtx.damage > 0) {
-      animatePlayerDamage();
-      playCounterattackSound(dmgCtx.damage);
-    }
 
     if (state.player.hp <= 0) {
       state.combatActive = false;
@@ -214,6 +208,19 @@
     }
 
     render();
+
+    // Animations run AFTER render(), not before: render() rebuilds
+    // monster-info's innerHTML wholesale, which would instantly destroy any
+    // damage-number element or flash-damage class applied beforehand -- the
+    // browser never gets a paint frame to show it. Running these after
+    // render() means they act on the freshly-rendered elements and persist
+    // until their own timeouts clean them up.
+    animateDamage(result.damage);
+    if (result.damage > 0) playCombatSound(result.damage);
+    if (dmgCtx.damage > 0) {
+      animatePlayerDamage();
+      playCounterattackSound(dmgCtx.damage);
+    }
   };
 
   function onMonsterDefeated() {
@@ -694,7 +701,7 @@
     var info = $('monster-info');
     info.innerHTML =
       '<div class="monster-name' + (m.isBoss ? ' boss-name' : '') + '">' + escapeHtml(m.name) + '</div>' +
-      '<div class="monster-hp-bar"><div class="monster-hp-fill" style="width:' + Math.max(0, hpRatio * 100) + '%"></div></div>' +
+      '<div class="monster-hp-bar"><div id="monster-hp-fill" class="monster-hp-fill" style="width:' + Math.max(0, hpRatio * 100) + '%"></div></div>' +
       '<div class="monster-hp-text">' + m.hp + ' / ' + m.maxHp + ' HP</div>' +
       '<div class="monster-weakness">Weakness: ' + escapeHtml(trait.hint) + '</div>';
 

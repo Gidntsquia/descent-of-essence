@@ -5,6 +5,10 @@ acting on Jaxon's behalf) adds tasks here. Each hourly run picks the first unche
 item, does a complete, working chunk of progress on it, checks it off when fully done,
 and logs what happened in PROGRESS.md.
 
+Read ROADMAP.md too, not just this file -- it's the "why" behind the current queue
+(the goal is getting this game itch.io-launch-ready, not just shipping features for
+their own sake) and lists known gaps to pull the next task from once this queue empties.
+
 Rules for the routine:
 - Work top to bottom. Don't skip ahead unless a task is blocked — note the blocker in
   PROGRESS.md instead and move to the next one.
@@ -68,3 +72,39 @@ Rules for the routine:
       Web Audio API. Calm melody (sine wave, 1s beat) for normal play, intense melody (square wave,
       0.5s beat) for boss fights. Added mute button and volume slider (0-100%, default 10%) to run
       screen. Music starts on run begin, switches based on node type, stops on run end.
+
+- [ ] Fix rack-tile reordering on touch devices. The drag-to-reorder feature (task above)
+      uses native HTML5 drag-and-drop (dragstart/dragover/drop events), which does NOT fire on
+      touch screens -- so on phones/tablets the rack currently can't be reordered at all. Per
+      ROADMAP.md, a lot of itch.io's traffic is mobile browser, so this matters. Add touch event
+      handling (touchstart/touchmove/touchend) as a parallel path to the existing mouse drag
+      handlers in game.js, reusing the same reorderRackOnDrop() logic -- don't duplicate the
+      reorder math, just feed it from touch coordinates instead of drag events. Test your
+      touch-position-to-rack-index math carefully by reasoning through it (no browser available);
+      get the geometry right rather than approximating.
+- [ ] Headless "playtest" via a simple simulation script: write a one-off Node script (put it
+      somewhere like scripts/simulate.js, or just run it ad hoc and don't commit it if it's purely
+      a diagnostic -- your call) that loads the actual game modules (same technique used for the
+      verification harness in PROGRESS.md's 2026-08-19T02:29Z entry: shim `window`, load the
+      Wordbound files into a vm context) and drives many simulated runs using a simple heuristic
+      player (e.g. always plays the highest-scoring word it can form from the rack). Run enough
+      simulations to answer: does a reasonable player usually survive floor 1? Is any floor a
+      difficulty cliff? Does any monster trait seem impossible or trivial to exploit? Is any item
+      clearly overpowered or useless? Write findings to PROGRESS.md. Fix anything that's clearly
+      broken (a monster no reasonable word can ever damage, a run that's unwinnable by design);
+      leave subjective balance/difficulty-curve opinions for Jaxon rather than guessing at "fun."
+- [ ] Confirm the game is itch.io-upload-ready as a static zip: no server dependency (should
+      already be true -- everything's plain files with no fetch() of external resources), all
+      asset paths relative (not absolute, not assuming a specific host), and it actually runs
+      correctly when opened via file:// (not just via a local http.server) since that's closer to
+      how some itch.io/zip distribution scenarios work. Note in PROGRESS.md whether GitHub Pages
+      hosting (already live) is sufficient for itch.io's "this game is hosted externally" option,
+      or whether a packaged zip is actually needed -- if you can't determine this from the repo
+      alone, just document what you checked and leave the open question for Jaxon rather than
+      guessing at itch.io's upload requirements.
+- [ ] Add 2-3 more monster and 1-2 more item defs to js/wordbound/monsters.js / items.js, using
+      the existing pattern (a monster's trait comes from traits.js's existing TRAITS -- reuse
+      those rather than inventing new trait mechanics, that's a bigger design change than this
+      task) and THEME.md's naming/tone (add new entries to THEME.md's tables first, keeping the
+      whimsical library-pun style, then implement). This is about replayability variety, not a
+      new mechanic -- keep scope tight.
