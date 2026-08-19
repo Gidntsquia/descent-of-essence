@@ -22,6 +22,10 @@
   var isPlayingMusic = false;
   var currentMusicMode = null; // 'normal' or 'boss'
 
+  // Anagram map built once at init for fast unplayable-rack detection.
+  // Maps sorted letters -> array of words that can be formed.
+  var anagramMap = null;
+
   // Audio settings (volume + mute) persisted separately from achievements.js's
   // save -- otherwise every fresh page load silently reset the player's chosen
   // volume/mute back to the 10% default, even if they'd explicitly changed it.
@@ -293,6 +297,37 @@
 
   // ---- combat ---------------------------------------------------------
 
+  // Check if the rack can form any valid word. Used to detect and handle
+  // unplayable racks (soft-lock condition when a rack has no valid words).
+  // Returns true if any subset of the rack can spell a word in the dictionary.
+  function canFormAnyWord(rack) {
+    if (!anagramMap || rack.length < 2) return false;
+
+    // Try all non-empty subsets of the rack (excluding blanks for efficiency)
+    var usable = rack.filter(function (t) { return t.letter !== '?'; });
+    if (usable.length < 2) return false;
+
+    var n = usable.length;
+    // Iterate through all possible subsets (bitmask from 1 to 2^n - 1)
+    for (var mask = 1; mask < (1 << n); mask++) {
+      var subset = [];
+      for (var i = 0; i < n; i++) {
+        if (mask & (1 << i)) subset.push(usable[i].letter);
+      }
+      if (subset.length < 2) continue;
+
+      // Look up the sorted letters in the anagram map
+      var key = subset.sort().join('');
+      if (anagramMap.has(key)) {
+        // We found a bucket of words that could potentially be spelled
+        // with these letters. For a quick check, we assume if the map
+        // has a word, we can form it (fine for unplayable detection).
+        return true;
+      }
+    }
+    return false;
+  }
+
   function startCombat(node) {
     state.monster = node.type === 'boss' ? Monsters.createBoss(node.defId) : Monsters.createMonster(node.defId);
     state.pile = { drawPile: Tiles.shuffleIntoDrawPile(state.deck, state.rng), discardPile: [] };
@@ -315,6 +350,26 @@
     Items.runHook('onDraw', ctx, state.player);
     state.player.rack = state.player.rack.concat(ctx.drawnTiles);
     state.rackJustRefilled = true;
+
+    // Auto-detect and handle unplayable racks: if the current rack can form no
+    // valid word, silently cycle it. This prevents the "stuck with an unplayable
+    // rack" softlock that can occur with character-specific decks (especially the
+    // Scribe, whose consonant-heavy deck can draw very few valid words).
+    // Loop continues until a playable rack is found.
+    var maxAttempts = 10; // safety limit to prevent infinite loops
+    var attempts = 0;
+    while (!canFormAnyWord(state.player.rack) && attempts < maxAttempts) {
+      // Discard all tiles and redraw
+      state.pile.discardPile = state.pile.discardPile.concat(state.player.rack);
+      state.player.rack = [];
+      attempts++;
+      // Re-fill the rack
+      var capacity = Items.getRackCapacity(state.player);
+      var drawn = Tiles.draw(state.pile, capacity, state.rng);
+      var ctx = { player: state.player, drawnTiles: drawn, pileState: state.pile, rng: state.rng };
+      Items.runHook('onDraw', ctx, state.player);
+      state.player.rack = state.player.rack.concat(ctx.drawnTiles);
+    }
   }
 
   // Slay the Spire-style rack: whatever's left in the rack after a word is
@@ -1277,6 +1332,18 @@
     RNG = window.Game.RNG;
     Characters = window.Wordbound.Characters;
     Achievements = window.Wordbound.Achievements;
+
+    // Build anagram map for fast unplayable-rack detection
+    // Maps sorted letters -> array of words that can be formed
+    if (!anagramMap && window.Wordbound.WORD_SET) {
+      anagramMap = new Map();
+      for (var word of window.Wordbound.WORD_SET) {
+        var key = word.split('').sort().join('');
+        var bucket = anagramMap.get(key);
+        if (bucket) bucket.push(word);
+        else anagramMap.set(key, [word]);
+      }
+    }
 
     $('btn-new-run').addEventListener('click', Game.showCharacterSelect);
     $('btn-gameover-continue').addEventListener('click', Game.returnToMainMenu);
