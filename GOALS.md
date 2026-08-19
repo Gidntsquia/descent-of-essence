@@ -319,7 +319,7 @@ Rules for the routine:
       and document why in PROGRESS.md rather than risk polluting the dictionary with
       wrong spellings -- partial coverage done carefully beats full coverage done
       sloppily here.
-- [ ] DESIGN/FEEL: boss fights should feel more intense/dramatic than regular fights.
+- [x] DESIGN/FEEL: boss fights should feel more intense/dramatic than regular fights.
       Requested 2026-08-19 ("make the boss fights feel more intense"). CONTEXT:
       currently the ONLY things that differentiate a boss fight from a regular one
       are (1) different background music (already queued for a pitch fix above),

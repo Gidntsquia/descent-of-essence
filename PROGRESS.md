@@ -3117,3 +3117,49 @@ without loading the full 2.5MB WORDS array into context, per GOALS.md guidelines
 
 **Current status:** 45/48 tasks complete. Next: differentiate boss fights (intensity).
 
+
+---
+
+## 2026-08-19T23:40Z
+
+**DESIGN/FEEL: Make boss fights feel more intense/dramatic** -- COMPLETED and pushed.
+
+**What was implemented:**
+
+1. **CSS animations for boss-specific feedback:**
+   - `@keyframes bossHpFlash`: More vibrant red (#ff6b6b to #8a1f1f) with added box-shadow glow effect
+   - `@keyframes bossHpShake`: Larger movement (4px vs 2px) for more dramatic feedback
+   - `@keyframes bossEntrance`: Scale animation (0.8 → 1.0) with fade-in over 0.5s for dramatic entrance
+   - `.boss-combat` class: Red border (2px solid #e08a8a) with outer glow and subtle inset glow
+   - Boss combat panel applies entrance animation to #monster-info and uses enhanced HP animations
+
+2. **JS implementation:**
+   - Toggle `.boss-combat` class on combat-panel when `state.monster.isBoss` is true
+   - Enhanced boss counterattack sounds: lower base frequency (65Hz vs 100Hz), longer duration (0.35s vs 0.2s), stronger gain
+   - Pass `isBoss` flag to `playCounterattackSound()` for conditional audio behavior
+
+3. **Design approach:**
+   - All changes are additive and reversible (gated on CSS `.boss-combat` class)
+   - Stayed within established parchment/gold aesthetic (used existing colors #e08a8a red)
+   - No impact on normal-fight rendering or styling
+   - Animations enhance without over-powering (all within reasonable keyframe durations)
+
+**Verification:**
+   - ✓ npm test: all 16 DOM checks pass, no errors thrown
+   - ✓ No syntax errors in modified files
+   - ✓ Boss combat state correctly detected and applied
+
+**What still needs human verification (jsdom limitation):**
+   - Visual appearance: are the color shifts, glow effects, and entrance animation actually dramatic/impressive?
+   - Audio quality: do boss counterattack sounds actually sound more ominous, or just lower-pitched?
+   - Overall feel: does the combination of visual+audio effects create a sense of intensity?
+   - Animation timing: are the durations/scales appropriate for "intense" feel?
+
+**Design notes:**
+   - Did NOT implement HP intensity scaling (hpShake/hpFlash intensity based on boss HP ratio) as it would require
+     state tracking and conditional animation application, which adds complexity. The static intense animations
+     on every hit are sufficient for the goal.
+   - Did NOT add a second oscillator for richer boss sound (keeps audio synthesis simple, lower latency)
+   - Entrance animation triggers via CSS @keyframes on render, not via JS animation event timing
+
+**Current status:** 46 of 48+ tasks complete. Next: overall visual style polish (DESIGN/VISUAL task).
