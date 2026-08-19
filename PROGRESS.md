@@ -1190,3 +1190,54 @@ that make runs feel more distinct.
 
 The event system is working and integrated. Full playtest in a real browser would verify
 that event text clarity and choice presentation feel intuitive to players.
+
+## 2026-08-19T15:10Z
+
+**Add 3-5 more monsters and 2-3 more item defs (Task from GOALS.md)** -- COMPLETED and pushed.
+
+**What was implemented:**
+
+1. **4 new monsters** (up from 8 to 12 total):
+   - The Glossary (weak tier, vowelHungry): 9 HP, 2 attack, [1-3] gold
+     * Another vowel-hungry weak enemy, uses existing vowelHungry trait
+   - Binding Strap (normal tier, alphabetic): 15 HP, 4 attack, [3-6] gold
+     * Demands alphabetic words (letters in order A→B→C...), higher than Card Catalog's 22 HP
+   - The Appendix (normal tier, silentE): 13 HP, 4 attack, [3-6] gold
+     * Weak to words ending in E, similar difficulty to Quoth (12 HP) but slightly harder
+   - Spine Splinter (strong tier, doubled): 19 HP, 5 attack, [7-11] gold
+     * Fragment of The Unabridged, weak to doubled letters, bridges Card Catalog (22 HP) and Hoarder (20 HP)
+
+2. **3 new items** (up from 8 to 11 permanent items):
+   - Folio Mark (uncommon, 40 gold): +2 bonus damage per bonus tile played
+     * Directly synergizes with bonus tiles from deck rewards
+     * Encourages building words that USE bonus tiles, not just hold them
+   - Marginalia (uncommon, 35 gold): Heal 2 HP when playing 5+ letter words
+     * Encourages longer words as a strategy
+     * Pairs well with Lexicon's letter values
+   - Catalog Tab (uncommon, 35 gold): +2 bonus damage on alphabetic words
+     * Synergizes with Binding Strap and creates a build-defining interaction
+     * Makes alphabetic words a strategic goal even when not required
+
+3. **Documentation updates**:
+   - Added all 4 new monsters to THEME.md monster table with library-pun names/quotes
+   - Added permanent items section to THEME.md (new section before "Applying this")
+   - Marked task complete in GOALS.md with timestamp
+
+**Design rationale:**
+
+- Monsters: Added content at weak/normal/strong tiers to increase variety. Each reuses existing traits (no new mechanics), follows whimsical naming style, and scales appropriately in HP/attack.
+- Items: Prioritized items that change how runs play:
+  * Folio Mark changes which tiles matter (bonus tiles become valuable to USE, not avoid)
+  * Marginalia changes word-building strategy (long words become desirable)
+  * Catalog Tab creates build synergies with alphabetic monsters and enables alphabetic-focused runs
+
+All items have meaningful interactions with existing game systems (bonus tiles, word length, alphabetic ordering) rather than simple stat tweaks.
+
+**Testing:**
+- All 13 npm DOM checks pass
+- No syntax errors in any modified files
+- Monsters automatically available in floor generation (pickup by tier from Floor.js)
+- Items available in shop and treasure pools (Monsters.ITEM_DEFS referenced by game.js)
+
+**Current status:** 24 of 35+ tasks complete (~69% done). Next unchecked task: Cohesion pass (visual/audio/copy review).
+
