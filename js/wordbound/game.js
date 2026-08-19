@@ -329,6 +329,17 @@
     }
   }
 
+  var TILE_PLAY_ANIM_MS = 220; // matches .tile-played's animation-duration in wordbound.css
+
+  function markTilesPlayed(tilesUsed) {
+    var rack = $('rack-display');
+    if (!rack) return;
+    tilesUsed.forEach(function (tile) {
+      var btn = rack.querySelector('[data-tile-id="' + tile.id + '"]');
+      if (btn) btn.classList.add('tile-played');
+    });
+  }
+
   Game.submitWord = function (rawWord) {
     if (!state.combatActive) return;
     var word = (rawWord || '').trim().toUpperCase();
@@ -341,6 +352,12 @@
       render();
       return;
     }
+
+    // Flag the played tiles' existing DOM elements right away, before anything
+    // else touches the rack -- render() rebuilds rack-display's innerHTML
+    // wholesale, which would otherwise destroy these elements before the
+    // browser ever paints a frame with the animation running.
+    markTilesPlayed(result.tilesUsed);
 
     var ctx = { player: state.player, monster: state.monster, word: result.word, tilesUsed: result.tilesUsed, result: result };
     Items.runHook('onWordPlayed', ctx, state.player);
@@ -359,38 +376,43 @@
       state.player.bonusDamageUntilEndOfTurn = 0;
     }
 
-    if (state.monster.hp <= 0) {
-      onMonsterDefeated(result.damage, monsterHpBefore);
-      return;
-    }
+    // Everything from here on rebuilds the rack (directly or via render()),
+    // which would cut the tile-play animation short -- deferred by
+    // TILE_PLAY_ANIM_MS so it's actually visible before that happens.
+    setTimeout(function () {
+      if (state.monster.hp <= 0) {
+        onMonsterDefeated(result.damage, monsterHpBefore);
+        return;
+      }
 
-    cycleRackAfterWord(result.tilesUsed);
+      cycleRackAfterWord(result.tilesUsed);
 
-    var dmgCtx = { player: state.player, monster: state.monster, damage: state.monster.attack || 0 };
-    Items.runHook('onPlayerDamaged', dmgCtx, state.player);
-    state.player.hp = Math.max(0, state.player.hp - dmgCtx.damage);
-    log(state.monster.name + ' hits you for ' + dmgCtx.damage + '.');
+      var dmgCtx = { player: state.player, monster: state.monster, damage: state.monster.attack || 0 };
+      Items.runHook('onPlayerDamaged', dmgCtx, state.player);
+      state.player.hp = Math.max(0, state.player.hp - dmgCtx.damage);
+      log(state.monster.name + ' hits you for ' + dmgCtx.damage + '.');
 
-    if (state.player.hp <= 0) {
-      state.combatActive = false;
-      endRun(false);
-      return;
-    }
+      if (state.player.hp <= 0) {
+        state.combatActive = false;
+        endRun(false);
+        return;
+      }
 
-    render();
+      render();
 
-    // Animations run AFTER render(), not before: render() rebuilds
-    // monster-info's innerHTML wholesale, which would instantly destroy any
-    // damage-number element or flash-damage class applied beforehand -- the
-    // browser never gets a paint frame to show it. Running these after
-    // render() means they act on the freshly-rendered elements and persist
-    // until their own timeouts clean them up.
-    animateDamage(result.damage);
-    if (result.damage > 0) playCombatSound(result.damage);
-    if (dmgCtx.damage > 0) {
-      animatePlayerDamage();
-      playCounterattackSound(dmgCtx.damage);
-    }
+      // Animations run AFTER render(), not before: render() rebuilds
+      // monster-info's innerHTML wholesale, which would instantly destroy any
+      // damage-number element or flash-damage class applied beforehand -- the
+      // browser never gets a paint frame to show it. Running these after
+      // render() means they act on the freshly-rendered elements and persist
+      // until their own timeouts clean them up.
+      animateDamage(result.damage);
+      if (result.damage > 0) playCombatSound(result.damage);
+      if (dmgCtx.damage > 0) {
+        animatePlayerDamage();
+        playCounterattackSound(dmgCtx.damage);
+      }
+    }, TILE_PLAY_ANIM_MS);
   };
 
   function onMonsterDefeated(damageDealt, monsterHpBefore) {

@@ -138,7 +138,10 @@ async function main() {
     const before = { monsterHp: state.monster.hp, playerHp: state.player.hp, rackIds: state.player.rack.map((t) => t.id) };
     document.getElementById('word-input').value = word;
     document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
-    await new Promise((r) => setTimeout(r, 50));
+    // Rack cycling, the counterattack, and damage animations are deferred by
+    // TILE_PLAY_ANIM_MS (game.js) so the tile-play animation is actually visible
+    // before the rack redraws -- wait past that, not just past the click handler.
+    await new Promise((r) => setTimeout(r, 300));
 
     check('playing a damage-dealing word produces zero errors', errors.length === 0);
     if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
