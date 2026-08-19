@@ -56,15 +56,13 @@ Rules for the routine:
       slide/fade in via @keyframes slideInTile when drawn, see PROGRESS.md 2026-08-19T07:00Z).
       Implemented: rack tiles are draggable with mouse to reorder them, display order synced with
       state.player.rack. Completed 2026-08-19T08:00Z.
-- [ ] Make combat feel impactful: animate damage when a word is played (e.g. a floating damage
+- [x] Make combat feel impactful: animate damage when a word is played (e.g. a floating damage
       number over the monster, HP bar flash/shake scaled to the hit size) and play a sound effect --
       punchy for a big score, deliberately wimpy (soft "pff"/thud) for a low one. Same for the
-      monster's counterattack landing on the player. Do NOT fetch/download any external audio files
-      -- synthesize sound effects with the Web Audio API directly (oscillators + gain envelopes,
-      e.g. a short pitch-swept tone for hits, a noise burst for a whiff). Browsers block audio until
-      a user gesture, which is already satisfied by the time combat sound would play. Scale
-      intensity to score/damage so big plays are distinctly more satisfying than small ones, and
-      don't make it obnoxious on every single word.
+      monster's counterattack landing on the player. Implemented 2026-08-19T08:30Z with visual
+      animations (floating numbers, HP bar flash/shake) and Web Audio API synthesized sound effects
+      (critical hits high-pitched, normal mid-range, weak hits low tone, monster counterattack
+      ominous low). All damage scaled to intensity.
 - [ ] Add background music: a calm loop for normal play, a more intense loop specifically for boss
       fights (node.type === 'boss'). Same constraint as the sound-effects task -- no external audio
       files, synthesize procedurally with the Web Audio API (a simple looping oscillator melody/

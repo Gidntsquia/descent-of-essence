@@ -359,3 +359,37 @@ interactive reordering with visual feedback.
 
 **Current status:** 6 of 8 tasks complete (75% queue).
 Remaining: sound effects (#8), background music (#9).
+
+---
+
+## 2026-08-19T08:30Z
+
+**Make combat feel impactful (Task 8)** -- COMPLETED and pushed.
+
+Implemented both visual and audio effects to make combat damage impactful.
+
+Visual effects:
+- Floating damage numbers appear above the monster and fade upward over 1s
+- Numbers color-coded: red for critical hits (>30 damage), gold for normal, green for weak (<5)
+- HP bar flashes bright red and shakes on monster taking damage
+- Player HP display flashes bright on taking damage from monster counterattack
+
+Audio effects:
+- All sounds synthesized with Web Audio API (no external files)
+- Critical hits (>30 damage): high-pitched punchy tone that frequency-sweeps downward
+- Normal hits (5-30 damage): mid-range punchy tone, intensity scales with damage
+- Weak hits (<5 damage): soft, low tone that fades gently
+- Monster counterattack: ominous low tone (around 100Hz) that fades
+- All sounds use gain envelopes to fade smoothly
+- Intensity scaled to damage value so big plays are more satisfying than small ones
+
+Code changes:
+- js/wordbound/game.js: Added animateDamage, animatePlayerDamage, playCombatSound,
+  playCounterattackSound functions. Added audioContext initialization and sound
+  generation using oscillators and gain controls.
+- css/wordbound.css: Added @keyframes for floatDamage, hpFlash, hpShake, and
+  playerDamageFlash animations. Added .damage-number classes for styling.
+- Connected animations to Combat.playWord damage event and monster counterattack.
+
+**Current status:** 7 of 8 tasks complete (87.5% queue).
+Remaining: background music (#9).
