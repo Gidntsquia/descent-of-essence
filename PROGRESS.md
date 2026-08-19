@@ -1660,3 +1660,14 @@ verified with real clicks since character select was added.
 
 **Routine will now idle until new tasks are added to GOALS.md.**
 
+---
+
+## 2026-08-19T17:13Z -- ROUTINE CHECK-IN (IDLE CONFIRMED)
+
+**Status:** No new tasks added to GOALS.md since 2026-08-19T16:38Z.
+**Queue:** Empty (all 28 tasks complete and checked off).
+**Known gaps:** All automatable items already completed or outside scope (require human testing/input).
+**npm test:** All 16 DOM checks pass.
+
+Confirming idle state per routine guardrails. Nothing to do until new tasks are added.
+
