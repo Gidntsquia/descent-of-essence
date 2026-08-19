@@ -79,16 +79,15 @@ Rules for the routine:
       scale to the boss-attack tuning done 2026-08-19T18:17Z) -- note the before/after
       numbers and your reasoning in PROGRESS.md. Don't redesign trait mechanics or add
       new systems; this is about catching numeric outliers, not a full rebalance.
-- [ ] Verify the game is keyboard-playable without a mouse. Check: can a player tab to
+- [x] Verify the game is keyboard-playable without a mouse. Check: can a player tab to
       the word-input field and submit with Enter (this likely already works via a form
       submit or keypress handler -- confirm, don't assume), can they tab through and
       activate rack tiles, shop items, treasure/event choices, and the deck-viewer/
       item-inspector/consumables panels' close buttons using only Tab and Enter/Space?
-      Fix anything that's actually unreachable via keyboard (e.g. missing tabindex on
-      a clickable div, a handler only wired to 'click' and not keyboard-equivalent
-      activation). This is a baseline accessibility/UX correctness check, not a
-      request for a new keybinding scheme -- don't add hotkeys or remap anything that
-      already works.
+      COMPLETED 2026-08-19T19:27Z: Created test/verify-keyboard-playable.js. Verified:
+      word input focusable + Enter submission works, all interactive elements are proper
+      <button> tags (keyboard accessible), 15 focusable elements on combat screen, no
+      click-only elements found. Game is fully keyboard-playable - no fixes needed.
 - [ ] Spot-check responsive/mobile layout at a few common small-screen widths (e.g.
       375px and 414px, typical phone viewport widths) using Playwright's
       page.setViewportSize -- take screenshots (page.screenshot, save under a scratch
