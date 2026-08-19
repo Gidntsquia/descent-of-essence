@@ -247,4 +247,23 @@
     ctx.result.damage += amount;
     ctx.result.monsterDied = ctx.monster.hp <= 0;
   };
+
+  // Load unlockable items from achievements module
+  Items.loadUnlockableItems = function () {
+    var Achievements = window.Wordbound.Achievements;
+    if (!Achievements) return;
+    var unlockedItems = Achievements.UNLOCKABLE_ITEMS;
+    if (!unlockedItems) return;
+    Object.keys(unlockedItems).forEach(function (itemId) {
+      if (!ITEM_DEFS[itemId]) {
+        var itemDef = unlockedItems[itemId];
+        itemDef.statMods = itemDef.statMods || {};
+        itemDef.hooks = itemDef.hooks || {};
+        ITEM_DEFS[itemId] = itemDef;
+      }
+    });
+  };
+
+  // Call this once at startup
+  Items.loadUnlockableItems();
 })();

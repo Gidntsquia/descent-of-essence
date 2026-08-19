@@ -14,7 +14,7 @@
   window.Wordbound = window.Wordbound || {};
   var Game = (window.Wordbound.Game = {});
 
-  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters;
+  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements;
 
   var audioContext = null;
   var musicOscillators = [];
@@ -93,6 +93,7 @@
     state.currentNodeIndex = 0;
     state.messages = [];
     state.screen = 'RUN';
+    if (Achievements) Achievements.resetRunState();
     startBackgroundMusic(false);
     render();
   };
@@ -110,6 +111,7 @@
 
   function endRun(victory) {
     stopBackgroundMusic();
+    if (victory && Achievements) Achievements.trackRunCompletion();
     state.screen = victory ? 'VICTORY' : 'GAME_OVER';
     render();
   }
@@ -183,7 +185,9 @@
 
   function rollShopOptions() {
     var owned = state.player.items;
-    var itemPool = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
+    var itemPool = Object.keys(Items.ITEM_DEFS).filter(function (id) {
+      return owned.indexOf(id) === -1;
+    });
     var consumablePool = Wordbound.Consumables ? Object.keys(Wordbound.Consumables.CONSUMABLE_DEFS).map(function (id) { return 'c:' + id; }) : [];
     var combined = itemPool.concat(consumablePool);
     var shuffled = state.rng.shuffle(combined);
@@ -336,6 +340,8 @@
     var tag = result.multiplier === 0 ? ' -- no effect!' : result.multiplier > 1 ? ' -- weak point!' : '';
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
 
+    if (Achievements) Achievements.trackDamage(result.damage);
+
     // Apply Index Card Shard bonus damage if active
     if (state.player.bonusDamageUntilEndOfTurn > 0) {
       var bonusDmg = state.player.bonusDamageUntilEndOfTurn;
@@ -413,6 +419,16 @@
     state.combatActive = false;
     currentNode().cleared = true;
     var wasBoss = currentNode().type === 'boss';
+
+    // Track achievements
+    if (Achievements) {
+      if (wasBoss) {
+        Achievements.trackBossDefeatedWithoutDamage(state.monster.defId, state.player.hp < state.player.maxHp);
+      }
+      Achievements.trackOverkill(overkill);
+      Achievements.trackItemsCollected(state.player.items.length);
+    }
+
     state.player.rack = [];
     state.pendingAfterTileReward = wasBoss ? 'advanceFloor' : 'nextNode';
     state.tileRewardOptions = Tiles.rollRewardOptions(state.rng, 3);
@@ -804,12 +820,29 @@
   }
 
   function render() {
-    if (state.screen === 'MAIN_MENU') { show('screen-main-menu'); return; }
+    if (state.screen === 'MAIN_MENU') { show('screen-main-menu'); renderMainMenu(); return; }
     if (state.screen === 'CHARACTER_SELECT') { show('screen-character-select'); renderCharacterSelect(); return; }
     if (state.screen === 'GAME_OVER') { show('screen-game-over'); renderGameOver(); return; }
     if (state.screen === 'VICTORY') { show('screen-victory'); renderVictory(); return; }
     show('screen-run');
     renderRun();
+  }
+
+  function renderMainMenu() {
+    var achvDisplay = $('achievements-display');
+    if (Achievements) {
+      var unlockedIds = Achievements.getUnlockedAchievements();
+      var totalCount = Object.keys(Achievements.ACHIEVEMENTS).length;
+      var progressText = 'Achievements unlocked: ' + unlockedIds.length + ' / ' + totalCount;
+      if (unlockedIds.length > 0) {
+        var achvNames = unlockedIds.map(function (id) {
+          var ach = Achievements.ACHIEVEMENTS[id];
+          return ach ? ach.name : id;
+        }).join(', ');
+        progressText += '<br><span style="font-size: 0.85rem;">✓ ' + achvNames + '</span>';
+      }
+      achvDisplay.innerHTML = progressText;
+    }
   }
 
   function renderGameOver() {
@@ -1156,6 +1189,7 @@
     Tiles = window.Wordbound.Tiles;
     RNG = window.Game.RNG;
     Characters = window.Wordbound.Characters;
+    Achievements = window.Wordbound.Achievements;
 
     $('btn-new-run').addEventListener('click', Game.showCharacterSelect);
     $('btn-gameover-continue').addEventListener('click', Game.returnToMainMenu);
