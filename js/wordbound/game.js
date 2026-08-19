@@ -16,6 +16,8 @@
 
   var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG;
 
+  var audioContext = null;
+
   var state = {
     screen: 'MAIN_MENU',
     player: null,
@@ -179,6 +181,7 @@
     var tag = result.multiplier === 0 ? ' -- no effect!' : result.multiplier > 1 ? ' -- weak point!' : '';
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
     animateDamage(result.damage);
+    if (result.damage > 0) playCombatSound(result.damage);
 
     if (state.monster.hp <= 0) {
       onMonsterDefeated();
@@ -191,7 +194,10 @@
     Items.runHook('onPlayerDamaged', dmgCtx, state.player);
     state.player.hp = Math.max(0, state.player.hp - dmgCtx.damage);
     log(state.monster.name + ' hits you for ' + dmgCtx.damage + '.');
-    if (dmgCtx.damage > 0) animatePlayerDamage();
+    if (dmgCtx.damage > 0) {
+      animatePlayerDamage();
+      playCounterattackSound(dmgCtx.damage);
+    }
 
     if (state.player.hp <= 0) {
       state.combatActive = false;
@@ -296,6 +302,87 @@
     void hpDisplay.offsetWidth; // trigger reflow to restart animation
     hpDisplay.classList.add('take-damage');
     setTimeout(function () { hpDisplay.classList.remove('take-damage'); }, 400);
+  }
+
+  // ---- sound effects --------------------------------------------------------
+
+  function initAudioContext() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioContext;
+  }
+
+  function playCombatSound(damage) {
+    try {
+      var ctx = initAudioContext();
+      var now = ctx.currentTime;
+      var intensity = Math.min(damage / 40, 1); // normalize damage to 0-1
+      var duration = 0.15 + (intensity * 0.1);
+
+      if (damage > 30) {
+        // critical hit: high-pitched punchy tone
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + duration);
+        gain.gain.setValueAtTime(0.3 * intensity, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+        osc.start(now);
+        osc.stop(now + duration);
+      } else if (damage < 5) {
+        // weak hit: soft, low tone
+        var osc2 = ctx.createOscillator();
+        var gain2 = ctx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.frequency.setValueAtTime(150, now);
+        osc2.frequency.linearRampToValueAtTime(100, now + duration);
+        gain2.gain.setValueAtTime(0.1, now);
+        gain2.gain.linearRampToValueAtTime(0, now + duration);
+        osc2.start(now);
+        osc2.stop(now + duration);
+      } else {
+        // normal hit: mid-range punchy tone
+        var osc3 = ctx.createOscillator();
+        var gain3 = ctx.createGain();
+        osc3.connect(gain3);
+        gain3.connect(ctx.destination);
+        osc3.frequency.setValueAtTime(400, now);
+        osc3.frequency.exponentialRampToValueAtTime(250, now + duration);
+        gain3.gain.setValueAtTime(0.2 * intensity, now);
+        gain3.gain.exponentialRampToValueAtTime(0.01, now + duration);
+        osc3.start(now);
+        osc3.stop(now + duration);
+      }
+    } catch (e) {
+      // audio context not supported, silently fail
+    }
+  }
+
+  function playCounterattackSound(damage) {
+    try {
+      var ctx = initAudioContext();
+      var now = ctx.currentTime;
+      var intensity = Math.min(damage / 10, 1);
+      var duration = 0.2;
+
+      // monster counterattack: ominous low tone
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(100, now);
+      osc.frequency.linearRampToValueAtTime(80, now + duration);
+      gain.gain.setValueAtTime(0.15 * intensity, now);
+      gain.gain.linearRampToValueAtTime(0, now + duration);
+      osc.start(now);
+      osc.stop(now + duration);
+    } catch (e) {
+      // audio context not supported, silently fail
+    }
   }
 
   // ---- rack reordering --------------------------------------------------------
