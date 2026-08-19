@@ -351,7 +351,7 @@ Rules for the routine:
       answer -- say plainly in PROGRESS.md what was verified not-broken vs. what
       needs Jaxon's playtest to confirm the feel actually landed, same caveat as
       other feel/animation work in this project.
-- [ ] DESIGN/VISUAL: overall visual style is fairly plain and could be more visually
+- [x] DESIGN/VISUAL: overall visual style is fairly plain and could be more visually
       interesting. Requested 2026-08-19 ("make the visual style more interesting").
       CONTEXT: css/wordbound.css is currently flat solid colors, simple rounded
       borders, and subtle box-shadow glows throughout -- no gradients, no

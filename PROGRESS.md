@@ -3163,3 +3163,79 @@ without loading the full 2.5MB WORDS array into context, per GOALS.md guidelines
    - Entrance animation triggers via CSS @keyframes on render, not via JS animation event timing
 
 **Current status:** 46 of 48+ tasks complete. Next: overall visual style polish (DESIGN/VISUAL task).
+
+---
+
+## 2026-08-19T23:55Z (approximately, continued from 23:40Z run)
+
+**DESIGN/VISUAL: Overall visual style polish** -- COMPLETED and pushed.
+
+**What was implemented:**
+
+1. **Background depth:**
+   - Changed body background from flat #1a1610 to diagonal gradient (135deg)
+   - Gradient flows from #1a1610 to #2a2018 at center, back to #1a1610
+   - Added background-attachment: fixed for parallax-like depth effect
+   - Subtle enough to maintain readability while adding visual richness
+
+2. **Panel enhancements:**
+   - Added vertical gradient to .panel (top #2a2418 → bottom #241f17)
+   - Increased border from 1px to 2px for stronger visual definition
+   - Added inset highlights (top) and shadows (bottom) for embossed effect
+   - Added outer box-shadow for elevation/depth perception
+   - Result: panels now read as recessed or embossed depending on lighting
+
+3. **Heading styling:**
+   - Added new h2 rule with bottom border (1px gold, 20% opacity)
+   - Adds subtle visual separation without heavy decoration
+   - Maintains readability and ties to existing gold accent color
+
+4. **Button improvements:**
+   - Added linear gradients to all buttons (top to bottom)
+   - Button primary: #8a6a3a → #7a5a2a (brightens at top)
+   - Button secondary: #43392a → #33291a (same pattern, darker)
+   - Added inset highlights for depth (white 10% opacity at top)
+   - Enhanced shadows (outer and active states)
+   - Added smooth transitions (0.2s) for responsiveness
+
+5. **Node pill visual hierarchy:**
+   - Increased border from 1px to 2px for stronger differentiation
+   - Added type-specific border colors extending tier system:
+     * node-weak: #8a8a6a (muted brown)
+     * node-normal: #6a6a4a (darker brown)
+     * node-elite: #c08a6a (reddish brown, matches strong tier)
+     * node-boss: #d64545 (red, matches boss-tier)
+     * node-shop: #8a9aba (blue-gray)
+     * node-treasure: #b8a56a (warm gold)
+     * node-rest: #6aaa8a (green, healing-related)
+     * node-event: #b8a5d8 (purple)
+   - Added gradient background to node pills
+   - Added inset highlights for depth
+   - Added smooth transitions for hover effects
+   - Result: players can now visually scan node types at a glance
+
+6. **Treasure choice enhancements:**
+   - Added gradient background to treasure-choice items
+   - Enhanced hover state with gradient shift and shadow change
+   - Smooth transitions for better visual feedback
+
+**Design philosophy:**
+- All changes stay within established parchment/gold Boundless Archive aesthetic
+- No new colors introduced; reused existing tier color palette
+- All CSS-only; no image assets, icon fonts, or external dependencies
+- Gradients are subtle (single stops, not extreme color shifts)
+- Shadows and highlights use opacity for consistency
+
+**Verification:**
+- ✓ npm test: all 16 DOM checks pass
+- ✓ No layout breaks
+- ✓ No color palette changes (only gradient application of existing colors)
+- ✓ All changes additive and reversible
+
+**What still needs human verification (visual taste):**
+- Do the gradients actually improve perceived depth or just add clutter?
+- Are the node border colors intuitive for players on first encounter?
+- Does the overall visual hierarchy feel more polished or is it overworked?
+- Is the button gradient effect pleasant or does it feel gimmicky?
+
+**Current status:** 47 of 48 tasks complete. Final unchecked task: Design/Voice (rewrite for human feel).
