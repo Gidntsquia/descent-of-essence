@@ -1671,3 +1671,54 @@ verified with real clicks since character select was added.
 
 Confirming idle state per routine guardrails. Nothing to do until new tasks are added.
 
+---
+
+## 2026-08-19T17:45Z (Claude, direct fix at Jaxon's request -- not a routine run)
+
+Jaxon asked directly to test for bugs, fix anything found, and prep the game for him to
+playtest -- so unlike prior QA passes, fixes happened in this session rather than being
+ticketed for the routine.
+
+**Testing done:** 13+ full real-browser (Playwright) playthroughs across several
+sessions: character select through combat, tile rewards, treasure, shop, and event
+nodes, across many different monsters/traits. Instrumented several runs to compare
+expected damage (recomputed from Lexicon.scoreWord + active trait multiplier) against
+actual applied damage per word. Result: **zero uncaught page errors, zero unexplained
+damage mismatches** across all runs. The only two "mismatches" found were the game
+dealing *more* damage than my simplified comparison script expected -- traced to
+`holdMult` (bonus from MULT_ON_HOLD tiles left in the rack), which my check script
+didn't account for. That's the game working correctly, not a bug; fixed my script's
+math rather than touching game code.
+
+Spent a while chasing what looked like flaky Playwright timeouts in a few ad hoc
+diagnostic scripts (clicking `.character-option`, then later `.node-pill.node-current`,
+then a stale "Leave Shop" locator) -- all three turned out to be bugs in my own
+throwaway scripts (querying elements without checking the actual screen state first,
+or searching page-wide for stale text from a previous panel), not in the game. The
+original, more careful playtest script (proper per-screen branching) never hit any of
+these. Noting this so a future QA pass doesn't waste time re-chasing the same false
+leads.
+
+**One real thing found and fixed:** the main-menu version indicator was still showing
+"v0.1" despite character select, achievements, shop, events, consumables, more
+monsters/items, a README, and the critical show()-screen crash fix all landing since
+that number was set. Its entire purpose (per GOALS.md's own versioning rule) is letting
+Jaxon tell at a glance he's on a current build, so a stale number defeats the point.
+Bumped to v0.6 (commit a015c2a). Confirmed `npm test` still passes clean after the change.
+
+**Balance observation, not a bug, not touched:** an automated bot that always picks the
+alphabetically-first playable word from its rack (rather than the highest-scoring one)
+dies very quickly, often within 3-4 words, before ever reaching a shop or event node.
+This reflects a genuinely bad word-choice strategy (short, low-value words), not
+necessarily real difficulty -- but early-game pacing is worth keeping an eye on during
+actual play, since it's possible for a real but inexperienced player to fall into a
+similar pattern. Deliberately did not touch any balance numbers -- that's a design/taste
+call for Jaxon, not something to guess at.
+
+**State handed off:** working tree clean, `main` pushed to a015c2a, GitHub Pages
+serving the current build live at
+https://gidntsquia.github.io/descent-of-essence/wordbound.html (confirmed responding
+with today's build via HTTP HEAD), and the local checkout at
+/Users/jaxon/Files/2026/ai-test/wordbound.html is ready to open directly via file://.
+Ready for Jaxon's own playtest.
+
