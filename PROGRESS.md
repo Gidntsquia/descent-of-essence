@@ -2830,3 +2830,34 @@ available every run gives players early access to item power-ups.
 **Current status:** 4 of 6 orchestrator queue items complete. Next task: Adjust boss 
 background music (lower pitch).
 
+
+## 2026-08-19T23:25Z
+
+**Lower boss music pitch (Task 5 from orchestrator's queue)** -- COMPLETED and pushed.
+
+**The Change:**
+
+Dropped boss music frequencies by one octave in playBossMusic() (js/wordbound/game.js):
+- Was: [164.81, 196.00, 164.81, 196.00, 220.00, 196.00] Hz (E3-G3-E3-G3-A3-G3)
+- Now: [82.41, 98.00, 82.41, 98.00, 110.00, 98.00] Hz (E2-G2-E2-G2-A2-G2)
+
+**Rationale:**
+
+Boss music was shrill because it combined two problems:
+1. Higher register than normal music (E3-A3 vs C3-E3) 
+2. Harsher waveform (square wave vs sine wave)
+
+Both amplified the perceived harshness. Dropping the pitch by a full octave moves it 
+to a lower, meatier register while keeping the square-wave timbre distinction that 
+signals "boss battle". Now boss music is deeper and less piercing, but still clearly 
+distinct from the calm sine-wave normal music.
+
+**Verification:**
+- npm test: all 16 checks passed (no regressions)
+- Code change: simple frequency array update, no logic changes
+- Audio quality: jsdom cannot verify playback quality, needs human ear
+  (Jaxon should test in browser to confirm the new pitch sounds better)
+
+**Current status:** 5 of 6 orchestrator queue items complete. Final task: Tile staging 
+animation (feature, not bug fix).
+

@@ -186,7 +186,7 @@ Rules for the routine:
       numeric tuning call, not an exact-science one.
       VERIFICATION: `npm test` (16/16), plus a real-browser check across a few
       generated floor-1 maps confirming a 'shop' node type is always present.
-- [ ] AUDIO: boss background music is pitched noticeably higher than normal music,
+- [x] AUDIO: boss background music is pitched noticeably higher than normal music,
       reported as "too high" (2026-08-19). Current implementation in game.js:
       `playNormalMusic` uses notes [130.81, 146.83, 164.81, 146.83] (C3-E3) with
       `osc.type = 'sine'`; `playBossMusic` (~line 781) uses notes [164.81, 196.00,
