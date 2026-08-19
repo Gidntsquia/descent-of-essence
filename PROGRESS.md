@@ -2902,3 +2902,23 @@ Five tickets now queued behind the one remaining from the prior review pass (pan
 stacking, boss simplify+map, shop/consumable rarity, boss music pitch, tile-staging
 animation).
 
+---
+
+## 2026-08-19T22:56Z (orchestrator review, not a routine run -- follow-up)
+
+Jaxon added one more, mid-review: "The game feels like an AI made it. Make it feel
+more human." Vaguest ask yet -- no single bug to point at, more a cumulative
+impression across text mostly written by the routine over one long session. Rather
+than leave it too abstract to act on, wrote a ticket pointing at the specific text
+most likely responsible: trait hint text (currently one rigid template repeated
+almost verbatim across ~9 traits), formulaic combat log messages, and
+achievement/item descriptions that read as literal restatements of their trigger
+condition rather than voiced content. Asked for a targeted voice/personality pass
+on those specifically, grounded in THEME.md's existing tone, not a vague
+"make it feel human" instruction with no anchor -- and asked for concrete
+before/after examples in PROGRESS.md since this is fundamentally Jaxon's taste call
+to confirm, not something testable.
+
+Six tickets now queued total from this review session (items, tile-bonus
+differentiation, suffix coverage, boss intensity, visual polish, voice/personality).
+

@@ -380,6 +380,52 @@ Rules for the routine:
       see the image, but you can describe what CSS changed and where) -- this is
       ultimately a taste call for Jaxon to confirm on his own playtest, say so
       plainly rather than claiming certainty that it looks better.
+- [ ] DESIGN/VOICE: the game reads as AI-generated rather than hand-crafted.
+      Requested 2026-08-19 ("The game feels like an AI made it. Make it feel more
+      human"). This is the vaguest item in this file -- there's no single bug to
+      point at, it's a cumulative impression across a lot of text that was, in fact,
+      mostly written by an AI (this project's routine) over one long session. Don't
+      try to solve "feels AI-made" in the abstract; instead do a concrete voice pass
+      over the specific text most likely contributing to it, listed below in rough
+      priority order. Look for: overly literal/mechanical phrasing that explains a
+      mechanic instead of evoking it, repetitive sentence structure/templates
+      applied uniformly across every entry (real hand-written content usually has
+      more variety and a few asymmetric touches/outliers), and generic filler where
+      a specific, textured detail would read as more considered.
+      WHERE TO LOOK (concrete, not exhaustive):
+        - Trait hint text (js/wordbound/traits.js) -- currently follows one rigid
+          template per category ("Takes bonus damage from X, resists other words" /
+          "Takes bonus damage from X" repeated almost verbatim across all ~9
+          traits). Rewrite each hint to describe the *creature's* relationship to
+          the mechanic in-world (why does this thing hate long words, specifically,
+          given its name/flavor?) rather than a mechanically uniform damage-
+          multiplier description. Keep them short enough to still fit the UI (check
+          current usage: node-map pills, the in-combat "Weakness:" line).
+        - Combat log messages (Game.submitWord, onMonsterDefeated, etc. in game.js)
+          -- currently formulaic ("You play 'X' for Y damage", "Defeated Z! Gained
+          N gold"). Consider a small pool of varied phrasings per event type
+          (damage dealt, weak hit, critical hit, monster defeated, player hit) that
+          get chosen from rather than one fixed template every time -- reuse the
+          existing intensity tiers (critical/normal/weak) already present in
+          animateDamage/playCombatSound as the selection axis, don't invent a new
+          one.
+        - Achievement names/descriptions and item hints (achievements.js, items.js)
+          -- audit for ones that read as a literal restatement of their trigger
+          condition rather than something with a bit of wit or in-world voice
+          consistent with THEME.md's established "Boundless Archive" tone.
+        - Event node text (events.js) -- spot-check a few for generic phrasing.
+      WHAT NOT TO DO: don't touch mechanical/functional strings that need to stay
+      precise (error messages, button labels like "New Run"/"Leave Shop", numeric
+      displays) -- this is about flavor text and narrative-adjacent copy, not the
+      whole UI. Don't invent new lore/naming that contradicts THEME.md; it's the
+      voice reference to match, not something to override. Keep this to a focused,
+      reviewable pass -- if it's taking multiple runs, that's fine (leave clear
+      notes on what's done vs. remaining), but don't let it sprawl into rewriting
+      every string in the codebase.
+      VERIFICATION: `npm test` (16/16). Since "does this feel more human" is
+      inherently Jaxon's call, not something testable, list in PROGRESS.md the
+      specific before/after examples changed (a few real ones, not a summary) so
+      he can judge the direction without replaying the whole game.
 
 - [x] Persist audio settings (mute + volume) across sessions. Confirmed via grep on
       2026-08-19 that only achievements.js wrote to localStorage -- the music
