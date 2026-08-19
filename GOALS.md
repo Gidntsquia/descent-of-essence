@@ -107,6 +107,8 @@ Rules for the routine:
       COMPLETED 2026-08-19T20:12Z: Added duplicate-purchase check in Game.buyItem.
       Non-consumable items now return early with log message if already owned.
       Consumables remain stackable. npm test passes clean (16/16).
+      ENHANCED 2026-08-19T21:45Z: Added shop re-roll after successful permanent item
+      purchase so bought items are replaced with new options (improved UX).
 - [ ] BALANCE/DESIGN (found 2026-08-19 by test/balance-simulation.js, 30 runs -- needs a
       design call, deliberately NOT changed by the routine): traits whose multiplier floor
       is 0 make a monster nearly immune rather than merely harder, and that one property,

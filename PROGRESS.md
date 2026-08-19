@@ -2352,3 +2352,37 @@ duplicate purchase prevention works as expected.
 **Status:** 92 of 95+ tasks complete. Next unchecked tasks are design-level
 decisions about trait mechanics (BALANCE/DESIGN) and softlock prevention
 (BUG/DESIGN) which are marked as needing Jaxon's judgment, not routine fixes.
+
+---
+
+## 2026-08-19T20:19Z
+
+**Enhanced shop duplicate-purchase fix with shop re-roll** -- Improvement committed and pushed.
+
+The previous run's fix (2026-08-19T20:17Z) added duplicate-purchase prevention
+but left the bought item sitting in the shop (since shopOptions are only rolled
+once per shop entry). This improvement adds re-roll after successful purchase.
+
+**Enhancement applied:**
+After a player successfully buys a permanent item, re-roll `state.shopOptions`
+with `rollShopOptions()` so the purchased item is replaced with a new option:
+```javascript
+} else {
+  state.player.items.push(actualId);
+  // Re-roll shop options so the bought item is replaced with a new option
+  state.shopOptions = rollShopOptions();
+}
+```
+
+Consumable items continue to re-roll independently (always available, always stackable).
+
+**Verification:**
+- npm test: all 16 DOM checks pass
+- Commit: 9e5d0a2 pushed to main
+
+**Game status:** Duplicate shop purchases now fully blocked for permanent items
+(no purchase allowed) with proper shop refresh (bought item replaced). Consumables
+work as designed (stackable, always available).
+
+**Next:** Two design-level decisions remain unchecked (trait 0x-floor and softlock).
+Routine has no further blocking tasks; ready for new work or Jaxon's input.
