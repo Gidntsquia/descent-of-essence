@@ -2491,3 +2491,27 @@ on design direction, not routine automation.
 
 ---
 
+## 2026-08-19T21:45Z -- ROUTINE IDLE
+
+**Queue status:** GOALS.md queue fully processed.
+
+**Completed tasks:** 35/36 (97% of queue).
+
+**Remaining unchecked item:**
+- BALANCE/DESIGN: Trait multiplier floor-value design decision (explicitly blocked, waiting for Jaxon's judgment on whether to: set 0x-floor to 0.25x for progression, reserve 0x phases for later floors, or pair with rack-cycling option)
+
+**Why the routine is stopping:**
+
+Per GOALS.md rules: "If the queue is empty, don't invent busywork — note that you're idle in PROGRESS.md and stop."
+
+The one remaining unchecked task is explicitly marked as a design-level decision requiring human judgment (not automatable). ROADMAP.md's "known gaps" section lists issues that are either: (1) already fixed in prior runs (two critical bugs, touch support, keyboard accessibility, mobile layout spots), (2) outside automation scope (real browser playtest, itch.io page creation, store-page finalization, promotion), or (3) already addressed (replayability, store copy drafted).
+
+**Game state:**
+- All critical bugs fixed and verified
+- All automatable content/features complete
+- All DOM checks passing (16/16 npm test)
+- Ready for itch.io launch pending Jaxon's design input on 0x-trait mechanics
+
+**Next step:** Awaiting either (1) new tasks added to GOALS.md, or (2) Jaxon's design decision on the 0x-multiplier-floor question, which the routine can then implement. Routine is idle until then.
+
+---
