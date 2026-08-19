@@ -1,0 +1,11 @@
+{
+  "name": "wordbound",
+  "private": true,
+  "description": "Dev-only tooling for the Wordbound/Descent of Essence static game. The game itself has no build step -- just open index.html or wordbound.html.",
+  "scripts": {
+    "test": "node test/dom-check.js"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.0"
+  }
+}
