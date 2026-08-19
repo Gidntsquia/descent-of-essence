@@ -156,3 +156,28 @@ in logic flow. Ready for visual/gameplay testing -- whoever does the playtest sh
 **Auth update:** GitHub write access is NOW WORKING! This run was able to successfully
 commit and push the PROGRESS update. The previous auth blocker has been resolved. 
 The routine can now proceed with remaining tasks without getting stranded.
+
+---
+
+## 2026-08-19T06:15Z
+
+**Apply theme from THEME.md (Task 3)** -- COMPLETED and pushed.
+
+Applied all naming/lore from THEME.md:
+- Updated all 8 regular monster names in js/wordbound/monsters.js (Vowel Slime → The 
+  Vowel Slurper, Gremlin → The Fidget, Wisp → Filler Word, Consonant Serpent → The 
+  Consonant Constrictor, Golem Pup → Echo Pup, Raven → Quoth, Sorted Sentinel → The 
+  Card Catalog, Warden → The Hoarder)
+- Updated boss_sovereign name from "The Silent Sovereign" to "The Unabridged, Unbound" 
+  (kept boss_vowelmaw and boss_unabridged names as-is per spec)
+- Updated main-menu tagline in wordbound.html from generic "deep" to themed "Stacks" 
+  and "Loose Words" language
+- Added floor names to HUD display: Floor 1 / 3 — The Overdue Aisles, Floor 2 / 3 — 
+  The Reference Wing, Floor 3 / 3 — The Binding. Implemented as getFloorName() helper 
+  in game.js renderRun()
+
+All changes are mechanical (name fields only in monsters.js; IDs, traits, HP, attack, 
+tier, goldDrop untouched). Code is syntactically clean, ready for playtest.
+
+**Current status:** 3 of 8 tasks complete (deck rework, QA review, theme applied).
+Next task is #5 (deck viewer), skipping #4 (dictionary already completed separately).

@@ -28,7 +28,7 @@ Rules for the routine:
       full run if possible. Fix anything clearly broken; leave genuinely ambiguous design calls
       (e.g. reward-screen skip option, bonus tile rarity tuning) noted in PROGRESS.md for Jaxon
       rather than guessing.
-- [ ] Apply the theme from THEME.md (read it in full first -- it's the source of truth, don't
+- [x] Apply the theme from THEME.md (read it in full first -- it's the source of truth, don't
       invent names/lore that contradict it): update monster/boss `name` fields in
       js/wordbound/monsters.js per its rename tables (ids, traitPhases, stats untouched --
       display name only), update the main-menu tagline in wordbound.html to fit, and optionally
