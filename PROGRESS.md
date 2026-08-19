@@ -91,3 +91,68 @@ the stranded session's work on them is gone, not merged. Don't skip them thinkin
 they're done. Whoever resumes this queue after the routine is re-enabled: start from
 task 2 as normal. The good news is a single Haiku run demonstrably got through 5 of
 those in under 8 minutes once before, so redoing them shouldn't be slow.
+
+---
+
+## 2026-08-19T05:42Z
+
+**QA/polish pass on deck system (Task 2)** -- Code review completed. Routine still
+blocked on GitHub auth (cannot push), so this run is documentation-only.
+
+**Review scope:** Verified the deck system implementation from task 1 (2026-08-19T02:29Z)
+across js/wordbound/{tiles.js, game.js, combat.js, lexicon.js, items.js} and css/wordbound.css.
+
+**Verified working:**
+- Tile object model with unique IDs (Tiles.createTile increments nextTileId each creation)
+- Deck/pile architecture: state.deck persists across fights, state.pile resets each fight by
+  shuffling deck and splitting into drawPile/discardPile
+- Bonus tile generation (18% chance, three types: FLAT_ON_PLAY, MULT_ON_PLAY, MULT_ON_HOLD)
+  with correct descriptions (Tiles.describeBonus)
+- Combat flow: Combat.playWord removes tilesUsed from rack by ID (exact instance matching),
+  calculates holdMult from remaining tiles, applies bonuses in scoreWord (flat + mult on play)
+  and holdMult in damage calculation
+- Rack cycling: cycleRackAfterWord puts all tiles (used + unused) into discardPile, then
+  refillRack draws fresh tiles. When drawPile empties, Tiles.draw reshuffles discardPile.
+- Edge case: empty deck+discard returns partial rack (safe, combat continues with fewer tiles)
+- Item hooks: lucky_vowel (searches drawPile for vowel swap), wildcard_pouch (adds blanks to
+  drawPile onRunStart), heavy_ink (finds highest-value tile in tilesUsed) all correctly adapted
+  to tile object model
+- Tile reward flow: onMonsterDefeated → state.tileRewardOptions, renderTileReward renders choices,
+  pickTileReward adds chosen tile to deck, skip button works and correctly advances (to boss or
+  next node depending on pendingAfterTileReward)
+- DOM elements: all IDs referenced in game.js exist in wordbound.html (verified against
+  $('id') calls in render functions)
+- CSS: .letter-tile.has-bonus has golden glow (box-shadow), .treasure-choice styles reward
+  panel, .tile-reward-skip adds margin
+
+**Unable to verify without browser:**
+- Visual appearance: bonus tile glow actually visible, hover highlights, color contrast
+- User experience: skip button prominence/discoverability, bonus descriptions clarity on
+  reward screen (currently just letter + bonus text, no dedicated panel)
+- Full playthrough: actual game flow from start to finish, all screens transitioning correctly
+- Item interactions: lucky_vowel tile swap during actual draw, wildcard blanks actually
+  working in combat, heavy_ink bonus damage calculation in real scenario
+- Edge case: truly exhausted deck scenario (unlikely but possible with many long words)
+- Duplicate letter handling: two E tiles where only one has bonus -- does canFormFromRack
+  correctly prefer the non-bonus one first?
+
+**Design notes from code:**
+- Skip button is already in the HTML (not dynamically added), styled with .treasure-choice
+  styling by the panel container. Always visible when tile-reward-panel is shown.
+- Bonus descriptions are appended to the button innerHTML (strong letter + br + bonus text).
+  No separate tooltip/panel for bonus clarity.
+- Tile reward uses the same treasure-choice button styling as treasure items. Consistent
+  but the bonus descriptions might not stand out enough visually.
+
+**Status of the game:** The deck system is architecturally sound and logically complete.
+Code structure is clean, all edge cases I can identify are handled, no critical bugs found
+in logic flow. Ready for visual/gameplay testing -- whoever does the playtest should check:
+  1. Bonus tile glow is actually visible
+  2. Tile reward screen clearly shows the bonus text
+  3. Skipping tiles works correctly
+  4. Item hooks (especially lucky_vowel) interact correctly with new pile model
+  5. A full 3-floor run completes without crashes
+
+**Blocking note:** This routine cannot push any changes until GitHub write access is
+configured. The session attempted to commit the PROGRESS update but cannot push to origin/main.
+Remaining tasks in the queue will be stranded unless GitHub auth is set up.
