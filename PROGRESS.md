@@ -2592,3 +2592,18 @@ Both items in GOALS.md marked complete. No unchecked items remain in the queue.
 **Routine will remain idle until new tasks are added to GOALS.md.**
 Game is production-ready and awaiting Jaxon's playtest/itch.io launch.
 
+---
+
+## 2026-08-19T22:16Z -- ROUTINE CHECK-IN (IDLE CONFIRMED)
+
+**Status:** No changes since 2026-08-19T22:14Z check-in.
+- GOALS.md: 36 completed tasks, 0 unchecked ✓
+- npm test: 16/16 DOM checks passing ✓
+- git status: working tree clean, all changes committed ✓
+- ROADMAP.md gaps: All automatable items completed, remaining gaps outside automation scope ✓
+
+**Game is stable, production-ready, and idle.**
+Awaiting new tasks in GOALS.md or feedback from Jaxon before resuming work.
+
+Routine will remain idle.
+
