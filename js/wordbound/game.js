@@ -53,7 +53,10 @@
   function $(id) { return document.getElementById(id); }
 
   function newPlayer() {
-    return { hp: 20, maxHp: 20, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false };
+    return {
+      hp: 20, maxHp: 20, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
+      bonusDamageUntilEndOfTurn: 0, skipDiscardNextTurn: false, bonusTilesToDraw: 0
+    };
   }
 
   function log(msg) {
@@ -213,10 +216,41 @@
   // played (used AND unused tiles) goes to the discard pile, then the rack
   // is fully redrawn. Tiles.draw reshuffles the discard pile back in when
   // the draw pile runs dry, so this never stalls mid-fight.
+  // Page Turn consumable can change this: if active, unused tiles stay in hand
+  // instead of being discarded.
   function cycleRackAfterWord(tilesUsed) {
-    state.pile.discardPile = state.pile.discardPile.concat(tilesUsed, state.player.rack);
-    state.player.rack = [];
-    refillRack();
+    var unusedTiles = state.player.rack;
+
+    // If Page Turn is active, keep unused tiles; otherwise discard them
+    if (!state.player.skipDiscardNextTurn) {
+      state.pile.discardPile = state.pile.discardPile.concat(unusedTiles);
+    }
+
+    // Always discard the used tiles
+    state.pile.discardPile = state.pile.discardPile.concat(tilesUsed);
+
+    // Clear the rack
+    if (state.player.skipDiscardNextTurn) {
+      // Page Turn: keep unused tiles, refill to full capacity, then draw bonus
+      var bonusCount = state.player.bonusTilesToDraw || 0;
+      var targetRackSize = 7 + bonusCount; // normal rack is 7
+      var tilesToDraw = targetRackSize - unusedTiles.length;
+
+      if (tilesToDraw > 0) {
+        var drawn = Tiles.draw(tilesToDraw, state.pile, state.deck, state.rng);
+        var ctx = { player: state.player, drawnTiles: drawn, pileState: state.pile, rng: state.rng };
+        Items.runHook('onDraw', ctx, state.player);
+        state.player.rack = unusedTiles.concat(ctx.drawnTiles);
+      }
+
+      // Reset Page Turn flags
+      state.player.skipDiscardNextTurn = false;
+      state.player.bonusTilesToDraw = 0;
+    } else {
+      // Normal path: clear and refill
+      state.player.rack = [];
+      refillRack();
+    }
   }
 
   Game.submitWord = function (rawWord) {
@@ -237,6 +271,15 @@
 
     var tag = result.multiplier === 0 ? ' -- no effect!' : result.multiplier > 1 ? ' -- weak point!' : '';
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
+
+    // Apply Index Card Shard bonus damage if active
+    if (state.player.bonusDamageUntilEndOfTurn > 0) {
+      var bonusDmg = state.player.bonusDamageUntilEndOfTurn;
+      state.monster.hp = Math.max(0, state.monster.hp - bonusDmg);
+      result.damage += bonusDmg;
+      log('Index Card Shard bonus: +' + bonusDmg + ' damage!');
+      state.player.bonusDamageUntilEndOfTurn = 0;
+    }
 
     if (state.monster.hp <= 0) {
       onMonsterDefeated(result.damage, monsterHpBefore);

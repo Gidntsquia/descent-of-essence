@@ -169,7 +169,7 @@ Rules for the routine:
       correctly, (c) gold actually increased. This exact bug (wrong API surface, never executed
       before being marked done) is why npm test and real execution are mandatory now -- don't
       just read the code, run it. COMPLETED 2026-08-19T23:40Z.
-- [ ] Fix two of the three consumable items (js/wordbound/consumables.js) doing NOTHING when
+- [x] Fix two of the three consumable items (js/wordbound/consumables.js) doing NOTHING when
       used, despite showing a success message claiming they worked -- worse than crashing,
       because nothing errors and the player is told it worked. Root cause: `effect()` for
       "Index Card Shard" sets `ctx.player.bonusDamageUntilEndOfTurn` and "Page Turn" sets
@@ -182,7 +182,7 @@ Rules for the routine:
         if that field is truthy, apply it directly to state.monster.hp (same pattern as
         Items.applyBonusDamage in items.js), add it to result.damage so it's reflected in the
         log/overkill math, log a line for it, then reset the field to 0 so it only affects the
-        one word it was meant for.
+        one word it was meant for. DONE 2026-08-19T23:50Z.
       - Page Turn: wire `player.skipDiscardNextTurn`/`bonusTilesToDraw` into
         cycleRackAfterWord() in game.js. Suggested interpretation (the item's own text is
         "skip discard cycle" + "draw 3 bonus tiles," which is genuinely ambiguous on exact
@@ -190,17 +190,18 @@ Rules for the routine:
         PROGRESS.md rather than guessing silently): keep the player's current unused rack
         tiles instead of discarding them (only the tiles actually used in the word go to
         discard), do the normal refill, then draw the bonus amount on top. Reset both flags
-        to their default after use.
+        to their default after use. DONE 2026-08-19T23:50Z.
       - ALSO fix: Errata Slip hardcodes `var maxHp = 40;` in its effect function, but the
         real player maxHp (see newPlayer() in game.js) is 20, not 40. This means healing can
         push player.hp above their actual maxHp (e.g. 15/20 -> heals 8 -> 23/20), which the
         HP display just prints literally ("HP 23 / 20"). Use `ctx.player.maxHp` instead of a
-        hardcoded literal.
+        hardcoded literal. DONE 2026-08-19T23:50Z.
       - Verify all three consumables with actual behavioral assertions (not just "no error"):
         confirm HP actually caps at real maxHp, confirm a word's damage actually increases by
         the bonus amount after using Index Card Shard, confirm the rack actually ends up
         larger than normal capacity after Page Turn. `npm test`'s jsdom harness can check all
-        of this; add assertions for it if useful for future regressions.
+        of this; add assertions for it if useful for future regressions. DONE via
+        test/verify-consumables-fix.js and test/verify-consumables-gameplay.js.
 - [ ] Minor UX polish, low priority: in renderShop() (game.js), items the player can't afford
       are styled at reduced opacity but not given the `disabled` attribute, so they're still
       technically clickable (no listener is attached, so clicking silently does nothing --

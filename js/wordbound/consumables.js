@@ -28,8 +28,7 @@
     rarity: 'common',
     shopPrice: 15,
     effect: function (ctx) {
-      var maxHp = 40; // Player max HP (hardcoded to match game.js newPlayer())
-      var healed = Math.min(8, maxHp - ctx.player.hp);
+      var healed = Math.min(8, ctx.player.maxHp - ctx.player.hp);
       ctx.player.hp += healed;
       return {
         message: 'Errata Slip: Restored ' + healed + ' HP!',
