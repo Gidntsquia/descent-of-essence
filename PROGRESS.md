@@ -3021,3 +3021,47 @@ npm test. But a live game run would provide full end-to-end confirmation.
 
 **Current status:** 43/48 tasks complete. Next task: differentiate tiles by bonus type visually.
 
+
+## 2026-08-19T23:19Z
+
+Task: "FEATURE/VISUAL: tiles with different bonus types are visually indistinguishable 
+from each other" — give each of the 3 bonus types (FLAT_ON_PLAY, MULT_ON_PLAY, 
+MULT_ON_HOLD) distinct visual treatment via CSS classes.
+
+**Completed:**
+
+1. **css/wordbound.css:** Added bonus-type-specific CSS classes for letter tiles:
+   - `.letter-tile.bonus-flat`: Gold glow (#f0d789) for immediate flat score bonus
+   - `.letter-tile.bonus-mult-play`: Bright gold glow (#fff4d6) for multiply-on-play
+   - `.letter-tile.bonus-mult-hold`: Purple glow (#b8a5d8) for conditional hold-based bonus
+   - Same styling applied to `.staged-tile` bonus classes for consistency
+
+2. **js/wordbound/game.js:** Modified tile rendering in two locations:
+   - Rack rendering (line 1259): Added logic to check `tile.bonus.type` and apply
+     corresponding class (bonus-flat, bonus-mult-play, bonus-mult-hold)
+   - Staging area rendering (line 1328): Same bonus-type-specific class logic
+
+3. **Verification:**
+   - ✓ npm test: 16/16 checks pass (no regressions)
+   - ✓ 6 references to bonus-type classes across both rendering locations
+   - ✓ CSS rules defined for all three bonus types (letter-tile and staged-tile)
+
+**Design Notes:**
+
+Color choices leverage existing theme palette without introducing clashing colors:
+- Gold (#f0d789) for FLAT_ON_PLAY — primary accent, immediate effect
+- Bright gold (#fff4d6) for MULT_ON_PLAY — more intense variant, emphasizes amplification
+- Purple (#b8a5d8) for MULT_ON_HOLD — secondary accent (reused from event nodes), 
+  signals conditional/stored effect
+
+Visual distinction is at-a-glance via glow color intensity and hue, eliminating the need 
+to hover for tooltips to tell bonus types apart.
+
+**Not done (not in scope):**
+
+Real-browser visual confirmation that the three glow colors are clearly distinguishable
+and visually appealing. The DOM structure and class application are verified; the actual
+rendering depends on CSS engine and display settings.
+
+**Current status:** 44/48 tasks complete. Next task: expand suffix coverage (-ED, -IES, etc).
+

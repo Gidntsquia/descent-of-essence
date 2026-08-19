@@ -258,7 +258,7 @@ Rules for the routine:
       VERIFICATION: `npm test` (16/16), plus a real-browser check that each new item
       can be bought/found and its effect actually fires (not just that it doesn't
       error) -- same standard as prior item-adding tasks.
-- [ ] FEATURE/VISUAL: tiles with different bonus types are visually indistinguishable
+- [x] FEATURE/VISUAL: tiles with different bonus types are visually indistinguishable
       from each other. Requested 2026-08-19 ("differentiate tiles with different
       bonuses"). CONTEXT: `Tiles.BONUS_TYPES` (js/wordbound/tiles.js) has three kinds
       -- FLAT_ON_PLAY, MULT_ON_PLAY, MULT_ON_HOLD -- but every bonus tile gets the

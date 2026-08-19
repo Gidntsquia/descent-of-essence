@@ -1256,7 +1256,14 @@
       btn.setAttribute('data-tile-index', index);
       var isNewTile = state.rackJustRefilled || state.lastRackTileIds.indexOf(tile.id) === -1;
       var isSelected = state.selectedTileIds.indexOf(tile.id) !== -1;
-      btn.className = 'letter-tile' + (tile.bonus ? ' has-bonus' : '') + (isNewTile ? ' new-tile' : '') + (isSelected ? ' selected' : '');
+      var bonusClass = '';
+      if (tile.bonus) {
+        bonusClass = ' has-bonus';
+        if (tile.bonus.type === 'flatOnPlay') bonusClass += ' bonus-flat';
+        else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
+        else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
+      }
+      btn.className = 'letter-tile' + bonusClass + (isNewTile ? ' new-tile' : '') + (isSelected ? ' selected' : '');
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       btn.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
       if (tile.bonus) btn.title = Tiles.describeBonus(tile.bonus);
@@ -1318,7 +1325,14 @@
       var tile = state.player.rack.find(function (t) { return t.id === tileId; });
       if (!tile) return;
       var stageTile = document.createElement('div');
-      stageTile.className = 'staged-tile' + (tile.bonus ? ' has-bonus' : '');
+      var bonusClass = '';
+      if (tile.bonus) {
+        bonusClass = ' has-bonus';
+        if (tile.bonus.type === 'flatOnPlay') bonusClass += ' bonus-flat';
+        else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
+        else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
+      }
+      stageTile.className = 'staged-tile' + bonusClass;
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       stageTile.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
       if (tile.bonus) stageTile.title = Tiles.describeBonus(tile.bonus);
