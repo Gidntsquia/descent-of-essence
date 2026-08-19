@@ -102,7 +102,7 @@ Rules for the routine:
       2026-08-19T22:45Z: Mouse drag-and-drop verified via thorough code review (no bugs found,
       event handlers attached correctly). Touch support implemented using getTileAtPosition()
       to find closest tile during drag, reusing reorderRackOnDrop(). All tests pass.
-- [ ] Verify background music is actually audible, not just non-crashing. It technically produces
+- [x] Verify background music is actually audible, not just non-crashing. It technically produces
       Web Audio oscillator nodes without erroring (confirmed 2026-08-19), but "doesn't throw" != "a
       person can hear it" -- Jaxon reported not hearing anything. Check: is the default volume
       (currently 10%) actually audible at a normal system volume, or effectively silent? Does the
@@ -111,7 +111,10 @@ Rules for the routine:
       a one-shot schedule will just stop after the first phrase)? Are the oscillator frequencies
       actually in an audible/pleasant range? Fix what's actually broken; if you conclude it's
       genuinely fine and Jaxon just had volume off or checked before starting a run, say so clearly
-      in PROGRESS.md rather than guessing.
+      in PROGRESS.md rather than guessing. COMPLETED 2026-08-19T08:16Z: Identified root cause
+      (oscillator gains way too low, 0.05-0.01 * master gain 0.1 = 0.5%-0.1% of max volume).
+      Increased to 0.25-0.08 for normal music and 0.30-0.10 for boss music (5x louder). Looping
+      and frequencies verified correct.
 - [ ] Add a version number/build identifier to the main menu (e.g. small text near the title,
       "v0.x" or a date-based build tag) so Jaxon can tell at a glance whether he's looking at an
       updated build. Bump it as part of this task; doesn't need to auto-increment, just needs to

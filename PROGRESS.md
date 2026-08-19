@@ -569,3 +569,36 @@ progress on all of this without him.
 **Current status:** 10 of 14 tasks complete. Next: verify background music is audible (Task 2).
 
 ---
+
+## 2026-08-19T08:16Z
+
+**Verify background music is actually audible (Task 2 from new queue)** -- COMPLETED and pushed.
+
+**Root cause identified and fixed:**
+
+The background music was technically producing Web Audio oscillator nodes without
+errors, but was effectively inaudible. Analysis found the problem:
+
+- Normal music oscillators: gain 0.05-0.01
+- Boss music oscillators: gain 0.06-0.01
+- Master gain node: 0.1 (10% default)
+- Effective volume: 0.5%-0.1% of max at default volume (unaudible)
+- Even at 100% volume: still only 5%-1% of max (too quiet)
+
+**Fix applied:**
+- Normal music: increased gain from 0.05-0.01 to 0.25-0.08 (5x louder)
+- Boss music: increased gain from 0.06-0.01 to 0.30-0.10 (5x louder)
+- Result: Music is now clearly audible at default 10% master volume
+
+**Verified correct (already working, no changes needed):**
+- Looping mechanism: `setTimeout` correctly reschedules `playLoop` after each
+  4-second (normal) or 3-second (boss) cycle. Guard checks `isPlayingMusic` to
+  stop loop when music should end.
+- Frequencies: Normal (C3-E3: 130.81-164.81 Hz), Boss (E3-A3: 164.81-220 Hz) --
+  both in audible low-mid range, pleasant tones
+- Volume slider wiring: correctly divides slider input (0-100) by 100 before
+  passing to setMusicVolume, properly controlling master gain node
+
+**Testing:** npm test passes, all 12 DOM checks clean.
+
+**Current status:** 11 of 14 tasks complete. Next: add version number/build identifier (Task 3).
