@@ -960,3 +960,25 @@ Next unchecked task: "Add more player decisions" (event nodes with choice points
 - Touch interaction with consumables in mobile/tablet UI
 - Whether consumable drop notifications are visible/clear
 - Full gameplay feel of consumables as combat decisions vs permanent item power levels
+
+---
+
+## 2026-08-19T10:00 EDT (orchestrator review, not a routine run)
+
+Jaxon asked for a bug/quality review. Used a headless browser (Playwright) to actually
+play through combat, shop, and consumable flows rather than just reading code -- found
+one game-breaking crash and two silently-broken (no error, but non-functional) items.
+Full details and exact fixes are in the four new tickets at the top of GOALS.md's
+pending queue (inserted just before the shop task), highest priority first:
+
+1. Every monster kill crashes (`Wordbound.RNG.range` doesn't exist) -- breaks all
+   progression past the first fight of every run. This is the most urgent thing in
+   the queue right now.
+2 & 3. Index Card Shard and Page Turn consumables set state flags that nothing ever
+   reads -- they show a "success" message and do nothing mechanically. Errata Slip
+   also has a wrong hardcoded maxHp (40 instead of the real 20).
+4. Minor: unaffordable shop items aren't marked `disabled`, just dimmed.
+
+Per Jaxon's explicit instruction, these are documented as tickets for the routine to
+implement, not fixed directly in this review -- diagnosing is the orchestrator's job,
+implementing is the routine's.

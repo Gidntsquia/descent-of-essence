@@ -154,6 +154,58 @@ Rules for the routine:
       normally check). Show current gold somewhere in the run HUD. This is the foundation the next
       two tasks (shop, potions) depend on -- get the currency and its display solid first.
       COMPLETED 2026-08-19T11:35Z.
+- [ ] CRITICAL, fix immediately, highest priority in the queue: defeating ANY monster crashes
+      the game. In js/wordbound/game.js's onMonsterDefeated(), the gold-reward line calls
+      `Wordbound.RNG.range(goldDrop[0], goldDrop[1], state.rng)` -- `Wordbound.RNG` does not
+      exist (RNG lives at `window.Game.RNG`, exposed in this file as the `RNG` variable), and
+      even the real RNG instance has no `.range` method (its methods are `randInt`, `randFloat`,
+      `choice`, `weightedChoice`, `shuffle`, `chance` -- see js/core/rng.js). This throws
+      immediately on every kill, which silently aborts everything after it in that function:
+      `state.combatActive = false`, marking the node cleared, advancing to the next node, and
+      the tile-reward screen never run. Progression is broken past the first kill of every run.
+      FIX: replace that line with `state.rng.randInt(goldDrop[0], goldDrop[1])`. Verify with
+      `npm test` AND by actually defeating a monster in a headless browser/jsdom session and
+      confirming (a) zero errors, (b) the screen transitions to TILE_REWARD or advances floors
+      correctly, (c) gold actually increased. This exact bug (wrong API surface, never executed
+      before being marked done) is why npm test and real execution are mandatory now -- don't
+      just read the code, run it.
+- [ ] Fix two of the three consumable items (js/wordbound/consumables.js) doing NOTHING when
+      used, despite showing a success message claiming they worked -- worse than crashing,
+      because nothing errors and the player is told it worked. Root cause: `effect()` for
+      "Index Card Shard" sets `ctx.player.bonusDamageUntilEndOfTurn` and "Page Turn" sets
+      `ctx.player.skipDiscardNextTurn`/`bonusTilesToDraw`, but grep the whole js/wordbound/
+      directory -- nothing anywhere ever reads those three fields back. Only "Errata Slip"
+      (heal) actually works, because it mutates ctx.player.hp directly instead of setting a
+      flag for something else to consume later.
+      - Index Card Shard: wire `player.bonusDamageUntilEndOfTurn` into Game.submitWord in
+        game.js -- after Combat.playWord returns successfully and the base damage is logged,
+        if that field is truthy, apply it directly to state.monster.hp (same pattern as
+        Items.applyBonusDamage in items.js), add it to result.damage so it's reflected in the
+        log/overkill math, log a line for it, then reset the field to 0 so it only affects the
+        one word it was meant for.
+      - Page Turn: wire `player.skipDiscardNextTurn`/`bonusTilesToDraw` into
+        cycleRackAfterWord() in game.js. Suggested interpretation (the item's own text is
+        "skip discard cycle" + "draw 3 bonus tiles," which is genuinely ambiguous on exact
+        mechanics -- pick something reasonable and document your interpretation in
+        PROGRESS.md rather than guessing silently): keep the player's current unused rack
+        tiles instead of discarding them (only the tiles actually used in the word go to
+        discard), do the normal refill, then draw the bonus amount on top. Reset both flags
+        to their default after use.
+      - ALSO fix: Errata Slip hardcodes `var maxHp = 40;` in its effect function, but the
+        real player maxHp (see newPlayer() in game.js) is 20, not 40. This means healing can
+        push player.hp above their actual maxHp (e.g. 15/20 -> heals 8 -> 23/20), which the
+        HP display just prints literally ("HP 23 / 20"). Use `ctx.player.maxHp` instead of a
+        hardcoded literal.
+      - Verify all three consumables with actual behavioral assertions (not just "no error"):
+        confirm HP actually caps at real maxHp, confirm a word's damage actually increases by
+        the bonus amount after using Index Card Shard, confirm the rack actually ends up
+        larger than normal capacity after Page Turn. `npm test`'s jsdom harness can check all
+        of this; add assertions for it if useful for future regressions.
+- [ ] Minor UX polish, low priority: in renderShop() (game.js), items the player can't afford
+      are styled at reduced opacity but not given the `disabled` attribute, so they're still
+      technically clickable (no listener is attached, so clicking silently does nothing --
+      not a crash, just not obviously "this button doesn't work" to a player). Consider
+      setting `btn.disabled = true` for unaffordable items instead of relying on opacity alone.
 - [ ] Add a shop: a new node type (or extend the existing 'treasure' node, your call, document
       which you picked and why) where gold (previous task) buys permanent passive items -- reuse
       the existing Items.ITEM_DEFS system rather than inventing a parallel one; a shop just needs a
