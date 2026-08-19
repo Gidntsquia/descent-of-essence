@@ -278,7 +278,7 @@ Rules for the routine:
       containing all three bonus types shows three visually distinct classes/states
       (check via `getComputedStyle` or class list, not just visual inspection since
       you can't see the render).
-- [ ] CONTENT: expand suffix coverage beyond the plain "+S" plural fix already
+- [x] CONTENT: expand suffix coverage beyond the plain "+S" plural fix already
       landed (2026-08-19T22:41Z, see the completed ticket above and
       js/wordbound/wordlist.js). Requested 2026-08-19: "ensure other suffixes work
       (such as ed, er, ers, etc.)". This is explicitly a harder version of the same

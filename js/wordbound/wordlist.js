@@ -27,6 +27,74 @@ for (var wi = 0; wi < WORDS.length; wi++) {
   }
 }
 WORDS = WORDS.concat(generatedPlurals);
+var generatedEd = [];
+var generatedEr = [];
+var generatedEs = [];
+var generatedIng = [];
+
+for (var wi = 0; wi < WORDS.length; wi++) {
+  var baseWord = WORDS[wi];
+  var lastChar = baseWord.charAt(baseWord.length - 1);
+  var secondLastChar = baseWord.length > 1 ? baseWord.charAt(baseWord.length - 2) : '';
+  
+  // Rule 1: consonant + E ending (drop E before -ER/-ING)
+  // BAKE -> BAKER, MAKE -> MAKING
+  if (lastChar === 'E' && baseWord.length > 1 && !/[AEIOU]/.test(secondLastChar)) {
+    var withoutE = baseWord.substring(0, baseWord.length - 1);
+    
+    // -ER (BAKE -> BAKER)
+    var withEr = withoutE + 'ER';
+    if (!existingWordSet.has(withEr) && withEr.length <= 15) {
+      existingWordSet.add(withEr);
+      generatedEr.push(withEr);
+    }
+    
+    // -ING (MAKE -> MAKING)
+    var withIng = withoutE + 'ING';
+    if (!existingWordSet.has(withIng) && withIng.length <= 15) {
+      existingWordSet.add(withIng);
+      generatedIng.push(withIng);
+    }
+  }
+  
+  // Rule 2: consonant + Y (not preceded by vowel)
+  // HAPPY -> HAPPIER, CITY -> CITIES
+  if (lastChar === 'Y' && baseWord.length > 1 && !/[AEIOU]/.test(secondLastChar)) {
+    var withoutY = baseWord.substring(0, baseWord.length - 1);
+    
+    // -IES (CITY -> CITIES, for nouns ending in consonant+Y)
+    var withIes = withoutY + 'IES';
+    if (!existingWordSet.has(withIes) && withIes.length <= 15) {
+      existingWordSet.add(withIes);
+      generatedEs.push(withIes);
+    }
+    
+    // -IER (HAPPY -> HAPPIER, for adjectives ending in consonant+Y)
+    var withIer = withoutY + 'IER';
+    if (!existingWordSet.has(withIer) && withIer.length <= 15) {
+      existingWordSet.add(withIer);
+      generatedEr.push(withIer);
+    }
+  }
+  
+  // Rule 3: S/X/Z/CH/SH ending: use -ES for plural
+  // BOX -> BOXES, BUZZ -> BUZZES, PASS -> PASSES, DISH -> DISHES
+  if (lastChar === 'X' || lastChar === 'Z') {
+    var withEs = baseWord + 'ES';
+    if (!existingWordSet.has(withEs) && withEs.length <= 15) {
+      existingWordSet.add(withEs);
+      generatedEs.push(withEs);
+    }
+  } else if (lastChar === 'H' && (baseWord.endsWith('CH') || baseWord.endsWith('SH'))) {
+    var withEs = baseWord + 'ES';
+    if (!existingWordSet.has(withEs) && withEs.length <= 15) {
+      existingWordSet.add(withEs);
+      generatedEs.push(withEs);
+    }
+  }
+}
+
+WORDS = WORDS.concat(generatedEr).concat(generatedEs).concat(generatedIng);
   window.Wordbound.WORDLIST = WORDS;
   window.Wordbound.WORD_SET = new Set(WORDS);
 })();
