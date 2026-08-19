@@ -2073,3 +2073,34 @@ Current status: Task complete. Game meets keyboard-playability baseline.
 
 Next tasks: Balance simulation (partial - script created), mobile/responsive layout check.
 
+
+## 2026-08-19T19:30Z -- END OF RUN SUMMARY
+
+**Tasks completed this run:**
+1. ✅ Investigate wordlist.js load time (Playwright measurement: 3.6s on simulated 3G)
+   - Added loading spinner + "Loading dictionary..." message to main menu
+   - Hides when Game.init completes
+   
+2. ✅ Verify keyboard-playable without mouse
+   - Created test/verify-keyboard-playable.js
+   - All interactive elements are <button> tags (semantic HTML)
+   - Word input + Enter submission works
+   - 15 focusable elements on combat screen
+   - No fixes needed
+
+**Tasks partially completed:**
+- ⏳ Balance simulation framework (test/balance-simulation.js created, needs validation)
+
+**Test status:** All 16 npm tests pass. Game is in working, stable state.
+
+**Version:** v0.7 (unchanged from prior runs)
+
+**What's next:** 
+- Next task: Spot-check responsive/mobile layout at common small-screen widths (375px, 414px)
+- Or: Validate and complete balance simulation script for difficulty analysis
+
+**Session notes:**
+- Loading indicator adds UX polish for slow connections (3G scenario)
+- Keyboard accessibility baseline is solid - game is usable without mouse
+- Both test scripts are clean, reusable, and provide measurable verification
+
