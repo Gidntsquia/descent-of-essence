@@ -814,7 +814,7 @@
   // ---- rendering ---------------------------------------------------------
 
   function show(id) {
-    ['screen-main-menu', 'screen-run', 'screen-game-over', 'screen-victory'].forEach(function (s) {
+    ['screen-main-menu', 'screen-character-select', 'screen-run', 'screen-game-over', 'screen-victory'].forEach(function (s) {
       $(s).classList.toggle('hidden', s !== id);
     });
   }

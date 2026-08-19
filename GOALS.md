@@ -44,7 +44,7 @@ Rules for the routine:
 
 ## Queue
 
-- [ ] CRITICAL, fix immediately, highest priority in the queue: the game is currently 100%
+- [x] CRITICAL, fix immediately, highest priority in the queue: the game is currently 100%
       unplayable. Clicking "New Run" on the main menu results in a completely blank page --
       every single screen (main menu, character select, run, game-over, victory) ends up
       hidden simultaneously, and nothing on screen is clickable. This affects every run,

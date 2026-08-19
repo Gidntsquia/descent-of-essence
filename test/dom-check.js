@@ -76,12 +76,22 @@ async function main() {
   await new Promise((r) => setTimeout(r, 50));
   check('starting a run produces zero errors', errors.length === 0);
 
+  // Verify character select screen is actually visible (not hidden by show() function)
+  const screenCharSelect = document.getElementById('screen-character-select');
+  check('screen-character-select is not hidden after "New Run" click', screenCharSelect && !screenCharSelect.classList.contains('hidden'));
+
   // Character select screen is now shown; click on the first character option
   const firstCharacter = document.querySelector('.character-option');
   if (firstCharacter) {
     firstCharacter.dispatchEvent(new window.Event('click', { bubbles: true }));
     await new Promise((r) => setTimeout(r, 50));
   }
+
+  // Verify game-over and victory screens are hidden (should never be visible at this point)
+  const screenGameOver = document.getElementById('screen-game-over');
+  const screenVictory = document.getElementById('screen-victory');
+  check('screen-game-over is hidden after run starts', screenGameOver && screenGameOver.classList.contains('hidden'));
+  check('screen-victory is hidden after run starts', screenVictory && screenVictory.classList.contains('hidden'));
 
   const nodePill = document.querySelector('.node-pill.node-current');
   check('a clickable current node exists after starting a run', !!nodePill);
