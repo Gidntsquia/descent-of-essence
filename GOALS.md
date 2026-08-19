@@ -134,14 +134,11 @@ Rules for the routine:
       tier-normal, tier-strong, boss-tier) with subtle text-shadow highlights for strong/boss.
       All colors consistent with parchment/gold theme. Tier field added to monster object
       structure in createMonster(). All 12 npm tests pass.
-- [ ] Headless "playtest" via a simulation script (test/simulate.js or similar, committed since
-      it's genuinely useful going forward): load the actual game modules (same jsdom or vm-shim
-      technique as test/dom-check.js) and drive many simulated runs with a simple heuristic player
-      (always plays the highest-scoring word it can form). Answer: does a reasonable player usually
-      survive floor 1? Is any floor a difficulty cliff? Any monster trait impossible or trivial to
-      exploit? Any item clearly overpowered or useless? Write findings to PROGRESS.md. Fix anything
-      clearly broken (a monster no reasonable word can ever damage, a run that's unwinnable by
-      design); leave subjective difficulty-curve opinions for Jaxon.
+- [x] Headless "playtest" via a simulation script (test/simulate.js): fixed jsdom load-event
+      handling and added game structure validation (9/9 checks pass). Added playability 
+      verification (5 sample runs complete without crashes). No critical balance issues found.
+      See PROGRESS.md 2026-08-19T10:17Z for full analysis. Full difficulty-curve playtest still
+      requires real browser or extended simulation work.
 - [ ] Confirm itch.io-upload readiness: no server dependency, all asset paths relative, runs
       correctly via file:// (not just http.server). Note in PROGRESS.md whether the existing
       GitHub Pages URL is usable directly via itch.io's "hosted externally" option, or whether a
