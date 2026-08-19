@@ -31,7 +31,9 @@
     treasureOptions: null,
     tileRewardOptions: null,
     pendingAfterTileReward: null, // 'advanceFloor' | 'nextNode'
-    deckViewerOpen: false
+    deckViewerOpen: false,
+    itemInspectorOpen: false,
+    itemInspectorId: null
   };
   Game._state = state; // exposed for headless/browser test inspection only
 
@@ -247,6 +249,18 @@
     render();
   };
 
+  Game.openItemInspector = function (itemId) {
+    state.itemInspectorOpen = true;
+    state.itemInspectorId = itemId;
+    render();
+  };
+
+  Game.closeItemInspector = function () {
+    state.itemInspectorOpen = false;
+    state.itemInspectorId = null;
+    render();
+  };
+
   // ---- rendering ---------------------------------------------------------
 
   function show(id) {
@@ -286,8 +300,13 @@
     log_.scrollTop = log_.scrollHeight;
 
     $('deck-viewer-panel').classList.toggle('hidden', !state.deckViewerOpen);
+    $('item-inspector-panel').classList.toggle('hidden', !state.itemInspectorOpen);
     if (state.deckViewerOpen) {
       renderDeckViewer();
+      return;
+    }
+    if (state.itemInspectorOpen) {
+      renderItemInspector();
       return;
     }
 
@@ -320,8 +339,18 @@
       span.className = 'item-chip';
       span.textContent = def.name;
       span.title = def.hint;
+      span.style.cursor = 'pointer';
+      span.addEventListener('click', function () { Game.openItemInspector(itemId); });
       el.appendChild(span);
     });
+  }
+
+  function renderItemInspector() {
+    if (!state.itemInspectorId) return;
+    var def = Items.ITEM_DEFS[state.itemInspectorId];
+    if (!def) return;
+    $('inspector-item-name').textContent = def.name;
+    $('inspector-item-hint').textContent = def.hint;
   }
 
   function renderNodeMap() {
@@ -442,6 +471,7 @@
     $('btn-skip-tile-reward').addEventListener('click', Game.skipTileReward);
     $('btn-view-deck').addEventListener('click', Game.openDeckViewer);
     $('btn-close-deck-viewer').addEventListener('click', Game.closeDeckViewer);
+    $('btn-close-item-inspector').addEventListener('click', Game.closeItemInspector);
 
     $('btn-submit-word').addEventListener('click', function () {
       var input = $('word-input');
