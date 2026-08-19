@@ -1314,6 +1314,12 @@
     $('music-volume').value = Math.round(audioSettings.volume * 100);
     $('btn-toggle-music').textContent = audioSettings.muted ? '🔇' : '🔊';
 
+    // Hide the dictionary loading indicator now that all scripts are loaded
+    var loadingIndicator = $('dictionary-loading-indicator');
+    if (loadingIndicator) {
+      loadingIndicator.classList.add('hidden');
+    }
+
     render();
   };
 })();
