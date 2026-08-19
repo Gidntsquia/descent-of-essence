@@ -50,23 +50,19 @@
     // the 0x-floor phase is the real cause and needs a design call, not a stat.
     id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 4, floor: 1, goldDrop: [15, 25],
     traitPhases: [
-      { hpThreshold: 1.0, traitId: 'vowelHungry' },
-      { hpThreshold: 0.5, traitId: 'palindromic' }
+      { hpThreshold: 1.0, traitId: 'vowelHungry' }
     ]
   });
   bdef({
     id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 80, attack: 6, floor: 2, goldDrop: [25, 40],
     traitPhases: [
-      { hpThreshold: 1.0, traitId: 'lengthy' },
-      { hpThreshold: 0.5, traitId: 'rareSeeker' }
+      { hpThreshold: 1.0, traitId: 'lengthy' }
     ]
   });
   bdef({
     id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 120, attack: 8, floor: 3, goldDrop: [40, 60],
     traitPhases: [
-      { hpThreshold: 1.0, traitId: 'silentE' },
-      { hpThreshold: 0.6, traitId: 'shortFuse' },
-      { hpThreshold: 0.3, traitId: 'palindromic' }
+      { hpThreshold: 1.0, traitId: 'silentE' }
     ]
   });
 

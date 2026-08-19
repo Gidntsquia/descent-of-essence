@@ -1084,7 +1084,21 @@
       if (node.cleared) pill.classList.add('node-cleared');
       if (i === state.currentNodeIndex && !node.cleared) pill.classList.add('node-current');
       if (i > state.currentNodeIndex) pill.classList.add('node-locked');
-      pill.textContent = (node.cleared ? '✓ ' : '') + labels[node.type];
+      var label = (node.cleared ? '✓ ' : '') + labels[node.type];
+
+      // For boss nodes, append the trait hint
+      if (node.type === 'boss') {
+        var bossDef = Monsters.BOSS_DEFS[node.defId];
+        if (bossDef && bossDef.traitPhases && bossDef.traitPhases.length > 0) {
+          var traitId = bossDef.traitPhases[0].traitId;
+          var traitDef = Traits.TRAITS[traitId];
+          if (traitDef && traitDef.hint) {
+            label += ' — ' + traitDef.hint;
+          }
+        }
+      }
+
+      pill.textContent = label;
       if (i === state.currentNodeIndex && !node.cleared) {
         pill.addEventListener('click', Game.enterCurrentNode);
       }
