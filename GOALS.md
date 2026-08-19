@@ -34,6 +34,13 @@ Rules for the routine:
   "08:00Z"/"09:00Z" when the actual git commits landed at 03:48-03:53Z) -- don't guess or
   extrapolate a plausible-looking time, check it.
 - If the queue is empty, don't invent busywork — note that you're idle in PROGRESS.md and stop.
+- **Version convention:** Use semantic versioning (e.g., v0.1, v0.2, v1.0) displayed in
+  the main menu. Bump minor version (v0.1 → v0.2) for feature additions or significant
+  polish. Bump patch version only for bug fixes. Move to v1.0 after itch.io launch and
+  stabilization. Bump the version whenever you complete a feature task that significantly
+  improves the game (new mechanics, major UI polish, audio/visual improvements). Bug fixes
+  can bump it too if they're user-facing. Bump it in both wordbound.html (the version-info
+  element) and index.html (if that file gets a similar version display later).
 
 ## Queue
 
@@ -115,11 +122,12 @@ Rules for the routine:
       (oscillator gains way too low, 0.05-0.01 * master gain 0.1 = 0.5%-0.1% of max volume).
       Increased to 0.25-0.08 for normal music and 0.30-0.10 for boss music (5x louder). Looping
       and frequencies verified correct.
-- [ ] Add a version number/build identifier to the main menu (e.g. small text near the title,
+- [x] Add a version number/build identifier to the main menu (e.g. small text near the title,
       "v0.x" or a date-based build tag) so Jaxon can tell at a glance whether he's looking at an
-      updated build. Bump it as part of this task; doesn't need to auto-increment, just needs to
-      visibly change when meaningful updates ship -- use your judgment on when future tasks should
-      bump it too (mention the convention in this file's rules section once you've set it up).
+      updated build. Completed 2026-08-19T09:14Z: Added version display "v0.1" below the
+      WORDBOUND title with styling (.version-info class, muted gold color). Established semantic
+      versioning convention in GOALS.md rules (bump minor for features, patch for bugs, move to
+      v1.0 at launch).
 - [ ] Add a visual way to tell monsters/bosses apart at a glance beyond just the name text.
       boss-name CSS class already exists (redder text) -- build on that rather than replacing it.
       No image assets are available (no way to source/generate art in this pipeline), so this has
