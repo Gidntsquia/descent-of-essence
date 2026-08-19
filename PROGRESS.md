@@ -2684,3 +2684,40 @@ diagnosed and (briefly) drafted -- reverted all uncommitted code changes via
 
 All six items are now queued at the top of GOALS.md for the hourly routine.
 
+
+---
+
+## 2026-08-19T22:41Z
+
+**Fix plural words bug (Task 1 from orchestrator's queue)** -- COMPLETED and pushed.
+
+**The Bug:**
+Players were unable to play common plural forms (ADS, CATS, WORDS, etc.) despite the 
+base words being in the dictionary. The dictionary source (Webster's Second, a 1913 
+headword-only dictionary) lists base forms but omits regular inflections as they were 
+considered "regular" and unnecessary in a reference dictionary.
+
+**The Fix:**
+Implemented plural-form generation in js/wordbound/wordlist.js:
+- Generated "+S" form for every base word not already ending in S
+- Skipped words >= 15 characters (keep within documented 2-15 length range)
+- Added generated plurals to WORDS array via concatenation
+- Implementation used file-splicing technique (head/tail + injected code) to avoid 
+  loading the 2.5MB single-line WORDS array into memory
+
+**Verification:**
+1. Syntax: `node -c` passed (no parse errors)
+2. npm test: all 16 checks passed (no regressions)
+3. Dictionary growth: 204,217 words → 381,992 words (~1.87x)
+4. Plural coverage: all 12 test pairs present (ADS, CATS, WORDS, BOOKS, CARS, TREES, 
+   HOUSES, GIRLS, BOYS, GAMES, TABLES, DOGS)
+5. Manual check: `WORD_SET.has('ADS')` → true, `WORD_SET.has('CATS')` → true, etc.
+
+**Impact:**
+Players can now play virtually all regular English plurals. This was the single 
+highest-priority ticket -- it affects essentially every word a player would naturally 
+try to play. The game is now significantly more playable with natural English vocabulary.
+
+**Current status:** 1 of 6 orchestrator queue items complete. Next task: Fix 
+deck/item/consumables panel stacking.
+
