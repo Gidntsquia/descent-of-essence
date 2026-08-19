@@ -16,55 +16,55 @@
 
   Events.EVENT_DEFS = {
     blood_bargain: {
-      name: 'A Whispered Deal',
-      text: 'A shadowy figure offers you a deal: trade health for gold.',
+      name: 'A Dusty Proposition',
+      text: 'A tome whispers from the shelf: "Lend me some essence, and I\'ll pay you handsomely in coin."',
       choices: [
         {
-          text: 'Accept: Lose 5 HP, gain 20 gold',
+          text: 'Strike the deal: Lose 5 HP, gain 20 gold 🪙',
           effect: function (state) {
             state.player.hp = Math.max(0, state.player.hp - 5);
             state.player.gold += 20;
-            return 'You made the deal. The shadows whisper their satisfaction.';
+            return 'The tome glows warmly. A fair exchange, it seems.';
           }
         },
         {
-          text: 'Refuse: Keep your health, lose nothing',
+          text: 'Politely decline: Invest in health',
           effect: function (state) {
-            return 'You step away. The figure dissipates into the Stacks.';
+            return 'The tome shrugs (metaphorically) and returns to its shelf.';
           }
         }
       ]
     },
 
     cursed_tome: {
-      name: 'A Tempting Tome',
-      text: 'An ancient book glows on a shelf. It promises knowledge, but at a cost.',
+      name: 'Reserved for the Bold',
+      text: 'A rare book sits on the Reserve shelf, cordoned off. "Help yourself," the Archive whispers.',
       choices: [
         {
-          text: 'Take it: Gain a random item, but lose 3 HP',
+          text: 'Take a chance: Snag it despite the hazard (−3 HP for a random item)',
           effect: function (state) {
             var Items = window.Wordbound && window.Wordbound.Items;
             if (!Items) {
               state.player.hp = Math.max(0, state.player.hp - 3);
-              return 'The tome burns your hands as you grab it. But it\'s just an empty shell.';
+              return 'The pages are sharp. Worth it? You\'re not sure yet.';
             }
             var owned = state.player.items;
             var available = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
             if (available.length === 0) {
               state.player.hp = Math.max(0, state.player.hp - 3);
-              return 'The tome burns your hands, but offers nothing new.';
+              return 'The pages cut deep, but offer nothing you don\'t already own.';
             }
             var RNG = window.Wordbound && window.Wordbound.RNG;
             var itemId = RNG ? state.rng.choice(available) : available[Math.floor(Math.random() * available.length)];
             state.player.items.push(itemId);
             state.player.hp = Math.max(0, state.player.hp - 3);
-            return 'You take ' + Items.ITEM_DEFS[itemId].name + '. The tome\'s pages sing.';
+            return 'You claim ' + Items.ITEM_DEFS[itemId].name + '. The pages settle, content.';
           }
         },
         {
-          text: 'Leave it: Safe choice, gain nothing',
+          text: 'Read the sign: Respect the rope',
           effect: function (state) {
-            return 'You leave the tome on its shelf. Better not to tempt fate.';
+            return 'Some books are reserved for a reason. You wisely press on.';
           }
         }
       ]
@@ -72,45 +72,45 @@
 
     lucky_scroll: {
       name: 'A Loose Page',
-      text: 'A yellowed page flutters to the ground. It seems to shimmer with potential.',
+      text: 'A page flutters down from the chaos above. "Read me?" it whispers hopefully.',
       choices: [
         {
-          text: 'Read it: 50% chance to gain 25 gold, 50% chance to lose 2 HP',
+          text: 'Take the risk: Read it (50% chance: +25 gold or −2 HP)',
           effect: function (state) {
             var RNG = window.Wordbound && window.Wordbound.RNG;
             var roll = RNG ? state.rng.chance(0.5) : Math.random() < 0.5;
             if (roll) {
               state.player.gold += 25;
-              return 'The page shimmers and dissolves into gold dust in your hands.';
+              return 'A fascinating passage! You pocket the page—and somehow it becomes gold.';
             } else {
               state.player.hp = Math.max(0, state.player.hp - 2);
-              return 'The page cuts your fingers as it crumbles. A warning, perhaps.';
+              return 'Ouch! Paper cut. The page apologizes profusely as it crumbles away.';
             }
           }
         },
         {
-          text: 'Ignore it: Continue on safely',
+          text: 'Play it safe: Leave it behind',
           effect: function (state) {
-            return 'You leave the page behind, unread.';
+            return 'You wisely keep both hands and health intact.';
           }
         }
       ]
     },
 
     empty_shelf: {
-      name: 'An Empty Shelf',
-      text: 'A section of the Stacks stands bare. Time seems to pause here.',
+      name: 'A Suspiciously Bare Shelf',
+      text: 'The shelves here gape empty, library dust thick and undisturbed. Something feels... restful.',
       choices: [
         {
-          text: 'Rest here: Restore 3 HP, skip the next combat',
+          text: 'Sit and breathe: Recover 3 HP, skip the next fight',
           effect: function (state) {
             state.player.hp = Math.min(state.player.maxHp, state.player.hp + 3);
             state.pendingEventSkipNextCombat = true;
-            return 'You rest among the empty shelves. The quiet is restorative.';
+            return 'Silence wraps around you like a bookmark. You feel renewed.';
           }
         },
         {
-          text: 'Search thoroughly: 50% chance for a free item',
+          text: 'Hunt for forgotten treasures: 50% chance to find an item',
           effect: function (state) {
             var RNG = window.Wordbound && window.Wordbound.RNG;
             var roll = RNG ? state.rng.chance(0.5) : Math.random() < 0.5;
@@ -122,38 +122,38 @@
                 if (available.length > 0) {
                   var itemId = RNG ? state.rng.choice(available) : available[Math.floor(Math.random() * available.length)];
                   state.player.items.push(itemId);
-                  return 'Hidden in a forgotten corner, you find ' + Items.ITEM_DEFS[itemId].name + '.';
+                  return 'Deep in a forgotten corner, you discover ' + Items.ITEM_DEFS[itemId].name + '. How did it get here?';
                 }
               }
             }
-            return roll ? 'You find nothing of value, but at least you tried.' : 'Your search turns up nothing.';
+            return roll ? 'You find dust. Lots of dust. Just dust.' : 'Nothing but phantom imprints on the shelves.';
           }
         },
         {
-          text: 'Move on: Safe, gain nothing',
+          text: 'Move on: The silence makes you uneasy',
           effect: function (state) {
-            return 'You leave the empty shelf and press onward.';
+            return 'You hurry past. Empty shelves shouldn\'t exist in the Archive.';
           }
         }
       ]
     },
 
     mysterious_coin: {
-      name: 'A Gleaming Coin',
-      text: 'A single coin lies on the ground, warm to the touch.',
+      name: 'A Cataloger\'s Lost Coin',
+      text: 'A glimmering coin sits on the floor—Library currency, by the looks of it. Stamped with the Archive\'s seal.',
       choices: [
         {
-          text: 'Spend it: Fully restore HP',
+          text: 'Spend it at the Archive\'s font: Fully restore HP',
           effect: function (state) {
             state.player.hp = state.player.maxHp;
-            return 'The coin dissolves as it restores your strength. Curious.';
+            return 'The coin glows and channels its warmth through you. You feel whole again.';
           }
         },
         {
-          text: 'Save it: Gain 10 gold',
+          text: 'Save it: Pocket the coin for 10 gold later',
           effect: function (state) {
             state.player.gold += 10;
-            return 'You pocket the coin. It feels warm against your skin.';
+            return 'You pocket the warm coin. The Archive always takes its currency back, eventually.';
           }
         }
       ]
