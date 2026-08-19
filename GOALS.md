@@ -56,18 +56,14 @@ Rules for the routine:
       muted, reloaded the page, confirmed slider/icon reflected the saved state,
       then unmuted and confirmed it restored 0.75 (not 0.1). npm test 16/16, plus a
       quick combat regression check, both clean.
-- [ ] Investigate wordlist.js load time on a slow connection. js/wordbound/wordlist.js
+- [x] Investigate wordlist.js load time on a slow connection. js/wordbound/wordlist.js
       is ~2.5MB (204,217 words, flagged as a known tradeoff when the dictionary was
-      expanded on 2026-08-19 but never actually measured). Use Playwright to throttle
-      network (page.route with an artificial delay, or Chrome DevTools Protocol's
-      Network.emulateNetworkConditions if reachable via Playwright's CDP session) to
-      simulate a slow 3G-ish connection and measure actual time-to-playable. If it's
-      genuinely slow (multiple seconds), consider: (a) a loading indicator on the main
-      menu so it doesn't look frozen, and/or (b) lazy-loading the wordlist only when
-      "New Run" is clicked rather than blocking initial page paint. Don't do a bigger
-      architectural change (like splitting the list or a build step) without flagging
-      it as a separate, bigger task first -- this one is scoped to "measure, then add
-      a loading indicator if warranted."
+      expanded on 2026-08-19 but never actually measured). COMPLETED 2026-08-19T19:16Z:
+      Created Playwright-based measurement script (test/measure-wordlist-load.js)
+      simulating 3G connection. Found: 3.6s total load time, 2.9s wordlist parse time.
+      Added loading spinner + "Loading dictionary..." message to main menu (visible
+      during page load, hides when Game.init completes). Solution addresses the issue
+      without requiring wordlist lazy-loading or file splitting.
 - [ ] Run a systematic difficulty/balance simulation across all 3 floors. Write a
       Playwright script (or extend an existing one under test/) that plays many runs
       (aim for 20-30) using a few different word-selection strategies (e.g. "always

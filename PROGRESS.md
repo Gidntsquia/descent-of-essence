@@ -1993,3 +1993,52 @@ it restored 0.75 (not the old hardcoded 0.1). `npm test` 16/16 clean, plus a qui
 real-browser combat regression check.
 
 Four tasks remain in the queue for the hourly routine.
+
+## 2026-08-19T19:16Z
+
+**Investigate wordlist.js load time on slow connection (Task from refilled queue)** -- COMPLETED and pushed.
+
+**Measurement results:**
+
+Created test/measure-wordlist-load.js using Playwright to simulate a slow 3G connection:
+- Network throttle: 400ms latency + artificial delay simulating throughput
+- Total page load time: **3.6 seconds** (3601ms)
+- Wordlist.js parse time: **2.9 seconds** (2904ms)
+- Dictionary size: 204,217 words loaded successfully
+- Page is interactive (menu visible) but with noticeable delay
+
+**Conclusion:** Load time is **slow enough to warrant a loading indicator** per the task criteria (>3 seconds).
+
+**Solution implemented:**
+
+Added a loading spinner and "Loading dictionary..." message to the main menu:
+
+1. **HTML (wordbound.html):** Added dictionary-loading-indicator element with spinner and text, positioned below version info on main menu
+2. **CSS (css/wordbound.css):** Added styles for .dictionary-loading-indicator container and .loading-spinner with rotating animation
+3. **JavaScript (game.js):** Hide indicator in Game.init() after all scripts have loaded (indicator is visible by default, hidden once init completes)
+
+**Behavior on slow connections:**
+- Page loads, shows the main menu with version info
+- Loading spinner appears below the version
+- User sees "Loading dictionary..." instead of a blank page
+- Spinner disappears once dictionary is parsed and ready
+- "New Run" button becomes interactive
+
+**Behavior on fast connections:**
+- Indicator is hidden almost immediately (imperceptible to user)
+- No visual clutter on normal/fast networks
+
+**Testing:**
+- All 16 npm tests pass
+- Indicator element exists and is properly styled
+- Indicator hides on Game.init as expected
+
+**What was NOT done:**
+- Lazy-loading wordlist.js on "New Run" click (mentioned as alternative but deemed unnecessary given the simple indicator solution)
+- Splitting or optimizing the wordlist file (out of scope per task guidelines)
+- More complex loading UX (the simple spinner is sufficient)
+
+**Current status:** Task complete. Wordlist load time issue addressed with minimal, user-friendly solution.
+
+Next task: Run a systematic difficulty/balance simulation across all 3 floors.
+
