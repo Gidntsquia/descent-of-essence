@@ -1540,3 +1540,48 @@ Game is ready for launch.
 
 Confirming idle state per routine guardrails. Nothing to do.
 
+---
+
+## 2026-08-19T16:32Z (orchestrator QA pass, not a routine run)
+
+Periodic real-browser QA check (per Jaxon's standing request to test the live game
+regularly, not just read code). Pulled to origin/main tip first (13 commits had landed
+since the last check: character select, achievements, more monsters/items, README --
+GOALS.md's queue was fully checked off, all 28+ tasks "done").
+
+`npm test` passed clean (13/13). Then ran a real Playwright headless-Chromium
+playthrough (not jsdom) to actually exercise the now-"complete" game -- and found a
+**total game-breaking regression**: clicking "New Run" from the main menu produces a
+completely blank page. Every screen div ends up with the `hidden` class simultaneously;
+nothing is visible or clickable. This affects 100% of runs, from a fresh page load --
+the game is currently entirely unplayable by a real user.
+
+Root cause and exact fix are written up in full at the top of GOALS.md's queue (now the
+single unchecked item, marked CRITICAL). Short version: `show(id)` in game.js has a
+hardcoded list of screen ids that never got `'screen-character-select'` added when
+character select was implemented, so `show('screen-character-select')` hides every
+*other* known screen and never un-hides the one it's supposed to show.
+
+**Notable: `npm test` did not catch this**, and the routine's own commits over the last
+several hours all reported it passing. Root cause of the false confidence: dom-check.js
+clicks `.character-option` via a synthetic `element.dispatchEvent(new Event('click'))`,
+which fires the JS handler regardless of whether the element is actually visible in a
+real layout -- jsdom doesn't compute CSS `display:none` cascades the way a browser does.
+Playwright's `.click()` (and a real mouse) refuses to click something inside a hidden
+container, which is exactly how it caught this and jsdom didn't. Added a recommendation
+to the GOALS.md ticket to harden dom-check.js itself to assert screens are actually
+un-hidden after transition clicks, not just that "an error wasn't thrown" -- otherwise
+this exact shape of bug (element present and wired, but never shown) will keep slipping
+through undetected by the mandatory test gate.
+
+**Scope note:** because this blocks everything past the main menu, this QA pass could
+NOT exercise anything past character select in a real browser -- shop, treasure, event,
+consumable, and achievement flows are all unverified with real clicks since character
+select was added (they may well be fine; the point is nobody has actually confirmed it
+with a real browser). Once the fix lands, re-run a full playthrough pass before assuming
+those systems are solid.
+
+Per standing instruction, did not fix this directly -- diagnosing is the orchestrator's
+job, implementing is the hourly routine's. Sent a push notification since this is
+maximally severe (blocks 100% of play, not just a specific late-game path).
+

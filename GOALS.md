@@ -44,6 +44,62 @@ Rules for the routine:
 
 ## Queue
 
+- [ ] CRITICAL, fix immediately, highest priority in the queue: the game is currently 100%
+      unplayable. Clicking "New Run" on the main menu results in a completely blank page --
+      every single screen (main menu, character select, run, game-over, victory) ends up
+      hidden simultaneously, and nothing on screen is clickable. This affects every run,
+      every time, from a cold page load. Verified live with Playwright (a real headless
+      Chromium browser, not jsdom) on 2026-08-19.
+      ROOT CAUSE: js/wordbound/game.js's `show(id)` helper (~line 816) has a hardcoded array
+      of screen element ids that was never updated when the character-select screen was
+      added:
+      ```
+      function show(id) {
+        ['screen-main-menu', 'screen-run', 'screen-game-over', 'screen-victory'].forEach(function (s) {
+          $(s).classList.toggle('hidden', s !== id);
+        });
+      }
+      ```
+      `render()` calls `show('screen-character-select')` after `Game.showCharacterSelect()`
+      sets `state.screen = 'CHARACTER_SELECT'`. Since `'screen-character-select'` is not in
+      that array, the forEach hides all four listed screens (none of them equal the target
+      id) but never un-hides `screen-character-select` itself -- it keeps whatever `hidden`
+      state it already had (hidden, per its initial markup in wordbound.html). Net result:
+      every screen in the game ends up with the `hidden` class after the very first
+      "New Run" click, and stays that way for the rest of the session (later `show()` calls
+      have the same bug for every OTHER target screen, e.g. `show('screen-run')` also never
+      touches `screen-character-select`, but that's moot since the player is already stuck).
+      FIX: add `'screen-character-select'` to the array:
+      `['screen-main-menu', 'screen-character-select', 'screen-run', 'screen-game-over', 'screen-victory']`.
+      Grep for any other place that might enumerate screen ids the same way and check it has
+      the same gap (didn't find one in this pass, but worth a second look while in this code).
+      WHY `npm test` DID NOT CATCH THIS (important -- read before assuming the test suite
+      would flag a fix): test/dom-check.js clicks `.character-option` via
+      `element.dispatchEvent(new window.Event('click', { bubbles: true }))`. jsdom fires the
+      click handler regardless of whether the element is actually visible or inside a
+      `display:none` ancestor -- it does not compute real CSS layout. A real user, and
+      Playwright's `.click()` (which enforces the element is visible/actionable first),
+      cannot click something inside a hidden container, which is exactly why this shipped
+      unnoticed through `npm test` passing "ALL CHECKS PASSED" every time. RECOMMENDED (do
+      this as part of the same fix, not a separate task): harden test/dom-check.js to assert
+      the actual target screen div does NOT have the `hidden` class (and ideally that
+      `getComputedStyle(el).display !== 'none'`) after each screen-transition click, not just
+      that "no error was thrown" -- e.g. after clicking `#btn-new-run`, assert
+      `!document.getElementById('screen-character-select').classList.contains('hidden')`
+      before proceeding to click `.character-option`. Otherwise this exact class of bug (an
+      element technically present and click-handler-wired, but never actually shown) will
+      keep slipping through.
+      VERIFICATION: after the fix, run `npm test`, then verify with a REAL browser click
+      (Playwright's `.click()`, not a synthetic jsdom dispatchEvent) that clicking "New Run"
+      makes the three `.character-option` elements visible and clickable, and that a full
+      run (character select -> node map -> combat -> ...) is actually reachable end to end.
+      A jsdom pass alone is not sufficient evidence this is fixed, per the above.
+      NOTE: because this blocks literally everything past the main menu, none of this QA
+      pass's planned coverage (shop/treasure/event/consumable/achievement flows) could be
+      exercised in a real browser this cycle -- re-run a full playthrough QA pass once this
+      lands, since none of those systems have been verified with real clicks since character
+      select was added.
+
 - [x] Slay the Spire-style deck rework for Wordbound: fixed 12-tile starter deck, pick-1-of-3
       tile reward after every fight (skippable), rare bonus tiles (flat/multiplier score bonuses,
       on-play or on-hold), full rack discard + redraw after every word played. Implemented directly
