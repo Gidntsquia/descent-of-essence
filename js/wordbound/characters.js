@@ -19,7 +19,14 @@
       id: 'scribe',
       name: 'The Scribe',
       description: 'High-risk, high-reward. Powerful consonants, fewer vowels.',
-      deckLetters: ['E', 'I', 'A', 'R', 'S', 'T', 'L', 'N', 'X', 'Z', 'K', 'B'],
+      // Was 3 vowels (E,I,A) vs 9 consonants -- balance-simulation.js (2026-08-19,
+      // 30 runs) found this made the Scribe hit an unplayable-rack softlock in
+      // ~25% of its runs (see the ensureRackIsPlayable() safety net in game.js,
+      // added as the primary fix). Swapped L for O here too, to make that safety
+      // net trigger less often in the first place -- 4 vowels vs 8 consonants,
+      // still meaningfully vowel-poor and keeps every rare/powerful letter
+      // (X, Z, K, B) that defines the character, just not quite starved.
+      deckLetters: ['E', 'I', 'A', 'O', 'R', 'S', 'T', 'N', 'X', 'Z', 'K', 'B'],
       startingItems: ['heavy_ink', 'folio_mark']
     },
     keeper: {

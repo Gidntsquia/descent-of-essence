@@ -122,4 +122,50 @@
       total: total
     };
   };
+
+  // sorted-letters -> true, built once and cached. Lets hasPlayableWord check
+  // "does any subset of this rack spell a word" without testing 200k+ words
+  // against the rack every time -- same approach as test/balance-simulation.js's
+  // buildAnagramMap, just a Set of keys since we only need existence here.
+  var anagramKeySet = null;
+  function getAnagramKeySet() {
+    if (anagramKeySet) return anagramKeySet;
+    anagramKeySet = new Set();
+    var wordlist = window.Wordbound.WORDLIST || [];
+    for (var i = 0; i < wordlist.length; i++) {
+      var w = wordlist[i];
+      if (w.length < 2) continue;
+      anagramKeySet.add(w.split('').sort().join(''));
+    }
+    return anagramKeySet;
+  }
+
+  // Is there ANY word this rack can form? Used to detect and avoid a hard
+  // softlock: if a rack can spell nothing, the player has no possible action
+  // (there's no discard/redraw), and the rack only ever cycles after a word
+  // is actually played -- so an unplayable rack is a permanent dead end.
+  // Ignores blank ('?') tiles for this fast check (treats a rack containing
+  // one as always playable) -- a blank only ever ADDS options, and checking
+  // its wildcard substitutions properly would need the slower canFormFromRack
+  // path this function exists to avoid running on every subset.
+  Lexicon.hasPlayableWord = function (rack) {
+    var usable = [];
+    for (var i = 0; i < rack.length; i++) {
+      if (rack[i].letter === '?') return true;
+      usable.push(rack[i].letter);
+    }
+    var n = usable.length;
+    if (n < 2) return false;
+    var keys = getAnagramKeySet();
+    for (var mask = 1; mask < (1 << n); mask++) {
+      var subset = [];
+      for (var bit = 0; bit < n; bit++) {
+        if (mask & (1 << bit)) subset.push(usable[bit]);
+      }
+      if (subset.length < 2) continue;
+      var key = subset.slice().sort().join('');
+      if (keys.has(key)) return true;
+    }
+    return false;
+  };
 })();

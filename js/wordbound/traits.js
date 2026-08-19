@@ -69,15 +69,21 @@
   def({
     id: 'palindromic',
     name: 'The Mirror',
-    hint: 'Only damaged by palindromes (reads the same backwards).',
-    multiplier: function (word) { return isPalindrome(word) ? 2 : 0; }
+    hint: 'Takes bonus damage from palindromes (reads the same backwards), resists other words.',
+    // Was a hard 0x for non-palindromes. Palindromes are nearly unformable from a
+    // random 7-8 tile rack, so this made any fight where it's the active phase a
+    // pure race against the monster's attack with no counterplay -- balance
+    // simulation (2026-08-19) found this made the floor-1 boss the single hardest
+    // fight in the game, harder than both later bosses. Same 0x->0.3x treatment
+    // already applied to 'vowelless' for the same reason.
+    multiplier: function (word) { return isPalindrome(word) ? 2 : 0.3; }
   });
 
   def({
     id: 'shortFuse',
     name: 'Short Fuse',
-    hint: 'Immune to words longer than 4 letters.',
-    multiplier: function (word) { return word.length <= 4 ? 1.5 : 0; }
+    hint: 'Takes bonus damage from words 4 letters or shorter, resists longer words.',
+    multiplier: function (word) { return word.length <= 4 ? 1.5 : 0.3; }
   });
 
   def({
@@ -104,8 +110,8 @@
   def({
     id: 'alphabetic',
     name: 'The Sorted',
-    hint: 'Only damaged by words whose letters are in alphabetical order (e.g. ABORT).',
-    multiplier: function (word) { return isAlphabetical(word) ? 2 : 0; }
+    hint: 'Takes bonus damage from words with letters in alphabetical order (e.g. ABORT), resists other words.',
+    multiplier: function (word) { return isAlphabetical(word) ? 2 : 0.3; }
   });
 
   def({

@@ -299,6 +299,7 @@
     state.player.rack = [];
     Items.runHook('onRunStart', { player: state.player, pileState: state.pile }, state.player);
     refillRack();
+    ensureRackIsPlayable();
     state.combatActive = true;
     var isBoss = node.type === 'boss';
     startBackgroundMusic(isBoss);
@@ -315,6 +316,28 @@
     Items.runHook('onDraw', ctx, state.player);
     state.player.rack = state.player.rack.concat(ctx.drawnTiles);
     state.rackJustRefilled = true;
+  }
+
+  // A rack that can spell nothing is a permanent dead end: combat only offers
+  // "play a word," and the rack only ever cycles after a word is actually
+  // played, so an unplayable rack leaves the player with no possible action,
+  // forever. balance-simulation.js (2026-08-19, 30 runs) found this hit ~25%
+  // of runs with the Scribe character specifically (its deck is vowel-poor).
+  // Rather than add a new discard/redraw mechanic, silently reshuffle and
+  // redraw when this happens -- bounded attempts as a safety net against a
+  // pathological near-empty pool; in practice one retry is always enough.
+  var UNPLAYABLE_RACK_RETRY_LIMIT = 5;
+  function ensureRackIsPlayable() {
+    var attempts = 0;
+    while (!Lexicon.hasPlayableWord(state.player.rack) && attempts < UNPLAYABLE_RACK_RETRY_LIMIT) {
+      state.pile.discardPile = state.pile.discardPile.concat(state.player.rack);
+      state.player.rack = [];
+      refillRack();
+      attempts++;
+    }
+    if (attempts > 0) {
+      log('Your hand had no playable words -- the shelves rearranged themselves.');
+    }
   }
 
   // Slay the Spire-style rack: whatever's left in the rack after a word is
@@ -359,6 +382,8 @@
       state.player.rack = [];
       refillRack();
     }
+
+    ensureRackIsPlayable();
   }
 
   var TILE_PLAY_ANIM_MS = 220; // matches .tile-played's animation-duration in wordbound.css
