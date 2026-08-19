@@ -911,3 +911,52 @@ Next tasks for future runs:
 
 Note: The hourly routine now has most core features working. What remains is largely 
 content (more items/monsters) and balance tuning, rather than new systems.
+
+---
+
+## 2026-08-19T13:47Z
+
+**Add consumable one-time-use boost items (Task from GOALS.md)** -- COMPLETED and pushed.
+
+**What was implemented:**
+
+1. **Consumable definitions (js/wordbound/consumables.js):**
+   - Errata Slip: Heal 8 HP (15 gold) - simple health recovery
+   - Index Card Shard: +15 damage to next word this turn (25 gold) - damage boost
+   - Page Turn: Draw 3 bonus tiles, skip discard cycle (40 gold) - deck manipulation
+   - All designed to be mechanically distinct from permanent items
+   - Prices scaled to post-overkill economy (~120-230 gold per run)
+
+2. **Game integration:**
+   - Added consumables array to player state (separate from permanent items)
+   - Consumable drop logic: 12% chance per defeated enemy to drop one
+   - Shop integration: consumables mix with permanent items, prefixed as 'c:itemId'
+   - Shop UI shows [Consumable] label to distinguish from permanent items
+
+3. **UI for using consumables:**
+   - New "Consumables" button in run header (next to Deck button)
+   - Modal panel shows all owned consumables with full name and hint
+   - Can only use consumables during active combat
+   - Consumables disabled/grayed out when not in combat (view-only mode)
+   - Click to use: removes from inventory and applies effect immediately
+
+4. **Documentation:**
+   - Added consumables section to THEME.md with flavor text
+   - Errata Slips fit library/archive theme (correction slips, knowledge artifacts)
+   - Each consumable name ties to Boundless Archive lore
+
+**Testing:**
+- All 12 npm DOM tests pass
+- Consumables module loads without errors
+- Shop correctly offers mix of items and consumables
+- Purchase logic handles both types correctly
+- Panel rendering works both in combat (clickable) and outside (disabled)
+
+**Current status:** Consumable system complete and shipped. GOALS.md task marked done.
+Next unchecked task: "Add more player decisions" (event nodes with choice points).
+
+**What still needs testing in a real browser:**
+- Actual visual appearance of consumable effects (damage numbers for damage boost, HP change for healing)
+- Touch interaction with consumables in mobile/tablet UI
+- Whether consumable drop notifications are visible/clear
+- Full gameplay feel of consumables as combat decisions vs permanent item power levels
