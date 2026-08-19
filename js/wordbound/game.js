@@ -17,6 +17,10 @@
   var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG;
 
   var audioContext = null;
+  var musicOscillators = [];
+  var musicGainNode = null;
+  var isPlayingMusic = false;
+  var currentMusicMode = null; // 'normal' or 'boss'
 
   var state = {
     screen: 'MAIN_MENU',
@@ -64,6 +68,7 @@
     state.currentNodeIndex = 0;
     state.messages = [];
     state.screen = 'RUN';
+    startBackgroundMusic(false);
     render();
   };
 
@@ -79,6 +84,7 @@
   }
 
   function endRun(victory) {
+    stopBackgroundMusic();
     state.screen = victory ? 'VICTORY' : 'GAME_OVER';
     render();
   }
@@ -139,6 +145,8 @@
     Items.runHook('onRunStart', { player: state.player, pileState: state.pile }, state.player);
     refillRack();
     state.combatActive = true;
+    var isBoss = node.type === 'boss';
+    startBackgroundMusic(isBoss);
     log('A ' + state.monster.name + ' appears!');
     render();
   }
@@ -383,6 +391,113 @@
     } catch (e) {
       // audio context not supported, silently fail
     }
+  }
+
+  function startBackgroundMusic(isBoss) {
+    try {
+      stopBackgroundMusic();
+      var ctx = initAudioContext();
+      if (!musicGainNode) {
+        musicGainNode = ctx.createGain();
+        musicGainNode.connect(ctx.destination);
+        musicGainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      }
+
+      currentMusicMode = isBoss ? 'boss' : 'normal';
+      isPlayingMusic = true;
+
+      if (isBoss) {
+        playBossMusic(ctx);
+      } else {
+        playNormalMusic(ctx);
+      }
+    } catch (e) {
+      // audio context not supported
+    }
+  }
+
+  function playNormalMusic(ctx) {
+    var baseFreq = 130.81; // C3
+    var notes = [130.81, 146.83, 164.81, 146.83]; // C, D, E, D
+    var beatDuration = 1;
+    var now = ctx.currentTime;
+
+    function playLoop(startTime) {
+      if (!isPlayingMusic || currentMusicMode !== 'normal') return;
+
+      for (var i = 0; i < notes.length; i++) {
+        var noteStart = startTime + (i * beatDuration);
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(musicGainNode);
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(notes[i], noteStart);
+        gain.gain.setValueAtTime(0.05, noteStart);
+        gain.gain.linearRampToValueAtTime(0.01, noteStart + beatDuration * 0.9);
+
+        osc.start(noteStart);
+        osc.stop(noteStart + beatDuration * 0.95);
+        musicOscillators.push(osc);
+      }
+
+      setTimeout(function () { playLoop(startTime + (notes.length * beatDuration)); }, notes.length * beatDuration * 1000);
+    }
+
+    playLoop(now);
+  }
+
+  function playBossMusic(ctx) {
+    var notes = [164.81, 196.00, 164.81, 196.00, 220.00, 196.00]; // E, G, E, G, A, G
+    var beatDuration = 0.5;
+    var now = ctx.currentTime;
+
+    function playLoop(startTime) {
+      if (!isPlayingMusic || currentMusicMode !== 'boss') return;
+
+      for (var i = 0; i < notes.length; i++) {
+        var noteStart = startTime + (i * beatDuration);
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(musicGainNode);
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(notes[i], noteStart);
+        gain.gain.setValueAtTime(0.06, noteStart);
+        gain.gain.linearRampToValueAtTime(0.01, noteStart + beatDuration * 0.85);
+
+        osc.start(noteStart);
+        osc.stop(noteStart + beatDuration * 0.9);
+        musicOscillators.push(osc);
+      }
+
+      setTimeout(function () { playLoop(startTime + (notes.length * beatDuration)); }, notes.length * beatDuration * 1000);
+    }
+
+    playLoop(now);
+  }
+
+  function stopBackgroundMusic() {
+    isPlayingMusic = false;
+    musicOscillators.forEach(function (osc) {
+      try { osc.stop(); } catch (e) {}
+    });
+    musicOscillators = [];
+  }
+
+  function setMusicVolume(volume) {
+    if (musicGainNode) {
+      musicGainNode.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), audioContext.currentTime);
+    }
+  }
+
+  function toggleMusicMute() {
+    if (!musicGainNode) return;
+    var currentVolume = musicGainNode.gain.value;
+    musicGainNode.gain.setValueAtTime(currentVolume > 0 ? 0 : 0.1, audioContext.currentTime);
+    return musicGainNode.gain.value > 0;
   }
 
   // ---- rack reordering --------------------------------------------------------
@@ -664,6 +779,16 @@
     $('btn-clear-word').addEventListener('click', function () {
       $('word-input').value = '';
       $('word-input').focus();
+    });
+
+    $('btn-toggle-music').addEventListener('click', function () {
+      var isMuted = toggleMusicMute();
+      $('btn-toggle-music').textContent = isMuted ? '🔊' : '🔇';
+    });
+
+    $('music-volume').addEventListener('input', function () {
+      var volume = this.value / 100;
+      setMusicVolume(volume);
     });
 
     render();
