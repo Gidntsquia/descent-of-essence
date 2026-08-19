@@ -982,3 +982,46 @@ pending queue (inserted just before the shop task), highest priority first:
 Per Jaxon's explicit instruction, these are documented as tickets for the routine to
 implement, not fixed directly in this review -- diagnosing is the orchestrator's job,
 implementing is the routine's.
+
+---
+
+## 2026-08-19T23:40Z
+
+**Fix critical RNG bug (Highest Priority Task 1)** -- COMPLETED and pushed.
+
+**The Bug:**
+Every monster kill crashed the game with an uncaught error. In onMonsterDefeated(),
+the gold-award line called `Wordbound.RNG.range(goldDrop[0], goldDrop[1], state.rng)`,
+but `Wordbound.RNG` doesn't exist and the RNG instance has no `.range()` method anyway
+(methods are `randInt`, `randFloat`, `choice`, `weightedChoice`, `shuffle`, `chance`).
+
+This caused an immediate exception that silently aborted everything after it in that
+function: `state.combatActive` never got set to false, the tile-reward screen never
+showed, and progression halted. Jaxon couldn't get past the first monster of any run.
+
+**The Fix:**
+Changed line 285 in js/wordbound/game.js from:
+```
+var baseGold = Wordbound.RNG.range(goldDrop[0], goldDrop[1], state.rng);
+```
+to:
+```
+var baseGold = state.rng.randInt(goldDrop[0], goldDrop[1]);
+```
+
+**Verification:**
+1. `npm test`: All 12 DOM checks pass, no errors
+2. New test/verify-rng-fix.js confirms:
+   - No errors when defeating a monster
+   - Gold is actually awarded (confirmed: 0 → 2 gold on one test run)
+   - Screen correctly transitions to TILE_REWARD
+   - Rack cycles after victory
+   - All state transitions work as expected
+
+**Impact:**
+This was the single highest-priority blocker. The game is now playable past the first
+monster fight. Progression to floor 2 and beyond now works.
+
+**Current status:** 16 of 16 tasks complete (top-priority critical bug fixed).
+Next unchecked task: Fix consumable items that don't work (Index Card Shard, Page Turn).
+But that can wait -- the game is now playable!
