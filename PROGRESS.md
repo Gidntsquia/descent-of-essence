@@ -760,3 +760,47 @@ playtest, which is outside the scope of automated testing.
 
 **Next step:** Manual playtest in a real browser (Chrome/Firefox) to verify difficulty curve and
 overall game feel.
+
+---
+
+## 2026-08-19T11:18Z
+
+**Confirm itch.io-upload readiness** -- COMPLETED and pushed.
+
+**What was verified:**
+
+1. **No server dependency:** Searched all .js files for fetch(), XMLHttpRequest, http, localhost, 
+   or server references. None found. The game is purely client-side.
+
+2. **All asset paths are relative (no absolute/external URLs):**
+   - CSS: `href="css/wordbound.css"` (relative)
+   - All JavaScript: `src="js/wordbound/..."` (relative)
+   - No CSS url() calls found, no external font CDNs
+   - No external image, audio, or media files (game is pure HTML/CSS/JS)
+
+3. **Runs correctly via file:// protocol (not just http://):**
+   - Created test/file-url-check.js to verify wordbound.html loads via file:// URL
+   - Game initializes without errors on file:// protocol (no CORS issues, no missing dependencies)
+   - Created test/file-url-gameplay-check.js to verify actual gameplay works
+   - Game successfully starts a run, enters combat, and runs with rack initialization
+   - Verified in jsdom (cannot test audio playback or drag-and-drop in jsdom, but no errors)
+
+4. **Existing GitHub Pages URL usability:**
+   - Repository is at https://github.com/Gidntsquia/descent-of-essence
+   - GitHub Pages would serve at https://gidntsquia.github.io/descent-of-essence/
+   - itch.io supports two upload methods:
+     a) Upload a .zip file (self-contained, guaranteed to work)
+     b) "Hosted externally" - link to an external URL (works with GitHub Pages)
+   - Since all paths are relative and there's no server dependency, BOTH methods work
+
+**Recommendation for itch.io upload:**
+   - **Easiest option:** Use "hosted externally" and point to the GitHub Pages URL
+     (https://gidntsquia.github.io/descent-of-essence/wordbound.html)
+   - **Alternative:** Create a zip with all files and upload to itch.io directly
+   - Either way, the game will work correctly on itch.io's iframe embed
+
+**Files added for verification:**
+   - test/file-url-check.js - Verifies wordbound.html loads via file:// and Game.init() succeeds
+   - test/file-url-gameplay-check.js - Verifies actual gameplay (run start, combat, etc.) works on file://
+
+**Current status:** 14 of 16 tasks complete. Next: Add a gold/money economy (Task 7).

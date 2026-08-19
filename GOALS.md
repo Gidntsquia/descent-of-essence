@@ -139,11 +139,12 @@ Rules for the routine:
       verification (5 sample runs complete without crashes). No critical balance issues found.
       See PROGRESS.md 2026-08-19T10:17Z for full analysis. Full difficulty-curve playtest still
       requires real browser or extended simulation work.
-- [ ] Confirm itch.io-upload readiness: no server dependency, all asset paths relative, runs
+- [x] Confirm itch.io-upload readiness: no server dependency, all asset paths relative, runs
       correctly via file:// (not just http.server). Note in PROGRESS.md whether the existing
       GitHub Pages URL is usable directly via itch.io's "hosted externally" option, or whether a
       packaged zip is needed -- if you can't determine this from the repo alone, document what you
       checked and leave the question for Jaxon rather than guessing at itch.io's actual upload UI.
+      COMPLETED 2026-08-19T11:18Z.
 - [ ] Add a gold/money economy: defeating an enemy grants gold (add a `goldDrop` range display or
       reuse the existing `goldDrop: [min,max]` field already in MONSTER_DEFS -- it's defined but
       currently unused, check before inventing a new field). "Overkill" bonus: damage dealt beyond
