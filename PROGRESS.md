@@ -179,5 +179,34 @@ Applied all naming/lore from THEME.md:
 All changes are mechanical (name fields only in monsters.js; IDs, traits, HP, attack, 
 tier, goldDrop untouched). Code is syntactically clean, ready for playtest.
 
-**Current status:** 3 of 8 tasks complete (deck rework, QA review, theme applied).
-Next task is #5 (deck viewer), skipping #4 (dictionary already completed separately).
+**Current status:** 4 of 8 tasks complete (deck rework, QA review, theme applied, deck viewer).
+
+---
+
+## 2026-08-19T06:30Z
+
+**Add deck viewer (Task 5)** -- COMPLETED and pushed.
+
+Implemented a deck viewer accessible via 'Deck' button in the run header. Players can 
+view their complete deck at any time during a run (not just current rack), showing each 
+tile with its letter and bonus description. 
+
+Implementation:
+- Added deckViewerOpen state flag to track viewer open/closed state
+- openDeckViewer() / closeDeckViewer() public functions toggle the viewer
+- renderDeckViewer() function displays tiles sorted alphabetically, reuses
+  treasure-choice CSS styling for UI consistency
+- Deck button added to run-header (right side, compact styling)
+- Panel shown modal-style (hides other content while open)
+- Close button to dismiss and return to play
+
+Code changes:
+- wordbound.html: added #deck-viewer-panel and #btn-view-deck
+- game.js: added deckViewerOpen state, openDeckViewer/closeDeckViewer functions,
+  renderDeckViewer function, render logic to toggle panel and call renderDeckViewer,
+  event listeners wired in Game.init
+
+Ready for playtest. No logic changes, purely UI.
+
+**Current status:** 4 of 8 tasks complete. Remaining: item inspector (#6), rack 
+animation/drag (#7), sound effects (#8), background music (#9).

@@ -43,7 +43,7 @@ Rules for the routine:
       drops proper nouns --, length 2-15, deduped, uppercased). Final count: 204,217 words (up from
       ~10k). File grew from ~95KB to ~2.5MB -- fine for a static site, but flagging in case load time
       on slow connections ever becomes worth revisiting.
-- [ ] Add a deck viewer: a button on the run screen showing every tile in state.deck (game.js) --
+- [x] Add a deck viewer: a button on the run screen showing every tile in state.deck (game.js) --
       not just the current rack -- with letter + bonus description (Tiles.describeBonus) per tile,
       sorted however reads clearly. Viewable any time during a run, not just mid-combat. Follow the
       existing treasure-panel/tile-reward-panel visual pattern (css/wordbound.css .treasure-panel,
