@@ -9599,3 +9599,62 @@ consumables less often -- fix by pinning one shop slot to the consumable pool
 (or reweighting) so a consumable is guaranteed/near-guaranteed per shop, with a
 seeded-rolls assertion in npm test. After that the GOALS queue is empty; check
 ROADMAP.md's known-gaps section for the next pull.
+
+## 2026-08-20T18:16Z -- Shop consumable-odds balance fix (v0.27 -> v0.28)
+
+**Task:** GOALS.md's last unchecked item -- the small BALANCE ticket. FUN
+OVERHAUL 4/8 added 8 items, growing the shop item pool 15 -> 23 against a fixed
+3 consumables, so a uniform 4-of-26 draw left most shops with zero consumables
+(the exact "shops never have consumables" feel a prior pass had fixed,
+regressed as a side effect). Completed fully, box checked, v0.27 -> v0.28.
+Committed acccecf, pushed to main.
+
+**Housekeeping:** started on a detached HEAD one commit behind. Made the edits,
+then `git fetch origin main` (still at 3cdf46d, no concurrent work landed) and
+`git checkout -B main origin/main` -- the working-tree edits carried over
+cleanly (no overlap with anything upstream), committed on top.
+
+**Fix (chose PINNING over reweighting, per the ticket's "implementing run's
+call"):** `rollShopOptions` (js/wordbound/game.js) now:
+1. draws one id from the consumable pool first (guaranteed slot),
+2. fills the remaining 3 slots from the combined pool minus that pick,
+3. shuffles the final 4 so the guaranteed consumable isn't always row 0.
+Pool sizes untouched (the ticket explicitly forbade shrinking the pool).
+Chose pinning over a weight because a weight only restores *average* odds and
+still leaves some shops consumable-free; pinning is a hard guarantee. It's one
+extra deterministic rng draw, so seeded runs stay reproducible (asserted).
+
+**Verified:**
+- `npm test` **340/340 ALL PASSED** (+5 new, via a new `Game._rollShopOptions`
+  test hook): all 50 seeded rolls contain >= 1 consumable; every roll is still
+  4 distinct string ids (the flat-string-array contract renderShop and the
+  balance sim's shopping bot both depend on -- deliberately preserved); rolls
+  still offer non-consumable items; the pinned consumable lands in slot 0 only
+  *sometimes* (proving the final shuffle applies); same seed -> identical roll.
+- `npm run test:qa` **ALL PASSED** (real Chromium, zero console/page errors).
+
+**NOT touched / out of scope:** no audio or drag-and-drop surface, no combat
+math, no other pool. Nothing here needs a real-device check -- it's pure
+seeded-rng list logic, fully verifiable headless.
+
+**State:** committed (acccecf) + pushed to main. Box checked. v0.27 -> v0.28.
+
+**What's next -- QUEUE IS NOW EMPTY.** GOALS.md has no remaining unchecked
+items (the full FUN OVERHAUL 1/8-8/8 arc plus all review bugs are done).
+Checked ROADMAP.md's "known gaps" section for the next pull: everything there
+is either RESOLVED or explicitly a Jaxon-only call that a sandbox autonomous
+run cannot close --
+  - physical-device touch test (needs a real phone),
+  - feel/fun/audio ear-and-hands playtest (needs a human),
+  - the actual itch.io upload + iframe-embed check (Jaxon's step),
+  - the standing RECOMMENDATION in the big BALANCE ticket: the three rounds of
+    boss-HP cuts were tuned partly against hex-bug-inflated sim data, so boss
+    HP may now be cut further than needed and could come back up -- but
+    re-buffing already-shipped boss numbers is a product judgment call this
+    ticket's own history repeatedly deferred to Jaxon, not something to guess
+    at overnight.
+No safe, well-scoped, unblocked task remains to pull. Per the routine's
+guardrails ("if the queue is empty, don't invent busywork -- note that you're
+idle and stop"), stopping here rather than manufacturing work. Next run: if
+Jaxon has added tickets to GOALS.md or the ROADMAP gaps, pick those up;
+otherwise idle again.
