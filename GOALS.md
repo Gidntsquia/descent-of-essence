@@ -145,8 +145,11 @@ Rules for the routine:
       twice in this same QA pass, including the brand-new boss-item-reward
       feature end to end).
 
-- [ ] BUG/TEST-INFRA: `npm run test:mobile` currently fails (exit code 1) on
+- [x] BUG/TEST-INFRA: `npm run test:mobile` currently fails (exit code 1) on
       this checkout due to the main-menu title overflowing at 375px width --
+      FIXED 2026-08-20T03:14Z: see PROGRESS.md for the fix, the font-metric
+      extrapolation used to verify it without Georgia installed in this
+      sandbox, and margin numbers at both breakpoints.
       worth fixing both because it's a real overflow a narrow-phone player
       could hit, and because it currently blocks the mandatory mobile-layout
       gate GOALS.md's own top-of-file rules require for CSS-touching tasks.

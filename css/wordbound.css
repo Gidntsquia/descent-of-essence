@@ -34,6 +34,8 @@ body {
   letter-spacing: 0.12em;
   margin: 0 0 8px;
   color: #f0d789;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .version-info {
@@ -539,6 +541,11 @@ h2 {
 @media (max-width: 480px) {
   #wb-root {
     padding: 16px 10px 60px;
+  }
+
+  .game-title {
+    font-size: 1.7rem;
+    letter-spacing: 0.06em;
   }
 
   .run-header {

@@ -4008,3 +4008,83 @@ patch-digit display for bug fixes.
 **Current state:** 7 unchecked tickets. Top of queue is now the test:mobile
 title-overflow ticket (font-metric-dependent, fails in Georgia-having
 environments, passes in this sandbox -- see its ticket for why both are true).
+
+---
+
+## 2026-08-20T03:14Z (hourly routine)
+
+Housekeeping note first: this container's checkout started with a detached HEAD
+and a stale local `main`/`origin/main` (both pointing at the repo's 3rd commit,
+115e324, far behind the real tip). `git fetch origin main` + `git checkout -B
+main origin/main` fixed it -- confirmed via `git ls-remote origin main` that
+0ab159e (this session's actual starting point) really is the remote tip. No
+repo damage, just a local ref that hadn't been updated; worth a mention in case
+a future run sees the same thing.
+
+Picked up the top queue item: `npm run test:mobile` failing on `.game-title`
+overflow at 375px, previously ticketed as font-metric-dependent (reproduces
+with Georgia installed, not with a fallback serif). Confirmed this sandbox
+still has no Georgia (`fc-list | grep -i georgia` empty) and `npm run
+test:mobile` currently passes here (exit 0) even before any fix -- exactly the
+environment-dependence the ticket predicted, so a clean run alone proves
+nothing.
+
+**FIX applied** (css/wordbound.css):
+1. Added `overflow-wrap: break-word; word-break: break-word;` to the base
+   `.game-title` rule as a safety net (harmless when the title fits; degrades
+   to wrapping instead of off-screen clipping if some other font ever renders
+   wider than expected).
+2. Added a `.game-title` override inside the existing `@media (max-width:
+   480px)` block: `font-size: 1.7rem; letter-spacing: 0.06em;` (down from the
+   base 2.6rem / 0.12em). Applies to both `.game-title` elements in
+   wordbound.html (the main-menu "WORDBOUND" h1 and the character-select
+   "Choose Your Path" h1) -- both share the class, both benefit, neither was
+   close to overflowing on its own (WORDBOUND is the long one).
+
+**How I verified this without Georgia installed (important -- read before
+trusting a future clean `test:mobile` run on this ticket again):** the
+ticket's own investigation gives an exact real-world data point -- Georgia at
+the original sizing (2.6rem/0.12em) renders "WORDBOUND" at 364px scrollWidth
+against a 303px box at 375px viewport. I measured the SAME text/sizing in
+this sandbox's fallback serif via `document.createRange().getBoundingClientRect()`
+on the title's text (NOT `el.scrollWidth`, which is a no-op measurement here --
+per spec `scrollWidth` clamps to `clientWidth` when there's no actual overflow,
+so it can't reveal "how close" a non-overflowing box is) and got 294.1px --
+close enough to the 303px box to be the "razor-thin, environment-dependent"
+fit the ticket describes, and letting me derive a Georgia/fallback width
+ratio: 364.1 / 294.1 = 1.238. Applied that ratio to a sweep of candidate
+sizes measured the same way in this sandbox to project each one's likely
+Georgia width:
+```
+size/spacing      fallback textWidth   Georgia-projected   projected margin (303px box)
+2.6rem / 0.12em    294.1px              364.1px             -61.1px (confirms real overflow)
+1.9rem / 0.08em    229.6px              284.2px             +18.8px (thin)
+1.7rem / 0.06em    200.5px              248.2px             +54.8px  <- chosen
+1.6rem / 0.05em    186.4px              230.8px             +72.2px
+```
+Picked 1.7rem/0.06em for a healthy ~55px (18% of box width) projected margin
+under Georgia at 375px, and more at 414px (wider box, same text width).
+Confirmed desktop sizing is completely untouched (1024px viewport still
+renders 41.6px/4.992px, unchanged) and both `.game-title` instances pick up
+the narrow-viewport override identically.
+
+**What this IS and ISN'T:** this is a calculated extrapolation, not a direct
+Georgia measurement -- I don't have Georgia available anywhere in this
+sandbox to test against directly (confirmed via `fc-list`). The 1.238 ratio
+is anchored to the ticket's own real Georgia measurement at the original
+size, which is the strongest evidence available from here. A future run (or
+Jaxon, on a machine with Georgia/a real phone) re-confirming this at the new
+sizing would be good but isn't currently possible from this environment.
+
+**Verified:** `npm test` 16/16. `npm run test:mobile` exit 0, main menu clean
+at 375px and 414px (as it was before the fix in this Georgia-less sandbox --
+expected, not new evidence on its own; see above for what actually
+demonstrates the fix). The combat-screen's two pre-existing warnings (30px
+buttons, 8 sub-12px text elements) are unchanged and out of scope -- that's
+the NEXT queue item, deliberately left for it rather than fixed here.
+
+Checked the box in GOALS.md. Committing and pushing to `main` now.
+
+**Current state:** v0.8, 6 unchecked tickets remain. Top of queue is now the
+UX/MOBILE ticket (Deck/Consumables button height + small text sizes on the
+combat screen at 375/414px) -- next hourly run should start there.
