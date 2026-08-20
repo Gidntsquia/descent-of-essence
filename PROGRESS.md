@@ -8291,3 +8291,143 @@ anything.
 
 Queue had gone idle at 12:57Z on "needs Jaxon's steer" -- this entry is that
 steer (overnight delegation; he can veto in the morning).
+
+---
+
+## 2026-08-20T13:34Z
+
+**BALANCE ticket gate-#3: executed the outlier HP pass, found and fixed a
+real bug in the simulation tool itself, box now checked -- v0.15 -> v0.16**
+
+Fresh run, zero memory of prior sessions. `grep '^- \[ \]' GOALS.md` at the
+very start (per the last run's own suggestion): one unchecked item, the
+BALANCE gate ticket (~line 386), which already carried a same-day
+orchestrator steer ("gate-#2 steer") instructing a surgical outlier-def HP
+pass. Read GOALS.md and PROGRESS.md in full for context before touching
+anything.
+
+**Step 1-2 (per the steer): outlier HP cut.** Cut the two flagged
+defs -20%: Card Catalog (sentinel) 88 -> 70 HP, Spine Splinter 85 -> 68 HP
+(js/wordbound/monsters.js). Checked whether either carries a
+disproportionately signature-heavy intent pool as the steer's conditional
+asked -- both have exactly 2 signatures (weight 1 each) against attack's
+weight 3, same as sibling strong-tier def Warden (devour/mend, also 2
+signatures) -- not an outlier on that axis, so HP-only, no pool-weight
+shift. `npm test` 110/110 clean. Committed this as a checkpoint (f20e66b)
+before running the slow sim, per "never leave the repo broken."
+
+**First n=30 sim re-run came back WORSE, not better:** win rate 27%
+(down slightly from gate-#2's 30%), stall rate 30% (UP hard from 13%).
+That's backwards for a pass meant to fix outliers -- worth digging into
+before accepting it, not just reporting a worse number and moving on.
+
+**Root cause, found by reading raw per-encounter data instead of trusting
+the aggregate** (`test/balance-simulation-results.json`, which the sim
+script writes every run): all 9 stalls in that run showed **~0
+damageTaken across all 40 words** of the fight, and every single one was
+against a hex-carrying def (Spine Splinter, Card Catalog, or Sovereign --
+never The Hoarder, the one strong-tier def in the data WITHOUT hex in its
+kit). That pattern -- 0 damage on both sides for 40 turns straight -- is
+not plausible as real gameplay variance; it's a stuck loop.
+
+Traced it to `test/balance-simulation.js`'s `findPlayableWords`: it always
+searches the FULL `state.player.rack`, with no awareness of
+`state.hexedTileId`. But `game.js`'s real `Game.submitWord` (line ~507)
+pulls the hexed tile OUT of the rack before word-formation runs, so a real
+player literally cannot use it (the UI greys it out too) -- if the word
+needs that tile, `Combat.playWord` returns null and `submitWord` rejects
+it immediately, **before the monster's counterattack fires, before the
+rack cycles, and before the hex clears** (clearing only happens on a
+successful play). Since the sim bot's own word-finder didn't know the
+tile was locked, it could keep recommending the exact SAME word every
+iteration -- get rejected every iteration -- and just burn all 40 words
+to the stall cap with nothing in the game state ever actually changing.
+A simulation artifact, not a real player experience: a real player who
+can see the tile greyed out would obviously try a different word if one
+exists.
+
+This is very likely why prior sim readings throughout this ticket's
+whole history were somewhat inflated in difficulty wherever a hex-carrying
+def was involved (Unabridged Terror and Sovereign both have hex) --
+including the three separate rounds of boss-HP cuts already landed
+against that same contaminated tool. Also: this is the exact "Unabridged
+40-word/0-damage stall oddity" the gate-#2 steer's own step 5 asked for a
+separate bottom-of-queue investigation ticket on -- same mechanism, same
+fix, so that ticket was folded into this one instead of filed separately.
+
+**Fix** (test/balance-simulation.js only, zero game-code change): filter
+`state.hexedTileId` out of the rack passed to `findPlayableWords`,
+matching what the real game already enforces. Documented in both the
+function's call site and the file's header LIMITATIONS block. Committed
+separately (03c1b30) from the game-balance change, since it's a
+test-tooling fix, not a gameplay change.
+
+**Clean re-run, n=30, hex-fixed bot, HP already includes this run's
+outlier cuts:**
+
+| metric | target | gate-#2 (dirty tool) | gate-#3 dirty (this run, before hex fix) | gate-#3 clean (after hex fix) |
+|---|---|---|---|---|
+| win rate (best) | 33-50% | 30% | 27% | **60%** |
+| stall rate | <10% | 13% | 30% | **0%** |
+| floor 1/2/3 clear | -- | -- | -- | 80% / 75% / 100% |
+| softlocks | -- | 0 | 0 | 0 |
+
+The clean number overshoots the band hard on the EASY side -- not "a
+hair," so the gate steer's own sanctioned step-3 fallback (a further -10%
+strong-tier-only HP nudge) does not apply: that knob only lowers HP
+further, which would push win rate even higher, the wrong direction to
+correct an overshoot. Applying it anyway would have been guessing against
+what the data plainly says, exactly what this ticket's rules (and the
+prior orchestrator's own stated reasoning) say not to do -- skipped it for
+that reason and documented why in GOALS.md rather than silently omitting
+it.
+
+**Decision: checked the box.** Per step 4's own literal wording ("WHATEVER
+the final number is after step 3... CHECK THIS BOX"), and because a
+0%-stall / 100%-floor-3-clear / zero-page-error result is a genuinely
+healthy, shippable game state -- just an easy one -- and FUN OVERHAUL
+4/8-8/8 are pure player-power content that can only push win rate UP
+further if left blocked, same reasoning the prior orchestrator used for
+the same "don't idle the queue on a miss in the safe direction" call.
+Full writeup, including the recommendation below, is in GOALS.md next to
+the ticket itself (not duplicating the whole thing here).
+
+**Verification:** `npm test` 110/110 (unchanged from the HP-cut commit --
+the hex fix only touches test tooling, not game code, so no game-code
+retest needed for it specifically, but re-confirmed clean anyway).
+`npm run test:qa` 26/26, real Chromium, zero console/page errors --
+covers the full boss-reward flow at 375px too. Did not re-run
+`npm run test:mobile` (no CSS/layout touched this run). `balance-
+simulation-results.json` committed with the final clean n=30 data (30/30
+best-strategy wins verified 18, matches the report).
+
+**NOT acted on, flagged for Jaxon instead (deliberately, not an oversight):**
+the three rounds of boss-HP cuts already shipped in earlier runs (Vowelmaw
+50->38, Unabridged Terror 80->60->35, Sovereign 120->90->45) were all
+tuned against sim data now known to have been inflated by the hex bug,
+specifically for the two bosses that carry hex (Unabridged, Sovereign). A
+clean 60% win rate suggests some of that HP could reasonably come back up
+rather than nerfing floor-1/2 regular monsters down to match today's
+curve -- but re-buffing already-shipped boss HP based on this run's
+inference, without a fresh dedicated sim pass isolating just that
+variable, is a bigger judgment call than this ticket's own scope covers.
+Left untouched; recommendation written into GOALS.md for Jaxon to weigh
+in on.
+
+**Version bumped v0.15 -> v0.16** (wordbound.html version-info) -- the
+outlier HP cuts plus the now-visible true (much easier) difficulty curve
+are both player-facing balance changes.
+
+**Commits this run:** f20e66b (outlier HP cut + checkpoint), 03c1b30 (sim
+tool hex-awareness fix), plus this entry's own commit (GOALS.md box
+check + writeup, wordbound.html version bump, final clean
+balance-simulation-results.json).
+
+**Current state:** v0.16, queue unblocked. FUN OVERHAUL 4/8-8/8 are now
+open for the next run(s) to pick up top-to-bottom, per the ticket's own
+unblock condition.
+
+**What's next:** FUN OVERHAUL 4/8 (build-defining rule-changer items) is
+next in the queue. Separately, Jaxon may want to weigh in on the
+boss-HP-recompensation question above whenever he's back -- it doesn't
+block anything, just flagged for his judgment.

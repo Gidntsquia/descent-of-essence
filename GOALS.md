@@ -383,7 +383,7 @@ Rules for the routine:
       the regression is real but looks pre-existing and is tracked
       separately below rather than guessed at or silently ignored here.
 
-- [ ] BALANCE, HIGH PRIORITY (found during FUN OVERHAUL 3/8's mandated SIM
+- [x] BALANCE, HIGH PRIORITY (found during FUN OVERHAUL 3/8's mandated SIM
       CHECK, 2026-08-20): the game is significantly outside the win-rate
       band the original N1/N2/N3 balance ticket established (33-50% for
       "best"-strategy skilled play) -- do this BEFORE continuing FUN
@@ -577,6 +577,71 @@ Rules for the routine:
          not balance) rather than blocking anything on it.
       After the box is checked per step 4: FUN OVERHAUL 4/8-8/8 are
       UNBLOCKED, resume top-to-bottom.
+      GATE-#3 RESULT 2026-08-20T13:40Z -- box checked per step 4, but with a
+      major finding that reframes everything above it: the 40-word/0-damage
+      stall oddity named in step 5 was NOT boss-specific flavor -- it was a
+      real bug in test/balance-simulation.js itself, and it's why gate-#2's
+      outlier pass (the HP cuts to Card Catalog/Spine Splinter, done first
+      this run per steps 1-2) initially measured WORSE, not better (27%
+      win / 30% stall, up from 30%/13%).
+      ROOT CAUSE, found by pulling raw per-encounter data
+      (balance-simulation-results.json) instead of trusting the aggregate
+      numbers: all 9 of that run's stalls showed ~0 damageTaken across all
+      40 words, and every one was against a hex-carrying def (Spine
+      Splinter, Card Catalog, or Sovereign -- never Hoarder, the one
+      strong-tier def WITHOUT hex). game.js's real submitWord pulls a
+      Hex'd tile out of the rack before word-formation runs, so a real
+      player literally cannot use it (the UI greys it out) -- but the
+      sim's own findPlayableWords never excluded it. When the bot's
+      "best" word happened to need the locked tile, Game.submitWord
+      silently rejected it every iteration (no counterattack, no rack
+      cycle, the hex never clears since that only happens on a
+      successful play) -- the loop just relit the same rejected word
+      until MAX_WORDS_PER_COMBAT, logging a false stall with 0 damage on
+      both sides. This is very likely why EVERY prior sim reading in this
+      ticket's history that involved a hex-carrying def (which is most of
+      them -- Unabridged Terror and Sovereign both have hex) was reading
+      somewhat inflated difficulty, including the three rounds of boss-HP
+      cuts already landed against that contaminated data.
+      FIX (test/balance-simulation.js only, no game-code change): filter
+      state.hexedTileId out of the rack passed to findPlayableWords,
+      matching what game.js already enforces. This also resolves the
+      exact "Unabridged 40-word/0-damage stall" oddity step 5 above asked
+      for a separate investigation ticket on -- same mechanism, same fix,
+      so no separate ticket needed.
+      CLEAN RE-RUN (n=30, hex-fixed bot, HP already includes this run's
+      outlier cuts): win rate 18/30 (60%), stalled 0/30 (0%), softlocked
+      0/30. Floor clears 80%/75%/100% (floor 1/2/3). This OVERSHOOTS the
+      33-50% band on the easy side, by a wide margin -- not "a hair," so
+      step 3's sanctioned action (a further -10% strong-tier HP cut) does
+      NOT apply: that knob only makes fights easier and win rate higher,
+      the wrong direction to correct an overshoot. Applying it anyway
+      would be guessing against what the data says, which the ticket's
+      own rules (and the prior orchestrator's own reasoning) say not to
+      do. Skipped it for that reason, not out of laziness -- documenting
+      the "why not" per the routine's own guardrails.
+      DECISION: checked the box per step 4's own literal instruction
+      ("WHATEVER the final number is after step 3... CHECK THIS BOX") --
+      a 0%-stall, 100%-floor-3-clear, zero-error result is a healthy,
+      shippable game state, just an easy one, and FUN OVERHAUL 4/8-8/8
+      are pure player-power content that would only push win rate UP
+      further if left blocked, same logic the prior orchestrator used.
+      `npm test` 110/110, `npm run test:qa` 26/26 (real Chromium, zero
+      errors). Version bumped v0.15 -> v0.16 (player-facing balance
+      numbers changed: Card Catalog/Spine Splinter HP cuts + the
+      corrected, much-easier true difficulty now visible).
+      RECOMMENDATION FOR JAXON (not acted on this run -- a bigger call
+      than a routine run should make alone): the three rounds of boss-HP
+      cuts already landed (Vowelmaw 50->38, Unabridged 80->60->35,
+      Sovereign 120->90->45) were tuned against data now known to have
+      been inflated by the hex bug for exactly the two defs with hex in
+      their kit (Unabridged, Sovereign) -- they may now be cut further
+      than the game actually needed. A 60% clean win rate suggests some
+      of that HP could reasonably come back up, particularly on floor 2/3
+      bosses, rather than nerfing floor-1/2 regular monsters down to
+      match the current curve. Left as-is rather than guessed at, since
+      re-buffing already-shipped boss HP is exactly the kind of judgment
+      call this ticket's own history has repeatedly deferred to Jaxon.
 
 - [ ] FUN OVERHAUL 4/8 -- build-defining items (rule-changers, not stat
       sticks). Current items are mostly passive stat bumps, so no two runs
