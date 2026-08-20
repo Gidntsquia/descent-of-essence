@@ -9313,3 +9313,106 @@ keeps `combatActive` true with the rack in a transient state -- gestures
 landing in that window must no-op safely. Then check the box and bump the
 version again. After 2/3 fully lands: 3/3 (input-feel juice), FUN OVERHAUL 8/8
 (celebration juice), and the small shop-consumable-odds BALANCE ticket remain.
+
+---
+
+## 2026-08-20T17:18Z
+
+**Task:** MOBILE INPUT 2/3 (first unchecked GOALS.md item) -- **Phase 2, the
+drag mechanics**, completing the ticket. Phase 1 (tap model + FLIP slide +
+empty-slot rack, specs 1/2/3) landed last run; this run did specs 4/5/6 and
+**checked the box** (v0.24 -> v0.25).
+
+**Housekeeping first:** started on a detached HEAD; local `main` was stale
+(behind origin/main by 53 real commits -- it only held the 3 initial-history
+commits, all ancestors of origin/main, so no work lost). Fetched, hard-reset
+`main` to `origin/main`, worked from there. `npm install` (jsdom + playwright
+weren't present in this fresh container) then `npm test` clean before touching
+anything -- baseline established per GOALS.md's mandate.
+
+**What shipped (specs 4/5/6):** a single **unified Pointer Events** path on
+each staged tile (pointerdown/move/up/cancel) that works for BOTH touch and
+mouse -- deliberately not the rack's split touch-events + HTML5-drag approach.
+- **Spec 4 (drag-reorder in the play area):** `reorderStagedTile(tileId,
+  insertIndex)` is a pure state mutation with **insertion-index semantics**
+  (0..len). I chose this over the rack's drop-ONTO convention
+  (`reorderRackOnDrop`) on purpose: onto-semantics can't move a tile to the
+  final slot (dropping on the last tile lands you second-to-last), which is a
+  real limitation for a short staged word. Insertion-index (0..len) lets the
+  tile reach the end. Hit-test `stagedTileAtPosition` counts staged-tile
+  centers left of the pointer, against a **rect snapshot** captured when the
+  drag threshold is crossed -- the live tiles translate mid-drag so their live
+  rects would lie. Siblings slide via translateX (`applyStagingGap`) to open a
+  visible gap; the word + `#word-input` rebuild immediately on drop.
+- **Spec 5 (drag-out-to-remove):** release >30px outside the staging
+  container's rect routes to `unstageTile` (Phase 1's single unstage
+  source-of-truth). Ghost dims (`.staging-drag-out`) while outside.
+- **Spec 6 (ghost):** the dragged tile follows the pointer via inline
+  transform (`.staging-drag-ghost`, raised z-index). Transform doesn't touch
+  layout, so the tile's origin box naturally reads as a gap.
+
+**Both ticket hazards handled explicitly:**
+- **No mid-gesture render.** The live drag is transform-only; the DOM is
+  re-rendered exactly ONCE, on release. render() rebuilds #staging-area via
+  innerHTML and would destroy the element mid-drag (the exact hazard the
+  ticket flags). On the reorder/unstage release paths, that single render()
+  also wipes all the ghost/gap inline transforms for free.
+- **Death-beat window.** `startStagingDrag` and `endStagingDrag` both re-check
+  the tile is still in `selectedTileIds` and no-op safely if the rack cycled
+  out from under the gesture (the ~720ms killing-blow beat keeps combatActive
+  true with the rack transient).
+
+**Other plumbing:** `touch-action: none` on `.staged-tile` so a touch drag
+reorders/removes instead of scrolling the page. A synthesized post-drag click
+is suppressed via `state.suppressNextStagingClick` (set true only after a real
+drag, and cleared at the START of every new pointerdown so a lingering flag can
+never eat a genuine future tap) -- otherwise the click that pointerup emits
+would immediately unstage the tile you just reordered. The gap-slide tween is
+disabled under prefers-reduced-motion (the drag stays fully functional, just no
+tween); Phase 1 already gates the stage/unstage FLIP the same way.
+
+**Verified:**
+- `npm test` **311 checks, ALL PASSED** (+13 new jsdom checks). jsdom can't
+  fire real pointer events or measure rects, so the new checks target the pure
+  STATE LOGIC the pointer glue calls on release: `Game._reorderStagedTile`
+  (exposed test hook) moving a tile to the end / front / middle with
+  insertion-index semantics, word rebuilt from the new order, no tile
+  added/dropped, no-op cases (insert-in-place / null / unknown id), drag-out
+  removal via the shared unstage path, and the suppress-click guard.
+- `npm run test:qa` **26/26** (desktop combat path untouched, zero errors).
+- `npm run test:mobile` **clean at 375/414px** (new drag CSS / touch-action
+  don't break layout; the touch-mode section still passes).
+- `npm run test:itch-build` **clean** (1.41 MB, no new JS file).
+- **Throwaway real-Chromium Playwright script (written, run, deleted)** in
+  BOTH `reducedMotion: 'reduce'` and `'no-preference'` contexts: staged three
+  tiles, drove a real **pointer drag** to reorder tile 0 to the end (confirmed
+  `selectedTileIds` order + `stagedWord()` changed, `.staging-drag-ghost`
+  present mid-drag, no tile lost, no ghost lingering after release); dragged a
+  staged tile 260px below the play area to remove it (confirmed
+  `.staging-drag-out` dim class while outside + exactly that tile removed); and
+  a plain tap still unstaged. **Zero console/page errors across both passes.**
+  (A mid-run test flake -- a settled combat-log line shifting the staging area
+  ~90px between coordinate capture and the drag, making the pointer land
+  genuinely outside the container -- was a stale-coordinate bug in the *test*,
+  fixed with a settle wait; the drag CODE behaved correctly, i.e. it correctly
+  detected "outside" and removed the tile. Confirmed not a game-code issue.)
+
+**NOT verified (honest caveat, per house rules):** the real-browser drag was
+driven with **mouse** pointer events (`page.mouse`, pointerType 'mouse').
+Touch uses the *identical* type-agnostic code path (it reads
+`clientX`/`clientY`/`pointerId`, the same for both pointer types, and
+`touch-action: none` is in place to keep the browser from stealing a touch
+drag for scrolling), but a synthesized or physical **touch** drag on a real
+phone was not exercised here -- only Jaxon's device can confirm the touch-drag
+feel end to end. No audio surface touched.
+
+**State:** committed (22534cc) and pushed to main. Box checked in GOALS.md.
+Version v0.24 -> v0.25.
+
+**What's next:** MOBILE INPUT 3/3 -- input-feel juice (pressed/`:active`
+states, staged-tile lift/shadow, short settle animation, animated gap
+open/close during reorder, optional `navigator.vibrate` haptics, all disabled
+under reduced motion). It's polish built ON this run's drag mechanics -- the
+gap-open/close it mentions can hook the `applyStagingGap`/`clearStagingGap`
+functions added here. Then FUN OVERHAUL 8/8 (celebration juice) and the small
+shop-consumable-odds BALANCE ticket remain in the queue.
