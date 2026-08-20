@@ -64,7 +64,8 @@
     treasureOptions: null,
     shopOptions: null,
     tileRewardOptions: null,
-    pendingAfterTileReward: null, // 'advanceFloor' | 'nextNode'
+    bossRewardOptions: null, // rare/legendary item choices offered after a boss kill, see rollBossRewardOptions
+    pendingAfterTileReward: null, // 'bossItemReward' | 'nextNode'
     currentEvent: null, // { id, def: EventDef, name, text, choices }
     pendingEventSkipNextCombat: false, // if true, skip next combat node
     deckViewerOpen: false,
@@ -203,6 +204,22 @@
   function rollTreasureOptions() {
     var owned = state.player.items;
     var pool = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
+    var shuffled = state.rng.shuffle(pool);
+    return shuffled.slice(0, 3);
+  }
+
+  // Boss-kill bonus reward: a second, higher-value item choice on top of the
+  // normal tile reward, so beating a boss feels distinctly more rewarding
+  // than a regular kill. Pool is restricted to items already marked
+  // rarity 'rare'/'legendary' (see items.js) rather than the whole item
+  // pool, so this is a genuine step up from a treasure-node pick, not just
+  // a second roll of the same odds.
+  function rollBossRewardOptions() {
+    var owned = state.player.items;
+    var pool = Object.keys(Items.ITEM_DEFS).filter(function (id) {
+      var def = Items.ITEM_DEFS[id];
+      return owned.indexOf(id) === -1 && (def.rarity === 'rare' || def.rarity === 'legendary');
+    });
     var shuffled = state.rng.shuffle(pool);
     return shuffled.slice(0, 3);
   }
@@ -523,7 +540,7 @@
     }
 
     state.player.rack = [];
-    state.pendingAfterTileReward = wasBoss ? 'advanceFloor' : 'nextNode';
+    state.pendingAfterTileReward = wasBoss ? 'bossItemReward' : 'nextNode';
     state.tileRewardOptions = Tiles.rollRewardOptions(state.rng, 3);
     state.screen = 'TILE_REWARD';
     render();
@@ -548,13 +565,39 @@
     state.tileRewardOptions = null;
     var pending = state.pendingAfterTileReward;
     state.pendingAfterTileReward = null;
-    state.screen = 'RUN';
-    if (pending === 'advanceFloor') {
-      advanceFloor();
-    } else {
-      state.currentNodeIndex += 1;
+    if (pending === 'bossItemReward') {
+      var options = rollBossRewardOptions();
+      if (options.length === 0) {
+        // Every rare/legendary item is already owned -- nothing left to offer,
+        // skip straight to the floor advance rather than show an empty panel.
+        state.screen = 'RUN';
+        advanceFloor();
+        return;
+      }
+      state.bossRewardOptions = options;
+      state.screen = 'BOSS_ITEM_REWARD';
       render();
+      return;
     }
+    state.screen = 'RUN';
+    state.currentNodeIndex += 1;
+    render();
+  }
+
+  Game.pickBossItemReward = function (itemId) {
+    state.player.items.push(itemId);
+    log('You claim ' + Items.ITEM_DEFS[itemId].name + ' from the boss\'s hoard.');
+    resolveBossItemReward();
+  };
+
+  Game.skipBossItemReward = function () {
+    resolveBossItemReward();
+  };
+
+  function resolveBossItemReward() {
+    state.bossRewardOptions = null;
+    state.screen = 'RUN';
+    advanceFloor();
   }
 
   // ---- deck viewer --------------------------------------------------------
@@ -1065,11 +1108,12 @@
       return;
     }
 
-    $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'EVENT');
+    $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD' || state.screen === 'EVENT');
     $('combat-panel').classList.toggle('hidden', !state.combatActive);
     $('combat-panel').classList.toggle('boss-combat', state.combatActive && state.monster && state.monster.isBoss);
     $('treasure-panel').classList.toggle('hidden', state.screen !== 'TREASURE' && state.screen !== 'SHOP');
     $('tile-reward-panel').classList.toggle('hidden', state.screen !== 'TILE_REWARD');
+    $('boss-reward-panel').classList.toggle('hidden', state.screen !== 'BOSS_ITEM_REWARD');
     $('event-panel').classList.toggle('hidden', state.screen !== 'EVENT');
 
     if (state.screen === 'TREASURE') {
@@ -1082,6 +1126,10 @@
     }
     if (state.screen === 'TILE_REWARD') {
       renderTileReward();
+      return;
+    }
+    if (state.screen === 'BOSS_ITEM_REWARD') {
+      renderBossReward();
       return;
     }
     if (state.screen === 'EVENT') {
@@ -1207,6 +1255,19 @@
       var bonusDesc = Tiles.describeBonus(tile.bonus);
       btn.innerHTML = '<strong>' + escapeHtml(tile.letter) + '</strong>' + (bonusDesc ? '<br>' + escapeHtml(bonusDesc) : '');
       btn.addEventListener('click', function () { Game.pickTileReward(tile.id); });
+      el.appendChild(btn);
+    });
+  }
+
+  function renderBossReward() {
+    var el = $('boss-reward-choices');
+    el.innerHTML = '';
+    state.bossRewardOptions.forEach(function (itemId) {
+      var def = Items.ITEM_DEFS[itemId];
+      var btn = document.createElement('button');
+      btn.className = 'treasure-choice';
+      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><br>' + escapeHtml(def.hint);
+      btn.addEventListener('click', function () { Game.pickBossItemReward(itemId); });
       el.appendChild(btn);
     });
   }
@@ -1412,6 +1473,7 @@
     $('btn-gameover-continue').addEventListener('click', Game.returnToMainMenu);
     $('btn-victory-continue').addEventListener('click', Game.returnToMainMenu);
     $('btn-skip-tile-reward').addEventListener('click', Game.skipTileReward);
+    $('btn-skip-boss-reward').addEventListener('click', Game.skipBossItemReward);
     $('btn-view-deck').addEventListener('click', Game.openDeckViewer);
     $('btn-close-deck-viewer').addEventListener('click', Game.closeDeckViewer);
     $('btn-close-item-inspector').addEventListener('click', Game.closeItemInspector);

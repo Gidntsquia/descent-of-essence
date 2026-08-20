@@ -56,6 +56,86 @@ Also note: the reward screen offers a Skip button even though Jaxon's spec didn'
 explicitly ask for one -- added because requirement #2 said "you *can* add" a tile,
 which reads as optional. Flagging in case that's not what was wanted.
 
+---
+
+## 2026-08-20T02:15Z
+
+Housekeeping note before the task work: this container's clone started in detached
+HEAD, and its local `main` branch ref turned out to be badly stale (pointing at an old
+3-commit history that predated basically everything in GOALS.md/PROGRESS.md's history --
+a shallow-clone artifact, not real divergence). `git fetch origin main` confirmed
+origin/main actually matches the detached HEAD commit (7637929, "Harden
+test/verify-mobile-layout.js..."), so `git reset --hard origin/main` on the local `main`
+branch was safe (no local-only commits were lost, just a stale cached ref) and let this
+run commit normally instead of everything piling into a detached-HEAD dead end. Flagging
+in case this repeats in future runs -- if `git log --oneline -3` on `main` right after
+checkout looks suspiciously short/old, `git fetch origin main` and compare before
+assuming main is caught up.
+
+**Task:** the boss-kill bonus item-choice FEATURE (first unchecked item in GOALS.md's
+queue, previously "4 of 5 unchecked 2026-08-20 tasks complete" per the prior entry).
+
+**What was done:** after defeating a boss specifically (not a regular kill), the player
+now sees the existing tile-reward screen first, exactly as before, and THEN a second,
+separate full-screen choice: 2-3 items pulled only from items.js entries already marked
+`rarity: 'rare'` or `'legendary'` (checked first, per the ticket's own instruction to
+verify before assuming -- the rarity field already existed on every item, `common` /
+`uncommon` / `rare` / `legendary`, just unused for filtering purposes anywhere before
+this). There are exactly 3 such items in the whole item pool (`vowel_leech`, `foreword`
+= rare; `second_wind` = legendary) and exactly 3 bosses in a full run, which lines up
+neatly -- each boss kill offers from whatever's left of that pool (excluding items
+already owned), shrinking to 2, then 1, choices across a run. If a run somehow already
+owns all of them (e.g. picked up via a regular treasure node earlier), the new screen is
+skipped entirely and the floor advances straight through -- no empty panel.
+
+Implementation (js/wordbound/game.js): `onMonsterDefeated` now sets
+`pendingAfterTileReward = 'bossItemReward'` for a boss kill instead of the old
+`'advanceFloor'`; `resolveTileReward()` branches on that to roll
+`rollBossRewardOptions()` (new function, same shuffle-and-slice pattern as
+`rollTreasureOptions`/`rollShopOptions`, filtered to `rarity === 'rare' ||
+'legendary'`) and show a new `BOSS_ITEM_REWARD` screen instead of advancing immediately;
+new `Game.pickBossItemReward`/`Game.skipBossItemReward` both resolve into
+`advanceFloor()`. New `boss-reward-panel` in wordbound.html mirrors the existing
+`tile-reward-panel` markup/classes exactly (same `.treasure-panel`/`.treasure-choice`/
+`.tile-reward-skip` CSS, no new styles needed). `render()`'s panel-visibility toggles and
+node-map hidden condition were extended the same way the tile-reward panel already was,
+so the two screens are strictly sequential (verified below) -- the project's established
+panel-stacking bug never applies here since it's a full-screen swap, not a side panel.
+Bumped version v0.7 -> v0.8 in wordbound.html per the minor-version-for-features
+convention (a new, distinctly rewarding boss-kill mechanic, not a bug fix).
+
+**Verification:**
+- `npm test`: 16/16, no regressions (this change didn't touch anything the existing
+  suite already exercises differently).
+- Wrote `test/verify-boss-item-reward.js`, a new targeted jsdom script (same harness
+  pattern as dom-check.js) that forces a boss encounter via `Game._state` (the
+  test-inspection hook already exposed for this purpose), plays a lethal word, and
+  asserts the full sequence end to end: boss kill -> TILE_REWARD screen visible,
+  boss-reward-panel NOT visible yet (confirms no stacking) -> skip tile reward ->
+  BOSS_ITEM_REWARD screen visible, tile-reward-panel hidden again, floor NOT yet
+  advanced -> all offered options are rarity rare/legendary -> pick one -> item lands
+  in `state.player.items`, floor advances, panel hides, screen returns to RUN. Then
+  repeats a regular (non-boss) kill and confirms the item-reward screen never appears
+  and the floor/node flow is unchanged from before this feature. 20/20 checks pass.
+  This is a one-off verification script, not wired into `npm test`, since it needs to
+  reach into internal state to force a boss encounter deterministically (not a general
+  regression-guard shape like dom-check.js/verify-mobile-layout.js) -- left in test/
+  for any future run that wants to re-verify this specific flow by hand.
+- Did not run `npm run test:mobile`: no CSS was added or changed (the new panel reuses
+  `.treasure-panel`/`.treasure-choice` verbatim), so this is out of that mandate's
+  scope per GOALS.md's own wording ("CSS layout/panels... positioning, sizing, media
+  queries, flex/grid behavior").
+- **Not verified:** an actual human eyeballing the new screen in a real browser --
+  jsdom confirms the right DOM state/classes/data at each step, which is the strongest
+  evidence available in this environment, but whether it *reads* well next to the tile
+  reward screen (spacing, whether two full-screen choice panels back-to-back feels like
+  too many clicks) is a feel question for Jaxon's playtest, same caveat as other UI/UX
+  work in this project.
+
+**Current status:** GOALS.md's main queue is now fully checked off. Next run should
+check ROADMAP.md's "known gaps" section for what to pull next, per the routine's own
+guardrails.
+
 
 ## 2026-08-19T03:12Z
 

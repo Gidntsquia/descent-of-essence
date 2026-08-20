@@ -242,10 +242,15 @@ Rules for the routine:
       truly-visible undersized buttons, if any, should be flagged), and this
       file's top-of-file rules mention it alongside the `npm test` mandate.
 
-- [ ] FEATURE: defeating a boss should grant an extra, more powerful item
+- [x] FEATURE: defeating a boss should grant an extra, more powerful item
       choice on top of the normal tile reward, to make boss kills feel more
       distinctly rewarding. Requested 2026-08-20 by Jaxon ("beating a boss
-      should also give you an extra powerful item choice").
+      should also give you an extra powerful item choice"). COMPLETED
+      2026-08-20T02:15Z: see PROGRESS.md for full details -- new sequential
+      BOSS_ITEM_REWARD screen after the tile-reward screen on a boss kill
+      only, offering 2-3 items already marked `rarity: 'rare'`/`'legendary'`
+      in items.js (that field already existed, contrary to this ticket's
+      assumption it might not -- no new rarity flag needed).
       CONTEXT: currently `onMonsterDefeated()` (js/wordbound/game.js ~line 479)
       treats a boss kill identically to any regular kill for reward purposes --
       same `Tiles.rollRewardOptions(state.rng, 3)` tile-choice screen, same
