@@ -590,7 +590,10 @@ h2 {
   border-radius: 4px;
   font-weight: bold;
   font-size: 0.85rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  /* MOBILE INPUT 3/3: a slightly stronger lift than a flat chip, so the play
+     area reads as tiles "picked up" out of the rack. Static (not animated),
+     independent of reduced-motion. */
+  box-shadow: 0 3px 7px rgba(0,0,0,0.42);
   /* MOBILE INPUT 2/3: staged tiles are tappable to unstage (slide home). */
   cursor: pointer;
   border: none;
@@ -618,6 +621,36 @@ h2 {
   box-shadow: 0 0 0 2px #d06a7a, 0 6px 16px rgba(0, 0, 0, 0.5);
 }
 .staging-area.staging-dragging { cursor: grabbing; }
+
+/* MOBILE INPUT 3/3: input-feel juice. Restrained -- tactile, not carnival.
+   All of it is gated on prefers-reduced-motion (haptics too, in JS). The
+   animated reorder gap open/close asked for by this ticket already ships in
+   Phase 2 (applyStagingGap/clearStagingGap, a 0.12s transform tween); this
+   block adds the point-of-contact cues: a pressed dip and a land-settle. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Pressed state: every tappable tile dips slightly under the finger/cursor.
+     The staged tile being dragged sets an inline transform (translate) that
+     wins over this stylesheet rule, so an active drag is unaffected. */
+  .letter-tile:active,
+  .rack-slot-empty:active,
+  .staged-tile:active {
+    transform: scale(0.93);
+  }
+  /* A tile landing in the rack or the play area gets a short (<=120ms) settle.
+     Deliberately transform-free (brightness + shadow only): the Phase 1 FLIP
+     owns `transform` on the same element to slide the tile into place, and a
+     transform-based keyframe would override that inline transform and break
+     the slide. This is a one-shot -- the code that stages/unstages adds
+     `.tile-settle` for exactly one render, then clears it. */
+  @keyframes tileSettle {
+    0% { filter: brightness(1.6); box-shadow: 0 0 8px rgba(240, 215, 137, 0.9); }
+    100% { filter: brightness(1); }
+  }
+  .letter-tile.tile-settle,
+  .staged-tile.tile-settle {
+    animation: tileSettle 0.12s ease-out;
+  }
+}
 
 .staged-tile sub {
   font-size: 0.6rem;

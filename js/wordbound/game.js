@@ -110,6 +110,7 @@
     touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
     stagingDrag: null, // MOBILE INPUT 2/3 Phase 2: active pointer drag of a STAGED tile (reorder-in-play-area / drag-out-to-remove). { tileId, el, startX, startY, crossed, outside, rects, tileW, insertIndex }. null when no drag in progress
     suppressNextStagingClick: false, // MOBILE INPUT 2/3 Phase 2: set true after a real staging drag so the synthesized post-pointerup click doesn't immediately unstage the just-reordered tile; reset on the next pointerdown
+    settleTileIds: [], // MOBILE INPUT 3/3: tile ids to give a one-shot land-settle animation on the NEXT render only (a tile just staged into the play area or unstaged back to the rack); consumed + cleared during renderStagingArea
     selectedTileIds: [], // tiles selected for staging (in click order)
     blankAssignments: {}, // MOBILE INPUT 1/3: tileId -> chosen letter, for blanks staged via the touch-mode letter picker (desktop stages blanks by typing, never populates this)
     touchMode: false, // MOBILE INPUT 1/3: true on coarse-pointer devices -- no typing, tap-to-play only. Set from matchMedia('(pointer: coarse)') at init; desktop behavior is unchanged when false
@@ -125,6 +126,7 @@
   Game._getMusicMode = function () { return currentMusicMode; }; // exposed for headless/browser test inspection only (review F2)
   Game._stagedWord = function () { return stagedWord(); }; // MOBILE INPUT 1/3: exposed for test inspection of the staged-tiles word
   Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
+  Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate
 
   function $(id) { return document.getElementById(id); }
 
@@ -513,6 +515,7 @@
     state.hexedTileId = null;
     state.selectedTileIds = [];
     state.blankAssignments = {};
+    state.settleTileIds = [];
     state.blankPickerOpen = false;
     state.blankPickerTileId = null;
     Items.runHook('onRunStart', { player: state.player, pileState: state.pile }, state.player);
@@ -1396,6 +1399,26 @@
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
+  // MOBILE INPUT 3/3: a light haptic tick on stage/unstage/submit. Feature-
+  // checked (navigator.vibrate is Android-Chrome only -- silently absent on
+  // iOS and desktop) and, per the ticket, disabled under reduced motion along
+  // with the visual juice. Wrapped in try/catch because some browsers throw if
+  // vibrate is called outside a user-gesture context.
+  function hapticTick() {
+    if (prefersReducedMotion()) return;
+    var nav = window.navigator;
+    if (nav && typeof nav.vibrate === 'function') {
+      try { nav.vibrate(8); } catch (e) {}
+    }
+  }
+
+  // MOBILE INPUT 3/3: flag a tile for a one-shot land-settle on the next render
+  // (consumed + cleared in renderStagingArea). A no-op collector -- the CSS
+  // does the actual animation, gated on reduced motion in the stylesheet.
+  function markSettle(tileId) {
+    if (state.settleTileIds.indexOf(tileId) === -1) state.settleTileIds.push(tileId);
+  }
+
   // MOBILE INPUT 2/3: FLIP-animate a tile from a rect captured BEFORE render
   // to its new post-render position (transform-only, ~200ms ease-out). Instant
   // (no-op) under reduced motion or where rAF/getBoundingClientRect are absent
@@ -1437,6 +1460,8 @@
     if (stagedEl && stagedEl.getBoundingClientRect) fromRect = stagedEl.getBoundingClientRect();
     state.selectedTileIds.splice(idx, 1);
     delete state.blankAssignments[tileId];
+    markSettle(tileId); // MOBILE INPUT 3/3: settle where it lands back in the rack
+    hapticTick();
     syncWordInput();
     render();
     flipTile(fromRect, tileElIn('rack-display', tileId));
@@ -1497,6 +1522,8 @@
     var rackEl = tileElIn('rack-display', tile.id);
     if (rackEl && rackEl.getBoundingClientRect) fromRect = rackEl.getBoundingClientRect();
     state.selectedTileIds.push(tile.id);
+    markSettle(tile.id); // MOBILE INPUT 3/3: settle where it lands in the play area
+    hapticTick();
     // The selection array is the source of truth; rebuild the input from it
     // rather than surgically edit the string, so removals from the middle
     // work correctly too.
@@ -1536,6 +1563,8 @@
     state.blankAssignments[tileId] = letter;
     if (state.selectedTileIds.indexOf(tileId) === -1) {
       state.selectedTileIds.push(tileId);
+      markSettle(tileId); // MOBILE INPUT 3/3: settle the blank as it lands staged
+      hapticTick();
     }
     state.blankPickerOpen = false;
     state.blankPickerTileId = null;
@@ -2302,7 +2331,8 @@
         else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
         else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
       }
-      btn.className = 'letter-tile' + bonusClass + (isNewTile ? ' new-tile' : '') + (isHexed ? ' tile-hexed' : '');
+      var rackSettle = state.settleTileIds.indexOf(tile.id) !== -1; // MOBILE INPUT 3/3: a tile that just landed back in the rack
+      btn.className = 'letter-tile' + bonusClass + (isNewTile ? ' new-tile' : '') + (isHexed ? ' tile-hexed' : '') + (rackSettle ? ' tile-settle' : '');
       if (isHexed) btn.disabled = true;
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       var displayVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
@@ -2356,6 +2386,11 @@
     state.rackJustRefilled = false;
 
     renderStagingArea();
+    // MOBILE INPUT 3/3: the land-settle is one-shot -- both the rack loop above
+    // and renderStagingArea have now consumed this render's settle ids, so clear
+    // them (here, not inside renderStagingArea, which early-returns when the play
+    // area is empty and would leave a rack-side settle to re-fire next render).
+    if (state.settleTileIds.length) state.settleTileIds = [];
   }
 
   // MOBILE INPUT 1/3: the touch-mode blank-letter picker overlay. Toggled and
@@ -2401,7 +2436,8 @@
         else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
         else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
       }
-      stageTile.className = 'staged-tile' + bonusClass;
+      var stageSettle = state.settleTileIds.indexOf(tile.id) !== -1; // MOBILE INPUT 3/3: a tile that just landed in the play area
+      stageTile.className = 'staged-tile' + bonusClass + (stageSettle ? ' tile-settle' : '');
       stageTile.setAttribute('data-tile-id', tile.id);
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       var stagedVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
@@ -2480,6 +2516,7 @@
       // MOBILE INPUT 1/3: in touch-mode the input is hidden and typing is
       // disabled, so the staged tiles are the only word source.
       var word = state.touchMode ? stagedWord() : input.value;
+      hapticTick(); // MOBILE INPUT 3/3: a tick on submit (feature-checked, reduced-motion-gated)
       Game.submitWord(word);
       input.value = '';
     });

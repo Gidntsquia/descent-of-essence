@@ -901,6 +901,87 @@ async function main() {
       window.Wordbound.Game.closeDeckViewer();
     }
 
+    // MOBILE INPUT 3/3 (GOALS.md): input-feel juice. jsdom can't measure the
+    // animation itself (no layout, no compositor), so these assert the STATE
+    // wiring the CSS keys off: the one-shot .tile-settle class (added for
+    // exactly one render when a tile lands, then cleared) and the haptic tick's
+    // feature-check + reduced-motion gate. The pressed :active scale and the
+    // actual animation feel are CSS-only / real-browser (see PROGRESS.md).
+    {
+      const Game = window.Wordbound.Game;
+      state.selectedTileIds = [];
+      state.settleTileIds = [];
+      document.getElementById('word-input').value = '';
+      Game.openDeckViewer(); Game.closeDeckViewer();
+
+      const rackBtns = () => Array.from(document.querySelectorAll('#rack-display .letter-tile'));
+      const nb = () => rackBtns().filter((b) => {
+        const t = state.player.rack.find((rt) => rt.id === b.getAttribute('data-tile-id'));
+        return t && t.letter !== '?';
+      });
+      const cands = nb();
+      if (cands.length < 1) {
+        console.log('SKIP mobile 3/3 settle checks -- no non-blank rack tile');
+      } else {
+        const sid = cands[0].getAttribute('data-tile-id');
+        cands[0].dispatchEvent(new window.Event('click', { bubbles: true })); // stage it
+        const stagedEl = () => document.querySelector('#staging-area .staged-tile[data-tile-id="' + sid + '"]');
+        check('mobile 3/3: a just-staged tile carries the one-shot .tile-settle class',
+          !!stagedEl() && stagedEl().className.indexOf('tile-settle') !== -1);
+        check('mobile 3/3: the settle set is cleared after the render that consumed it',
+          state.settleTileIds.length === 0);
+        Game.openDeckViewer(); Game.closeDeckViewer(); // force another render
+        check('mobile 3/3: .tile-settle is gone on the next render (one-shot, not sticky)',
+          !!stagedEl() && stagedEl().className.indexOf('tile-settle') === -1);
+
+        // Unstage: the tile lands back in the rack and settles there once.
+        stagedEl().dispatchEvent(new window.Event('click', { bubbles: true }));
+        const rackEl = () => document.querySelector('#rack-display .letter-tile[data-tile-id="' + sid + '"]');
+        check('mobile 3/3: an unstaged tile settles as it lands back in the rack',
+          !!rackEl() && rackEl().className.indexOf('tile-settle') !== -1);
+        Game.openDeckViewer(); Game.closeDeckViewer();
+        check('mobile 3/3: rack settle is one-shot too (cleared next render)',
+          !!rackEl() && rackEl().className.indexOf('tile-settle') === -1);
+      }
+
+      // Haptic tick: feature-checked (navigator.vibrate) + reduced-motion gated.
+      const realMM = window.matchMedia;
+      let vibrateCalls = 0;
+      let hadVibrate = 'vibrate' in window.navigator;
+      const realVibrate = window.navigator.vibrate;
+      try {
+        Object.defineProperty(window.navigator, 'vibrate', {
+          configurable: true, writable: true, value: function () { vibrateCalls++; return true; },
+        });
+      } catch (e) { /* some environments lock navigator; skip below */ }
+      const vibrateStubbed = typeof window.navigator.vibrate === 'function' && window.navigator.vibrate !== realVibrate;
+      if (!vibrateStubbed) {
+        console.log('SKIP mobile 3/3 haptic checks -- navigator.vibrate not stubbable here');
+      } else {
+        // Motion allowed -> tick fires.
+        window.matchMedia = (q) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} });
+        vibrateCalls = 0;
+        Game._hapticTick();
+        check('mobile 3/3: haptic tick calls navigator.vibrate when motion is allowed', vibrateCalls === 1);
+        // Reduced motion -> tick is suppressed (haptics included, per the ticket).
+        window.matchMedia = (q) => ({ matches: /reduce/.test(q), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} });
+        vibrateCalls = 0;
+        Game._hapticTick();
+        check('mobile 3/3: haptic tick is suppressed under prefers-reduced-motion', vibrateCalls === 0);
+        // Restore navigator.vibrate.
+        try {
+          if (hadVibrate) Object.defineProperty(window.navigator, 'vibrate', { configurable: true, writable: true, value: realVibrate });
+          else delete window.navigator.vibrate;
+        } catch (e) { /* best-effort */ }
+      }
+      window.matchMedia = realMM;
+
+      state.selectedTileIds = [];
+      state.settleTileIds = [];
+      document.getElementById('word-input').value = '';
+      Game.openDeckViewer(); Game.closeDeckViewer();
+    }
+
     // A blank (?) tile has no letter to stage -- clicking it must be a true
     // no-op (review B5's second finding), not a visible-but-empty selection.
     const blankTile = { id: 'test-blank-tile-b5', letter: '?' };

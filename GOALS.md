@@ -1254,7 +1254,7 @@ Rules for the routine:
       TOUCH drag on a real phone was not exercised here -- only Jaxon's
       device can prove the touch-drag feel end to end.
 
-- [ ] MOBILE INPUT 3/3 (same directive, "more interactive in general"
+- [x] MOBILE INPUT 3/3 (same directive, "more interactive in general"
       -- input-feel juice, deliberately separate from FUN OVERHAUL
       8/8's combat juice; no overlap): pressed state on every tile
       (:active scale ~0.93), staged tiles get a subtle lift/shadow so
@@ -1268,6 +1268,31 @@ Rules for the routine:
       VERIFICATION: npm test; npm run test:mobile; PROGRESS.md note for
       what jsdom can't confirm (animation feel/timing) per house rules
       on animation claims. Version bump.
+      DONE 2026-08-20 (v0.25 -> v0.26) -- see PROGRESS.md. All spec items:
+      (1) pressed :active scale(0.93) on .letter-tile/.rack-slot-empty/
+      .staged-tile; (2) a stronger staged-tile lift shadow so the play area
+      reads "picked up"; (3) a one-shot land-settle (<=120ms) when a tile
+      lands staged OR back in the rack -- a `.tile-settle` class the code adds
+      for exactly one render then clears, animating brightness+shadow (NOT
+      transform, deliberately: the Phase 1 FLIP owns transform on the same
+      element and a transform keyframe would break the slide); (4) the
+      animated reorder gap-open/close was ALREADY shipped by Phase 2
+      (applyStagingGap/clearStagingGap 0.12s tween) -- noted, not re-done;
+      (5) navigator.vibrate(8) haptics on stage/unstage/submit, feature-
+      checked (Android-Chrome only; silently absent on iOS/desktop). ALL of
+      it (haptics included) gated on prefers-reduced-motion. VERIFIED:
+      `npm test` 318 checks ALL PASSED (+7 new: one-shot settle on stage AND
+      unstage + the clear, haptic fires when motion allowed / suppressed
+      under reduced motion); `npm run test:qa` 26/26; `npm run test:mobile`
+      clean at 375/414; `npm run test:itch-build` clean (1.42 MB); plus a
+      throwaway real-Chromium script (run + deleted) in BOTH normal- and
+      reduced-motion contexts confirming the :active scale actually computes
+      to matrix(0.93) while held (and to `none` under reduced motion) and a
+      `tileSettle` animation actually runs on a just-staged tile (and does
+      not under reduced motion), zero page/console errors. NOT verifiable
+      here (honest caveat): the physical haptic buzz and the subjective feel/
+      timing of the animations on a real phone -- only Jaxon's device proves
+      those; the code paths, gates, and CSS are all confirmed present.
 
 - [ ] FUN OVERHAUL 8/8 -- celebration juice for the new systems (do LAST,
       after 1/8-7/8). Small, scoped, no new mechanics: combo chip pops on
