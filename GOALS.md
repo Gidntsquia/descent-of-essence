@@ -1294,7 +1294,7 @@ Rules for the routine:
       timing of the animations on a real phone -- only Jaxon's device proves
       those; the code paths, gates, and CSS are all confirmed present.
 
-- [ ] FUN OVERHAUL 8/8 -- celebration juice for the new systems (do LAST,
+- [x] FUN OVERHAUL 8/8 -- celebration juice for the new systems (do LAST,
       after 1/8-7/8). Small, scoped, no new mechanics: combo chip pops on
       each stack (scale transform, ~150ms); damage >= 25 in one word ->
       brief screen shake + "CRUSHING!" floater; 7+ letter word ->

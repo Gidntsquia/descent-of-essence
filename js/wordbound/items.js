@@ -486,10 +486,21 @@
     return capacity;
   };
 
+  // An item "procced" if its hook announced itself on ctx.messages -- the same
+  // signal the rule-changer items already use ("silent modifiers don't create
+  // builds", above), so nothing here needs a per-item opt-in. Collected into
+  // ctx.proccedItemIds so the caller can flash those chips (FUN OVERHAUL 8/8).
+  // Hooks called with a message-less ctx (onPlayerDamaged, onRunStart) are
+  // untracked.
   Items.runHook = function (hookName, ctx, player) {
+    var tracks = !!(ctx && Array.isArray(ctx.messages));
+    if (tracks && !ctx.proccedItemIds) ctx.proccedItemIds = [];
     (player.items || []).forEach(function (itemId) {
       var d = ITEM_DEFS[itemId];
-      if (d && d.hooks[hookName]) d.hooks[hookName](ctx);
+      if (!d || !d.hooks[hookName]) return;
+      var messagesBefore = tracks ? ctx.messages.length : 0;
+      d.hooks[hookName](ctx);
+      if (tracks && ctx.messages.length > messagesBefore) ctx.proccedItemIds.push(itemId);
     });
   };
 

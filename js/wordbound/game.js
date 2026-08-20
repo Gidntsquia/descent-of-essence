@@ -120,6 +120,8 @@
     previousWordThisFight: null, // GOALS.md "FUN OVERHAUL 4/8": word played immediately before the current one this fight, reset in startCombat, fed to item hooks via ctx.previousWord
     wordsPlayedThisFightCount: 0, // 1-based once incremented; ===1 on the fight's first word, includes repeats -- reset in startCombat, fed to item hooks via ctx.wordsPlayedThisFight
     hexedTileId: null, // set by a Hex monster intent, cleared when the rack that held it cycles away (see monster-intents ticket)
+    proccedItemIds: [], // FUN OVERHAUL 8/8: item ids whose onWordPlayed hook fired on the just-played word; consumed + cleared in renderItemsOwned to flash those chips for one render only
+    comboBumped: false, // FUN OVERHAUL 8/8: true for one render when the just-played word advanced the combo streak; consumed in renderCombat to re-pop the (already visible) combo chip
     runStats: null // { wordsPlayed, bestWord, bestWordDamage, totalDamage, monstersDefeated, floorsCleared, goldEarned } -- reset in startRun, shown on the game-over/victory screens (review N6)
   };
   Game._state = state; // exposed for headless/browser test inspection only
@@ -127,6 +129,7 @@
   Game._stagedWord = function () { return stagedWord(); }; // MOBILE INPUT 1/3: exposed for test inspection of the staged-tiles word
   Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate
+  Game._celebrateHit = function (damage, magnificent) { return celebrateHit(damage, magnificent); }; // FUN OVERHAUL 8/8: exposed so tests can assert the CRUSHING/MAGNIFICENT DOM appends (jsdom can't verify the animation timing)
 
   function $(id) { return document.getElementById(id); }
 
@@ -513,6 +516,8 @@
     state.wordsPlayedThisFightCount = 0;
     state.repeatedWordThisFight = false;
     state.hexedTileId = null;
+    state.proccedItemIds = [];
+    state.comboBumped = false;
     state.selectedTileIds = [];
     state.blankAssignments = {};
     state.settleTileIds = [];
@@ -625,6 +630,13 @@
   var VOLATILE_CRACK_CHANCE = 0.25; // FUN OVERHAUL 5/8: rolled once per Volatile tile actually played
   var GILDED_GOLD_PER_TILE = 2;
   var VAMPIRIC_HEAL_PER_TILE = 1;
+  // FUN OVERHAUL 8/8 (celebration juice): thresholds for the big-hit / long-word
+  // call-outs. CRUSHING fires on a single word landing >= this much damage;
+  // MAGNIFICENT fires on a word this many letters or longer and pays a small
+  // bonus gold on top. Both cosmetic + a small reward, no new mechanics.
+  var CRUSHING_DAMAGE_THRESHOLD = 25;
+  var MAGNIFICENT_WORD_LENGTH = 7;
+  var MAGNIFICENT_BONUS_GOLD = 5;
 
   function markTilesPlayed(tilesUsed) {
     var rack = $('rack-display');
@@ -693,6 +705,9 @@
     Items.runHook('onWordPlayed', ctx, state.player);
     state.previousWordThisFight = result.word;
     ctx.messages.forEach(function (msg) { log(msg); });
+    // FUN OVERHAUL 8/8: rule-changer procs (items whose hook logged a line this
+    // word) flash their chip on the next render. Items.runHook collected them.
+    state.proccedItemIds = ctx.proccedItemIds || [];
 
     // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20): special tile variants.
     // Charged (+4 damage) and Volatile (letters score x2) are already folded
@@ -726,6 +741,23 @@
 
     var tag = result.multiplier === 0 ? ' -- no effect!' : result.multiplier > 1 ? ' -- weak point!' : '';
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
+
+    // FUN OVERHAUL 8/8 (celebration juice): a 7+ letter word is a "MAGNIFICENT!"
+    // play worth a small bonus gold on top of its damage. State mutation +
+    // logging here (synchronous); the banner/floater/shake visuals are applied
+    // after render() in the deferred block below. Gold counts toward the
+    // end-of-run stats (review N6), same as any other gold this fight.
+    var magnificent = result.word.length >= MAGNIFICENT_WORD_LENGTH;
+    if (magnificent) {
+      state.player.gold += MAGNIFICENT_BONUS_GOLD;
+      if (state.runStats) state.runStats.goldEarned += MAGNIFICENT_BONUS_GOLD;
+      log('MAGNIFICENT! A ' + result.word.length + '-letter word -- +' + MAGNIFICENT_BONUS_GOLD + ' gold.');
+    }
+    // The combo streak advanced this word (a distinct, non-repeat play) -- flag
+    // it so renderCombat gives the combo chip an extra bump, not just its
+    // baseline per-render pop.
+    state.comboBumped = !result.isRepeat && (state.comboState && state.comboState.combo || 0) > 0;
+
     if (result.isRepeat) {
       // Word novelty (GOALS.md "FUN OVERHAUL 1/8"): repeating a word already
       // played this fight is weak (x0.4, already folded into result.damage
@@ -797,6 +829,7 @@
         // blow doesn't hard-cut straight past the moment of the kill.
         render();
         animateDamage(result.damage);
+        celebrateHit(result.damage, magnificent);
         if (result.damage > 0) playCombatSound(result.damage, result.comboAtPlay);
         var monsterInfo = $('monster-info');
         if (monsterInfo) monsterInfo.classList.add('monster-defeated');
@@ -850,6 +883,7 @@
       // render() means they act on the freshly-rendered elements and persist
       // until their own timeouts clean them up.
       animateDamage(result.damage);
+      celebrateHit(result.damage, magnificent);
       if (result.damage > 0) playCombatSound(result.damage, result.comboAtPlay);
       if (dmgCtx.damage > 0) {
         animatePlayerDamage();
@@ -1127,6 +1161,40 @@
     dmgNum.style.transform = 'translate(-50%, -50%)';
     monsterInfo.appendChild(dmgNum);
     setTimeout(function () { dmgNum.remove(); }, 1000);
+  }
+
+  // FUN OVERHAUL 8/8 (celebration juice): transient call-outs for a big single
+  // word. Appended AFTER render() (like animateDamage) so render's innerHTML
+  // rebuild of monster-info/combat-panel doesn't wipe them before they paint.
+  // Cosmetic only -- reads flags/values already computed by submitWord. The CSS
+  // gates the animations on prefers-reduced-motion (the floater/banner still
+  // show statically under reduced motion since they carry info; the shake is
+  // dropped entirely there, being pure motion).
+  function celebrateHit(damage, magnificent) {
+    var panel = $('combat-panel');
+    if (damage >= CRUSHING_DAMAGE_THRESHOLD) {
+      var monsterInfo = $('monster-info');
+      if (monsterInfo) {
+        var crush = document.createElement('div');
+        crush.className = 'crushing-floater';
+        crush.textContent = 'CRUSHING!';
+        monsterInfo.appendChild(crush);
+        setTimeout(function () { crush.remove(); }, 1000);
+      }
+      if (panel && !prefersReducedMotion()) {
+        panel.classList.remove('combat-shake');
+        void panel.offsetWidth; // reflow so the shake restarts on a repeat big hit
+        panel.classList.add('combat-shake');
+        setTimeout(function () { panel.classList.remove('combat-shake'); }, 320);
+      }
+    }
+    if (magnificent && panel) {
+      var banner = document.createElement('div');
+      banner.className = 'magnificent-banner';
+      banner.textContent = 'MAGNIFICENT!';
+      panel.appendChild(banner);
+      setTimeout(function () { banner.remove(); }, 1700);
+    }
   }
 
   function animatePlayerDamage() {
@@ -1978,16 +2046,21 @@
   function renderItemsOwned() {
     var el = $('items-owned');
     el.innerHTML = '';
+    // FUN OVERHAUL 8/8: chips for items whose hook fired on the just-played
+    // word flash once. Consumed here (a one-shot, like settleTileIds) so the
+    // flash plays on exactly the render after the proc, not every render after.
+    var procced = state.proccedItemIds || [];
     state.player.items.forEach(function (itemId) {
       var def = Items.ITEM_DEFS[itemId];
       var span = document.createElement('span');
-      span.className = 'item-chip';
+      span.className = 'item-chip' + (procced.indexOf(itemId) !== -1 ? ' item-chip-proc' : '');
       span.textContent = def.name;
       span.title = def.hint;
       span.style.cursor = 'pointer';
       span.addEventListener('click', function () { Game.openItemInspector(itemId); });
       el.appendChild(span);
     });
+    if (procced.length) state.proccedItemIds = [];
   }
 
   function renderItemInspector() {
@@ -2274,8 +2347,11 @@
     // grants the NEXT word. Hidden at combo 0 so a reset (repeat word) is
     // visually obvious -- the chip just disappears.
     var combo = (state.comboState && state.comboState.combo) || 0;
+    // FUN OVERHAUL 8/8: one-shot extra pop on the render where the streak grew.
+    var comboBumpClass = state.comboBumped ? ' combo-chip-bump' : '';
+    state.comboBumped = false;
     var comboChip = combo > 0
-      ? '<div class="combo-chip">Combo x' + combo + ' &middot; +' + Math.min(combo, 5) * 12 + '%</div>'
+      ? '<div class="combo-chip' + comboBumpClass + '">Combo x' + combo + ' &middot; +' + Math.min(combo, 5) * 12 + '%</div>'
       : '';
     // Monster intent (GOALS.md "FUN OVERHAUL 2/8"): what the monster does on
     // ITS next turn, telegraphed before the player picks a word so they can

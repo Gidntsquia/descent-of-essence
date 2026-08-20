@@ -432,6 +432,115 @@ h2 {
   animation: comboPop 0.25s ease-out;
 }
 
+/* Celebration juice (GOALS.md "FUN OVERHAUL 8/8"): reactions to the systems
+   built in 1/8-7/8. All of it is gated on prefers-reduced-motion, matching the
+   damage-floater / screen-transition convention -- under reduced motion the
+   banners/floaters still appear (they carry information: bonus gold, a big
+   hit) but hold static instead of animating, and the screen shake is dropped
+   entirely (pure motion, no information). */
+
+/* Combo chip "pop" on each new stack. renderCombat rebuilds the chip element
+   every render, so the base .combo-chip comboPop already plays once per word;
+   this dedicated, punchier bump (a bigger overshoot) overrides it specifically
+   on the render where the streak ADVANCED, so growing the combo feels distinct
+   from it merely persisting. Applied for one render, then cleared. */
+@keyframes comboBump {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .combo-chip.combo-chip-bump {
+    animation: comboBump 0.15s ease-out;
+  }
+}
+
+/* "CRUSHING!" floater on a big single-word hit (>= 25 damage). Rides above the
+   monster panel like the damage number, in the critical-hit red. */
+@keyframes crushingRise {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  25% { transform: translate(-50%, -60%) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -120%) scale(1); opacity: 0; }
+}
+.crushing-floater {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  font-weight: bold;
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  color: #e08a8a;
+  text-shadow: 0 0 10px rgba(224, 138, 138, 0.6);
+  pointer-events: none;
+  z-index: 40;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .crushing-floater { animation: crushingRise 0.9s ease-out forwards; }
+}
+/* Reduced motion: no rise, just a brief hold then removal (JS removes it). */
+@media (prefers-reduced-motion: reduce) {
+  .crushing-floater { opacity: 1; }
+}
+
+/* "MAGNIFICENT!" banner on a 7+ letter word. A wider, centered call-out over
+   the combat panel, gold rather than red -- reward, not violence. */
+@keyframes magnificentBanner {
+  0% { transform: translateX(-50%) scale(0.85); opacity: 0; }
+  15% { transform: translateX(-50%) scale(1.05); opacity: 1; }
+  80% { transform: translateX(-50%) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); opacity: 0; }
+}
+.magnificent-banner {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  transform: translateX(-50%);
+  padding: 6px 18px;
+  border-radius: 14px;
+  background: rgba(240, 215, 137, 0.16);
+  border: 1px solid #f0d789;
+  color: #fce5b2;
+  font-weight: bold;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 8px rgba(252, 229, 178, 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 40;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .magnificent-banner { animation: magnificentBanner 1.6s ease-out forwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .magnificent-banner { opacity: 1; }
+}
+
+/* Screen shake on a big hit (>= 25 damage). Pure motion, no information, so
+   it's dropped entirely under reduced motion (no static fallback). Applied to
+   the combat panel for one animation cycle, then cleared. */
+@keyframes combatShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-2px, -2px); }
+  80% { transform: translate(2px, 2px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .combat-panel.combat-shake { animation: combatShake 0.3s ease-in-out; }
+}
+
+/* Item-proc chip flash: a rule-changer item whose hook fired this word gets a
+   brief highlight in the items strip so its contribution is legible. Pure
+   emphasis, gated on reduced motion. */
+@keyframes itemChipFlash {
+  0% { background: rgba(240, 215, 137, 0.6); box-shadow: 0 0 10px rgba(240, 215, 137, 0.7); }
+  100% { background: inherit; box-shadow: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .item-chip.item-chip-proc { animation: itemChipFlash 0.6s ease-out; }
+}
+
 /* Killing-blow death beat: a short, visible pause on the kill before the
    screen cuts to the tile reward -- see MONSTER_DEATH_BEAT_MS in game.js. */
 @keyframes monsterDefeatFade {

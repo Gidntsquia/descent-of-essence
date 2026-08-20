@@ -1761,6 +1761,154 @@ async function main() {
     check('gamble/wager: forfeit is announced in the log', state.messages.some((m) => /stays with the Stacks/.test(m)));
   }
 
+  // FUN OVERHAUL 8/8 (GOALS.md, 2026-08-20): celebration juice. jsdom CAN
+  // verify the state logic (proc tracking, MAGNIFICENT bonus gold) and the DOM
+  // structure of the call-outs; it CANNOT verify the animation/shake TIMING or
+  // FEEL (that needs a real browser -- noted in PROGRESS.md).
+  {
+    const Items = window.Wordbound.Items;
+    const Tiles = window.Wordbound.Tiles;
+
+    // (1) Item-proc tracking: Items.runHook collects the ids of items whose
+    // onWordPlayed hook actually announced itself (pushed a ctx.message). This
+    // is the exact signal renderItemsOwned uses to flash a chip. Consonant
+    // Cluster procs on any word with a consonant; Illuminated Initial needs a
+    // matching previous-word first letter, so with previousWord null it stays
+    // silent -- a clean proc / non-proc pair from one hook run.
+    {
+      const player = { items: ['consonant_cluster', 'illuminated_initial'], rack: [] };
+      const ctx = {
+        player: player, monster: { hp: 100, maxHp: 100 },
+        word: 'CAT', tilesUsed: [], result: { damage: 10 },
+        previousWord: null, wordsPlayedThisFight: 2, messages: []
+      };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('8/8 proc-track: runHook exposes ctx.proccedItemIds', Array.isArray(ctx.proccedItemIds));
+      check('8/8 proc-track: a proccing item (Consonant Cluster) is recorded', ctx.proccedItemIds.indexOf('consonant_cluster') !== -1);
+      check('8/8 proc-track: a silent item (Illuminated Initial, no prev word) is NOT recorded', ctx.proccedItemIds.indexOf('illuminated_initial') === -1);
+    }
+
+    // (2) A message-less hook context (onPlayerDamaged / onRunStart) is not
+    // tracked -- runHook only collects when ctx.messages is present.
+    {
+      const player = { items: ['consonant_cluster'], rack: [] };
+      const ctx = { player: player, monster: { hp: 5, maxHp: 10 }, damage: 3 };
+      Items.runHook('onPlayerDamaged', ctx, player);
+      check('8/8 proc-track: a message-less hook context adds no proccedItemIds', ctx.proccedItemIds === undefined);
+    }
+
+    // (3) celebrateHit DOM: the CRUSHING floater + MAGNIFICENT banner are real
+    // elements appended to the live combat DOM (their animation timing is not
+    // checkable here, but their PRESENCE and placement are). Exposed via
+    // Game._celebrateHit so this doesn't depend on landing an exact big hit.
+    {
+      const combatPanel = document.getElementById('combat-panel');
+      const monsterInfo = document.getElementById('monster-info');
+      // Big hit (>= 25): a CRUSHING floater lands on the monster panel.
+      window.Wordbound.Game._celebrateHit(30, false);
+      check('8/8 CRUSHING: a big hit appends a .crushing-floater to monster-info',
+        !!(monsterInfo && monsterInfo.querySelector('.crushing-floater')));
+      check('8/8 CRUSHING: the floater reads "CRUSHING!"',
+        !!(monsterInfo && monsterInfo.querySelector('.crushing-floater') && monsterInfo.querySelector('.crushing-floater').textContent === 'CRUSHING!'));
+      // Small hit (< 25): no floater.
+      const crushBefore = monsterInfo ? monsterInfo.querySelectorAll('.crushing-floater').length : 0;
+      window.Wordbound.Game._celebrateHit(10, false);
+      check('8/8 CRUSHING: a small hit (< 25) adds no new floater',
+        !monsterInfo || monsterInfo.querySelectorAll('.crushing-floater').length === crushBefore);
+      // MAGNIFICENT banner on a long-word flag.
+      window.Wordbound.Game._celebrateHit(10, true);
+      check('8/8 MAGNIFICENT: the banner is appended to the combat panel',
+        !!(combatPanel && combatPanel.querySelector('.magnificent-banner')));
+      check('8/8 MAGNIFICENT: the banner reads "MAGNIFICENT!"',
+        !!(combatPanel && combatPanel.querySelector('.magnificent-banner') && combatPanel.querySelector('.magnificent-banner').textContent === 'MAGNIFICENT!'));
+      // clean the transient elements up so later DOM checks aren't confused
+      if (monsterInfo) monsterInfo.querySelectorAll('.crushing-floater').forEach((n) => n.remove());
+      if (combatPanel) combatPanel.querySelectorAll('.magnificent-banner').forEach((n) => n.remove());
+    }
+
+    // (4) item-chip-proc flash on render: renderItemsOwned reads
+    // state.proccedItemIds, flashes exactly those chips for ONE render, then
+    // clears the list. Driven through a real re-render (openDeckViewer/close,
+    // the existing test convention) rather than calling the private renderer.
+    {
+      const savedItems = state.player.items;
+      state.player.items = ['consonant_cluster', 'foreword'];
+      state.proccedItemIds = ['consonant_cluster'];
+      // renderItemsOwned runs (and consumes the flash) on the FIRST render --
+      // openDeckViewer's render -- so read the strip before closing again.
+      window.Wordbound.Game.openDeckViewer();
+      const chips = Array.from(document.querySelectorAll('#items-owned .item-chip'));
+      const proccedChip = chips.find((c) => c.textContent === Items.ITEM_DEFS['consonant_cluster'].name);
+      const otherChip = chips.find((c) => c.textContent === Items.ITEM_DEFS['foreword'].name);
+      check('8/8 chip-flash: the procced item chip renders with .item-chip-proc',
+        !!proccedChip && proccedChip.className.indexOf('item-chip-proc') !== -1);
+      check('8/8 chip-flash: a non-procced item chip does NOT get .item-chip-proc',
+        !!otherChip && otherChip.className.indexOf('item-chip-proc') === -1);
+      check('8/8 chip-flash: proccedItemIds is cleared after that one render', state.proccedItemIds.length === 0);
+      // Next render: the flash is gone (one-shot).
+      window.Wordbound.Game.closeDeckViewer();
+      const chip2 = Array.from(document.querySelectorAll('#items-owned .item-chip')).find((c) => c.textContent === Items.ITEM_DEFS['consonant_cluster'].name);
+      check('8/8 chip-flash: the flash is gone on the following render (one-shot)',
+        !!chip2 && chip2.className.indexOf('item-chip-proc') === -1);
+      state.player.items = savedItems;
+    }
+
+    // (5) MAGNIFICENT bonus gold (state logic) + combo-chip bump (DOM), driven
+    // through the REAL Game.submitWord so it proves the wiring, not just the
+    // constants. Enters a real uncleared combat node so a fight is live; SKIPs
+    // (never falsely fails) if the floor layout has none left at this point.
+    if (!state.combatActive) {
+      const nodes = (state.floor && state.floor.nodes) || [];
+      // Prefer an uncleared combat node; if the run has cleared them all by
+      // this point, un-clear one so a real fight (real startCombat path)
+      // starts -- fidelity over convenience.
+      let idx = nodes.findIndex((n, i) => i >= state.currentNodeIndex && !n.cleared && (n.type === 'combat' || n.type === 'elite'));
+      if (idx === -1) {
+        idx = nodes.findIndex((n) => n.type === 'combat' || n.type === 'elite');
+        if (idx !== -1) nodes[idx].cleared = false;
+      }
+      if (idx !== -1) {
+        state.currentNodeIndex = idx;
+        state.screen = 'RUN';
+        state.pendingEventSkipNextCombat = false;
+        window.Wordbound.Game.enterCurrentNode();
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
+    if (state.combatActive && state.monster) {
+      const Lexicon = window.Wordbound.Lexicon;
+      let longWord = null;
+      for (let i = 0; i < WORDLIST.length; i++) {
+        if (WORDLIST[i].length === 7 && Lexicon.isValidWord(WORDLIST[i])) { longWord = WORDLIST[i]; break; }
+      }
+      if (!longWord) {
+        console.log('SKIP 8/8 magnificent-gold check -- no 7-letter word in the wordlist (should never happen)');
+      } else {
+        // Controlled rack that spells the word; monster raised out of reach so
+        // the fight survives (a kill would end it and roll rewards). Plain
+        // trait so the word actually deals damage (no immunity multiplier 0).
+        state.player.rack = longWord.split('').map((l) => Tiles.createTile(l, null));
+        state.monster.maxHp = 100000;
+        state.monster.hp = 100000;
+        state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+        state.hexedTileId = null;
+        state.selectedTileIds = [];
+        state.blankAssignments = {};
+        const goldBefore = state.player.gold;
+        document.getElementById('word-input').value = longWord;
+        document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 300));
+        check('8/8 magnificent-gold: playing a 7-letter word produces zero errors', errors.length === 0);
+        if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+        check('8/8 magnificent-gold: a 7-letter word granted exactly +5 bonus gold', state.player.gold === goldBefore + 5);
+        check('8/8 magnificent-gold: the bonus is announced with "MAGNIFICENT!"', state.messages.some((m) => m.indexOf('MAGNIFICENT!') !== -1));
+        check('8/8 combo-bump: the (advanced) combo chip rendered with .combo-chip-bump', !!document.querySelector('.combo-chip.combo-chip-bump'));
+      }
+    } else {
+      console.log('SKIP 8/8 magnificent-gold + combo-bump checks -- no live fight active at this point (layout-dependent, not a bug)');
+    }
+  }
+
   // FUN OVERHAUL 6/8 (GOALS.md, 2026-08-20): elites as opt-in risk/reward.
   // Runs last (it replaces the floor/monster). Isolated floor-generation
   // checks + a live elite fight driven to a kill to prove the resistance
