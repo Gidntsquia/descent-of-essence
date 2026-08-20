@@ -30,6 +30,11 @@
 //     rates are a floor, not a ceiling, on human performance.
 //   - jsdom has no Web Audio API; audio paths are inert here (already true of
 //     npm test). Nothing in this script depends on them.
+//   - (Fixed 2026-08-20, see the combat-loop's effectiveRack filter) the bot
+//     used to be unaware of a monster's Hex lock and could loop proposing
+//     the same rejected word to MAX_WORDS_PER_COMBAT, reporting a false
+//     stall with 0 damage taken on both sides. Noted here since it was the
+//     root cause behind a run of misleadingly bad gate numbers.
 
 const fs = require('fs');
 const path = require('path');
@@ -294,7 +299,24 @@ async function playRun(win, anagramMap, strategy, runIndex) {
       }
 
       while (state.combatActive && encounter.words < MAX_WORDS_PER_COMBAT) {
-        const candidates = findPlayableWords(win, anagramMap, state.player.rack, state.monster, {
+        // A Hex'd tile (monster intent, "FUN OVERHAUL 2/8") is locked for
+        // this turn -- game.js's real submitWord pulls it out of the rack
+        // before word-formation runs (see game.js ~line 507), so a real
+        // player simply can't use it (the UI greys it out). Without this
+        // filter here too, the bot could keep proposing the SAME word that
+        // needs the hexed tile every iteration: Game.submitWord rejects it
+        // (result is null), the turn never actually advances (no monster
+        // counterattack, no rack cycle, the hex never clears), and the loop
+        // burns all the way to MAX_WORDS_PER_COMBAT reporting a false
+        // "stall" with 0 damage taken on both sides -- a simulation
+        // artifact, not a real player experience. Found via the gate-#3
+        // balance-simulation re-run (2026-08-20): every stall in that run
+        // was against a hex-carrying def and showed ~0 damageTaken, see
+        // PROGRESS.md.
+        const effectiveRack = state.hexedTileId
+          ? state.player.rack.filter((t) => t.id !== state.hexedTileId)
+          : state.player.rack;
+        const candidates = findPlayableWords(win, anagramMap, effectiveRack, state.monster, {
           stopAtFirstDamaging: strategy === 'first',
           rackCapacity: win.Wordbound.Items.getRackCapacity(state.player),
         }, state.comboState);
