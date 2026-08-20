@@ -107,6 +107,58 @@ async function main() {
     floorReplay1 === floorReplay2 && seedReplay1 === Game._state.rng.seed
   );
 
+  // ---- Part 6: event RNG determinism (review B1) ----
+  // events.js's random-outcome events (lucky_scroll, empty_shelf's item hunt,
+  // cursed_tome) used to guard on `window.Wordbound.RNG`, which is never
+  // assigned anywhere (the RNG module registers at `window.Game.RNG`), so the
+  // guard was always falsy and every roll silently fell through to
+  // `Math.random()` even inside a seeded run. Verify the fix by building two
+  // independent RNG streams from the SAME seed and running each event's
+  // effect against a fresh player state twice -- run many trials, since a
+  // Math.random()-based regression would only mismatch non-deterministically
+  // (a single trial could pass by a 50/50 coincidence).
+  const Events = window.Wordbound.Events;
+  const RNGModule = window.Game.RNG;
+
+  function runEventTrial(eventId, choiceIndex, seedStr) {
+    const state = {
+      rng: RNGModule.create(seedStr),
+      player: { hp: 10, maxHp: 20, gold: 0, items: [] }
+    };
+    const msg = Events.EVENT_DEFS[eventId].choices[choiceIndex].effect(state);
+    return { hp: state.player.hp, gold: state.player.gold, items: state.player.items.join(','), msg };
+  }
+
+  let luckyScrollDeterministic = true;
+  let emptyShelfDeterministic = true;
+  let cursedTomeDeterministic = true;
+  for (let i = 0; i < 20; i++) {
+    const seedStr = 'event-determinism-trial-' + i;
+    const a = runEventTrial('lucky_scroll', 0, seedStr);
+    const b = runEventTrial('lucky_scroll', 0, seedStr);
+    if (a.hp !== b.hp || a.gold !== b.gold || a.msg !== b.msg) luckyScrollDeterministic = false;
+
+    const c = runEventTrial('empty_shelf', 1, seedStr);
+    const d = runEventTrial('empty_shelf', 1, seedStr);
+    if (c.hp !== d.hp || c.items !== d.items || c.msg !== d.msg) emptyShelfDeterministic = false;
+
+    const e = runEventTrial('cursed_tome', 0, seedStr);
+    const f = runEventTrial('cursed_tome', 0, seedStr);
+    if (e.hp !== f.hp || e.items !== f.items || e.msg !== f.msg) cursedTomeDeterministic = false;
+  }
+  check('lucky_scroll: same seed -> identical outcome across 20 trials (uses state.rng, not Math.random)', luckyScrollDeterministic);
+  check('empty_shelf item hunt: same seed -> identical outcome across 20 trials', emptyShelfDeterministic);
+  check('cursed_tome: same seed -> identical outcome across 20 trials', cursedTomeDeterministic);
+
+  // Sanity: different seeds should be ABLE to differ -- confirms the roll
+  // isn't hardcoded to a single branch regardless of seed.
+  const goldOutcomes = [];
+  for (let i = 0; i < 10; i++) {
+    goldOutcomes.push(runEventTrial('lucky_scroll', 0, 'variety-seed-' + i).gold);
+  }
+  const allSameOutcome = goldOutcomes.every((g) => g === goldOutcomes[0]);
+  check('lucky_scroll: different seeds produce varied outcomes (roll is not hardcoded)', !allSameOutcome);
+
   console.log('');
   if (failures === 0) {
     console.log('ALL CHECKS PASSED');

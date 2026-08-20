@@ -54,8 +54,7 @@
               state.player.hp = Math.max(0, state.player.hp - 3);
               return 'The pages cut deep, but offer nothing you don\'t already own.';
             }
-            var RNG = window.Wordbound && window.Wordbound.RNG;
-            var itemId = RNG ? state.rng.choice(available) : available[Math.floor(Math.random() * available.length)];
+            var itemId = state.rng.choice(available);
             state.player.items.push(itemId);
             state.player.hp = Math.max(0, state.player.hp - 3);
             return 'You claim ' + Items.ITEM_DEFS[itemId].name + '. The pages settle, content.';
@@ -77,8 +76,7 @@
         {
           text: 'Take the risk: Read it (50% chance: +25 gold or −2 HP)',
           effect: function (state) {
-            var RNG = window.Wordbound && window.Wordbound.RNG;
-            var roll = RNG ? state.rng.chance(0.5) : Math.random() < 0.5;
+            var roll = state.rng.chance(0.5);
             if (roll) {
               state.player.gold += 25;
               return 'A fascinating passage! You pocket the page—and somehow it becomes gold.';
@@ -112,15 +110,14 @@
         {
           text: 'Hunt for forgotten treasures: 50% chance to find an item',
           effect: function (state) {
-            var RNG = window.Wordbound && window.Wordbound.RNG;
-            var roll = RNG ? state.rng.chance(0.5) : Math.random() < 0.5;
+            var roll = state.rng.chance(0.5);
             if (roll) {
               var Items = window.Wordbound && window.Wordbound.Items;
               if (Items) {
                 var owned = state.player.items;
                 var available = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
                 if (available.length > 0) {
-                  var itemId = RNG ? state.rng.choice(available) : available[Math.floor(Math.random() * available.length)];
+                  var itemId = state.rng.choice(available);
                   state.player.items.push(itemId);
                   return 'Deep in a forgotten corner, you discover ' + Items.ITEM_DEFS[itemId].name + '. How did it get here?';
                 }

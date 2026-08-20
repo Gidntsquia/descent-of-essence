@@ -5327,3 +5327,87 @@ player-facing bug fixes, didn't bump version either. Left at v0.10.
 `window.Wordbound.RNG`, which is never assigned (RNG registers at
 `window.Game.RNG`). That's a smaller, well-scoped three-line fix; a good
 pickup for the next run.
+
+---
+
+## 2026-08-20T06:21Z -- Seeded-run event determinism (review B1) FIXED
+
+**Repo-state note before the task write-up:** this run started with the
+container's local `main` branch badly stale (pointing at a leftover
+pre-rewrite commit, `115e324`, with zero shared history with `origin/main`
+-- `git merge-base` found no common ancestor at all). `origin/main` (47d9239,
+matching everything in this file and GOALS.md) was clearly the real,
+current state. Reset local `main` to `origin/main` with `git reset --hard
+origin/main` before doing anything else; no work was lost by this since
+local `main`'s 3 unique commits were just the old, superseded pre-rewrite
+history, not unpushed work. Flagging this in case it recurs -- if a future
+run finds GOALS.md/PROGRESS.md look wildly out of sync with what it just
+read, check `git log --oneline` vs `origin/main` before trusting the
+working tree.
+
+**Task:** GOALS.md's first unchecked item -- `js/wordbound/events.js`'s
+three random-outcome events (`lucky_scroll`'s 50/50 gold-or-HP roll,
+`empty_shelf`'s 50% item-hunt roll, `cursed_tome`'s random item pick) each
+guarded on `var RNG = window.Wordbound && window.Wordbound.RNG;` before
+deciding whether to use `state.rng` (the seeded PRNG) or `Math.random()`.
+`window.Wordbound.RNG` is never assigned anywhere -- the RNG module
+registers at `window.Game.RNG` (`js/core/rng.js`, `js/core/namespace.js`)
+-- so the guard was always falsy and all three rolls silently used
+`Math.random()` even during a seeded run, contradicting the v0.10
+seeded-runs feature's whole premise.
+
+**Fix (js/wordbound/events.js):** deleted the three dead
+`window.Wordbound.RNG` guards and call `state.rng.chance(...)` /
+`state.rng.choice(...)` directly -- `state.rng` always exists during a run
+(`Game.startRun` sets it via `RNG.create(state.runSeed)` before any node,
+including an event node, can be reached). Exactly the three-line fix the
+ticket described, no other changes to events.js.
+
+**Test extension (test/verify-seeded-runs.js):** added Part 6 -- for each
+of the three affected events, build two independent seeded RNG streams
+from the SAME seed string, run the event's `effect(state)` against a fresh
+player state on each, and assert identical HP/gold/items/log-message
+outcomes. Ran across 20 different seeds per event (60 total trials) rather
+than one, since a `Math.random()`-based regression wouldn't reliably fail a
+single trial (a 50/50 roll matches by chance half the time) -- 20 trials
+makes a real regression's failure probability effectively 1. Also added one
+sanity check that different seeds CAN produce different outcomes (rules out
+a fix that's accidentally hardcoded to one branch). **Verified the test
+actually catches the bug**, not just that it passes post-fix: stashed only
+the events.js fix (keeping the new test), reran, and got 3 clean FAILs
+(lucky_scroll/empty_shelf/cursed_tome) with the pre-fix code, then restored
+the fix and got all-green again.
+
+**Verification:**
+- `npm test` (jsdom, `test/dom-check.js`): 23/23, unaffected (this file
+  doesn't touch events.js's code paths).
+- `node test/verify-seeded-runs.js`: 15/15, including the 3 new
+  determinism checks and the variety sanity check.
+- `npm run test:qa` (real Chromium/Playwright, full boss-reward
+  playthrough, exercises the live game loop end to end including node
+  navigation): 24/24, zero console/page errors.
+- Not CSS/layout-touching, so `npm run test:mobile` wasn't required by the
+  top-of-file rules; skipped.
+- **What this does and doesn't prove:** confirms the three event rolls now
+  draw from the seeded stream and reproduce identically given the same
+  seed, in isolation and via the full jsdom+Playwright game loop. Doesn't
+  hand-verify a full real-browser replay of an actual run that happens to
+  land on one of these three specific events mid-floor (the existing
+  `verify-seeded-runs.js` floor-fingerprint check doesn't walk into events)
+  -- the isolated-effect-function trials are a direct, sufficient test of
+  the actual bug (which was in the effect functions themselves, not in how
+  they're invoked), so this wasn't treated as a gap worth chasing further.
+
+**Checked off in GOALS.md** (`- [x]`) with a `FIXED 2026-08-20T06:21Z` note.
+
+**Version:** not bumped -- this is a silent-bug fix restoring documented
+existing behavior (v0.10's seeded-runs promise), not a new feature or a
+player-visible change; matches this file's precedent for similarly-scoped
+bug fixes (killing-blow feedback, touch double-fire) not bumping either.
+Left at v0.10.
+
+**Current state:** v0.10, `npm test` 23/23, `verify-seeded-runs.js` 15/15,
+`npm run test:qa` 24/24. Next unchecked GOALS.md item: BUG (review B2) --
+the Foreword item's unused-tile-count double-subtraction
+(`js/wordbound/items.js` line 283), a one-line fix with a clear repro in
+the ticket text. Good pickup for the next run.

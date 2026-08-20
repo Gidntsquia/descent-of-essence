@@ -90,7 +90,7 @@ Rules for the routine:
       open window required that wasn't in the ticket text, and the
       test:qa timing bump.
 
-- [ ] BUG (review B1), high priority: seeded runs silently lose determinism
+- [x] BUG (review B1), high priority: seeded runs silently lose determinism
       at every event with a random outcome, contradicting the v0.10
       seeded-runs feature ("same seed + character + unlock state reproduces
       the run"). js/wordbound/events.js lines 57, 80, and 115 each do
@@ -111,6 +111,8 @@ Rules for the routine:
       twice (set state directly or replay to an event node on a seed known to
       contain one) and assert the random branch resolves identically both
       times; different seeds may differ.
+      FIXED 2026-08-20T06:21Z: see PROGRESS.md for the fix and the new
+      determinism assertions added to test/verify-seeded-runs.js.
 
 - [ ] BUG (review B2): the Foreword item (rare, "+1 damage per unused tile")
       almost never grants its bonus. js/wordbound/items.js line 283:
