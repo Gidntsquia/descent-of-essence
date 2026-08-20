@@ -3973,7 +3973,7 @@ ticket warns about.)
 
 ---
 
-## 2026-08-20T03:07Z (orchestrator, continued -- softlock fix)
+## 2026-08-20T02:56Z (orchestrator, continued -- softlock fix)
 
 Fixed the queue's top ticket directly rather than leaving a game-breaking softlock
 live for an hour: the event-skip flag ("Sit and breathe" -> skip next fight)

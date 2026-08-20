@@ -53,7 +53,7 @@ Rules for the routine:
 
 - [x] BUG, high priority (softlock, game-breaking): skipping a fight via the
       "Sit and breathe" event choice permanently strands the run if the
-      skipped fight turns out to be that floor's boss. FIXED 2026-08-20T03:05Z
+      skipped fight turns out to be that floor's boss. FIXED 2026-08-20T02:56Z
       (orchestrator, directly -- game-breaking bugs don't wait an hour): exact
       fix as specified below, verified by the new
       test/verify-boss-skip-softlock-fix.js (11/11: floors 1->2->3 all land
