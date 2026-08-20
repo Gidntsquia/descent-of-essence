@@ -114,7 +114,7 @@ Rules for the routine:
       FIXED 2026-08-20T06:21Z: see PROGRESS.md for the fix and the new
       determinism assertions added to test/verify-seeded-runs.js.
 
-- [ ] BUG (review B2): the Foreword item (rare, "+1 damage per unused tile")
+- [x] BUG (review B2): the Foreword item (rare, "+1 damage per unused tile")
       almost never grants its bonus. js/wordbound/items.js line 283:
       `var unusedCount = (ctx.player.rack || []).length - ctx.tilesUsed.length;`
       -- but by the time onWordPlayed hooks fire, Combat.playWord has ALREADY
@@ -127,6 +127,8 @@ Rules for the routine:
       VERIFICATION: `npm test` 16/16 plus a targeted assertion: give the
       test player Foreword, play a known word from a known rack, assert
       result.damage includes exactly rack-size-minus-word-length extra.
+      FIXED 2026-08-20T06:42Z: see PROGRESS.md for the fix and the new
+      jsdom Foreword assertion in test/dom-check.js.
 
 - [ ] BALANCE (review N1/N2/N3), high priority, larger task: regular fights
       can't touch a competent player, which kills most of the game's systems.

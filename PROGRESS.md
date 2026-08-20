@@ -5542,3 +5542,77 @@ and new diagnostics/checks (`diag-deathbeat-rack.js`,
 **Current state:** v0.10, tip `07e6d8d` (unchanged by this pass). GOALS.md
 queue unchanged. Next unchecked item: BUG (review B2) -- the Foreword item's
 unused-tile-count double-subtraction.
+
+---
+
+## 2026-08-20T06:42Z -- Foreword item unused-tile-count bug (review B2) FIXED
+
+**Repo-state note:** container's local `main` was again a detached HEAD
+pointing at a stale pre-rewrite commit (`115e324`, no shared history with
+`origin/main`), same class of issue the prior run flagged. Ran `git fetch
+origin main` then `git checkout -B main origin/main` to get onto the real,
+current history (`07e6d8d`, matching this file and GOALS.md) before doing
+any work. No work lost -- confirmed clean working tree before switching.
+
+**Task:** GOALS.md's first unchecked item -- the Foreword item ("+1 damage
+per unused tile", rare) computed its bonus as `(ctx.player.rack ||
+[]).length - ctx.tilesUsed.length` (`js/wordbound/items.js` line 283).
+Verified the ticket's root-cause claim directly by reading the call chain:
+`Combat.playWord` (`js/wordbound/combat.js` line 40) calls
+`Lexicon.removeTiles(player.rack, formed.tilesUsed)` *before* returning,
+and `game.js`'s `submitWord` (line 497) fires `Items.runHook('onWordPlayed',
+ctx, ...)` using that already-mutated `player.rack` -- so by hook time
+`ctx.player.rack.length` already IS the unused-tile count, and subtracting
+`ctx.tilesUsed.length` a second time double-counted (undercounting, or
+going negative and suppressing the bonus entirely on any word using half or
+more of the rack).
+
+**Fix (`js/wordbound/items.js` line 283):** exactly the one-line fix the
+ticket specified -- `var unusedCount = (ctx.player.rack || []).length;`.
+
+**Test added (`test/dom-check.js`):** a new isolated block right after the
+`window.Wordbound.Game exists` check (before the live-run flow starts, so
+it doesn't depend on run/combat state) -- builds a synthetic 7-tile rack
+(`C,A,T,D,G,L,N`), a synthetic player with `items: ['foreword']`, and a
+synthetic monster with a `plain` trait phase (multiplier 1, so the math is
+exact and not trait-dependent), calls `Combat.playWord(player, monster,
+'CAT')` directly (3 of the 7 tiles used, 4 left over), then builds the same
+`ctx` shape `submitWord` builds and calls `Items.runHook('onWordPlayed',
+ctx, player)`, asserting `result.damage` increased by exactly 4 (the true
+unused count) rather than the old buggy 4-3=1. **Verified the test actually
+catches the bug**, not just that it passes post-fix: `git stash push --
+js/wordbound/items.js` (keeping the new test), reran `npm test`, got a
+clean `FAIL Foreword (review B2): bonus damage equals unused tile count
+(4)` against the pre-fix code, then `git stash pop` to restore the fix and
+confirmed all-green again.
+
+**Verification:**
+- `npm test` (jsdom, `test/dom-check.js`): 25/25 (23 previous + 2 new --
+  the Foreword damage assertion and its own setup-sanity check that "CAT"
+  is actually playable from the synthetic rack).
+- Confirmed test/fix pairing both directions as described above (fails
+  without the fix, passes with it).
+- Not CSS/layout-touching and no event-handling/rendering changes beyond
+  the existing damage-application codepath already covered by other
+  checks, so `npm run test:mobile` and `npm run test:qa` weren't required
+  by the top-of-file rules or called for by this ticket's own VERIFICATION
+  text; skipped both to stay scoped. (Nothing about this fix plausibly
+  regresses either -- it only changes which number gets passed to the
+  same, already-tested `applyBonusDamage` helper.)
+
+**Checked off in GOALS.md** (`- [x]`) with a `FIXED 2026-08-20T06:42Z` note.
+
+**Version:** not bumped -- silent-bug fix restoring documented item
+behavior, not a new feature or player-visible change beyond "the item now
+actually works as described," matching this file's precedent for
+similarly-scoped bug fixes (killing-blow feedback, seeded-run
+determinism). Left at v0.10.
+
+**Current state:** v0.10, `npm test` 25/25. Next unchecked GOALS.md item:
+BALANCE (review N1/N2/N3), high priority, larger task -- the regular-fight
+tuning pass (monster HP bands / length-bonus / bingo-gating / overkill-gold
+cap) using `test/balance-simulation.js`. This is a bigger, judgment-heavy
+task (explicitly "implementing run's judgment on the mix, validate with
+simulation rather than guessing") that the ticket itself says may take
+multiple runs -- a good candidate to pick up fresh next hour rather than
+starting it in whatever time remains here.

@@ -79,6 +79,32 @@ async function main() {
     process.exit(1);
   }
 
+  // Foreword item (review B2): its unused-tile-count bonus used to be
+  // computed as `rack.length - tilesUsed.length`, but Combat.playWord
+  // already removes played tiles from the rack BEFORE onWordPlayed hooks
+  // run, so by hook time `rack.length` already IS the unused count and the
+  // subtraction double-counted (undercounting or going negative). Isolated
+  // check with a synthetic player/monster/rack, independent of the live run
+  // state exercised below -- doesn't need a run in progress.
+  {
+    const Combat = window.Wordbound.Combat;
+    const Tiles = window.Wordbound.Tiles;
+    const Items = window.Wordbound.Items;
+    const rack = ['C', 'A', 'T', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+    const player = { rack: rack, items: ['foreword'], hp: 20, maxHp: 20 };
+    const monster = { hp: 100, maxHp: 100, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+    const result = Combat.playWord(player, monster, 'CAT');
+    check('Foreword test setup: "CAT" is playable from the synthetic 7-tile rack', !!result);
+    if (result) {
+      const damageBeforeHook = result.damage;
+      const ctx = { player: player, monster: monster, word: result.word, tilesUsed: result.tilesUsed, result: result };
+      Items.runHook('onWordPlayed', ctx, player);
+      // CAT uses 3 of the 7 rack tiles, leaving 4 unused -- Foreword should
+      // add exactly +4 damage, not rack.length(4) - tilesUsed.length(3) = 1.
+      check('Foreword (review B2): bonus damage equals unused tile count (4)', result.damage === damageBeforeHook + 4);
+    }
+  }
+
   document.getElementById('btn-new-run').dispatchEvent(new window.Event('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 50));
   check('starting a run produces zero errors', errors.length === 0);
