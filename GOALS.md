@@ -51,6 +51,286 @@ Rules for the routine:
 
 ## Queue
 
+<!-- The 12 tickets below were queued 2026-08-20 from a full bugs/feel/fun
+     review Jaxon requested and approved (review artifact + full findings in
+     the session that queued these; finding IDs like B1/F2/N1 refer to it).
+     Ordered: quick high-value bugs first, then the balance rework, then
+     feel/polish, then design-flavored additions. -->
+
+- [ ] BUG/FEEL (review B3/F1), high priority: the killing blow produces NO
+      feedback at all -- no damage number, no HP-bar flash, no hit sound, no
+      death beat. In `Game.submitWord` (js/wordbound/game.js ~line 510-514),
+      the monster-death branch calls `onMonsterDefeated(...)` and returns;
+      `animateDamage()`, the flash, and `playCombatSound()` only run in the
+      monster-survives branch further down. Since current balance means many
+      fights end on the FIRST word, most fights currently show zero combat
+      feedback of any kind: word submitted -> hard cut to the tile-reward
+      panel. Verified live in a scripted Chromium playthrough (one-shot the
+      first monster; a screenshot 320ms after submit already showed the
+      reward screen).
+      FIX: on the death path, still show the damage number + play the hit
+      sound + flash the HP bar (which will visibly hit 0), hold a short death
+      beat (~500ms -- e.g. dim/fade the monster-info panel via a CSS class),
+      THEN call onMonsterDefeated/render. Keep the beat short and
+      non-blocking (a setTimeout, same pattern as TILE_PLAY_ANIM_MS). Careful
+      with render ordering -- render() rebuilds monster-info's innerHTML and
+      would destroy the damage-number element (this exact class of bug is in
+      the top-of-file warning); run the animation on the still-rendered
+      combat DOM BEFORE the screen switches.
+      VERIFICATION: `npm test` (it already asserts damage-number/flash
+      presence for the survive path -- add the same assertions for a killing
+      blow: play a word that kills, confirm the damage number + flash exist
+      during the beat, and that the tile-reward screen still arrives
+      afterward). `npm run test:qa` must stay 24/24 (it drives full fights --
+      watch that added delay doesn't break its waits; bump its timeouts if
+      needed, not the game's). Audio can't be verified in jsdom -- say so.
+
+- [ ] BUG (review B1), high priority: seeded runs silently lose determinism
+      at every event with a random outcome, contradicting the v0.10
+      seeded-runs feature ("same seed + character + unlock state reproduces
+      the run"). js/wordbound/events.js lines 57, 80, and 115 each do
+      `var RNG = window.Wordbound && window.Wordbound.RNG;` and then
+      `RNG ? state.rng.xxx(...) : Math.random()...` -- but `window.Wordbound
+      .RNG` is NEVER assigned anywhere (the RNG module registers at
+      `window.Game.RNG`; verified by grep), so the guard is always falsy and
+      all three rolls (lucky_scroll's 50/50, empty_shelf's 50% item hunt,
+      cursed_tome's random item pick) always use `Math.random()`. The
+      existing test/verify-seeded-runs.js passes because it only checks floor
+      layout + first monster, never an event outcome.
+      FIX: delete the broken guard and call `state.rng.chance(...)` /
+      `state.rng.choice(...)` unconditionally -- `state.rng` always exists
+      during a run (events can only fire from a run). Three small edits, all
+      in events.js.
+      VERIFICATION: `npm test` 16/16. Extend test/verify-seeded-runs.js (or
+      add a targeted jsdom check): force the same event with the same seed
+      twice (set state directly or replay to an event node on a seed known to
+      contain one) and assert the random branch resolves identically both
+      times; different seeds may differ.
+
+- [ ] BUG (review B2): the Foreword item (rare, "+1 damage per unused tile")
+      almost never grants its bonus. js/wordbound/items.js line 283:
+      `var unusedCount = (ctx.player.rack || []).length - ctx.tilesUsed.length;`
+      -- but by the time onWordPlayed hooks fire, Combat.playWord has ALREADY
+      removed the played tiles from the rack (combat.js calls
+      Lexicon.removeTiles before returning), so `rack.length` already IS the
+      unused count and subtracting `tilesUsed.length` double-counts: 7-tile
+      rack + 4-letter word = 3 - 4 = -1 -> no bonus (correct: 3). It only
+      fires when the word is shorter than half the rack, and undercounts then.
+      FIX: `var unusedCount = (ctx.player.rack || []).length;`. One line.
+      VERIFICATION: `npm test` 16/16 plus a targeted assertion: give the
+      test player Foreword, play a known word from a known rack, assert
+      result.damage includes exactly rack-size-minus-word-length extra.
+
+- [ ] BALANCE (review N1/N2/N3), high priority, larger task: regular fights
+      can't touch a competent player, which kills most of the game's systems.
+      Numbers as shipped: any 6-letter word scores ~30+ (length bonus
+      js/wordbound/lexicon.js line 113: +3/letter past 4; bingo line 114:
+      +15 at 7 tiles) while EVERY regular monster has 6-22 HP
+      (js/wordbound/monsters.js) -- so long words one-shot everything
+      non-boss before trait multipliers even apply. Monsters only
+      counterattack when they survive the word (game.js submitWord), so a
+      player with vocabulary takes literally zero damage outside boss
+      fights -- HP, rest nodes, healing items (Vowel Leech, Marginalia,
+      Errata Slips), and Thick Skin are dead weight for exactly the players
+      most likely to keep playing. Overkill gold (game.js onMonsterDefeated:
+      +floor(overkill*0.5)) then REWARDS the one-shot (+26 bonus gold on a
+      floor-1 fight observed live), trivializing the shop by floor 2. It
+      also buries the game's stated core hook -- weakness matching is
+      irrelevant when base damage one-shots (review N3).
+      GOAL (measurable, not vibes): a regular fight against a competent
+      player should average >= 1 monster counterattack (i.e. take 2-3 words
+      to win), so the HP/heal/gold economy exists; weak-tier fights on floor
+      1 may stay closer to 1-2 words so the early game stays welcoming.
+      SUGGESTED KNOBS (implementing run's judgment on the mix, validate with
+      simulation rather than guessing): raise regular monster HP bands
+      (weak ~15-20, normal ~28-38, strong ~45-60 as a starting hypothesis);
+      and/or trim the length bonus (e.g. +2/letter past 4) and gate the
+      bingo bonus to full-rack-only (tilesUsed === current rack capacity,
+      not a hardcoded 7 -- right now a Spare Satchel 8-tile rack gets the
+      bingo for a 7-of-8 word); consider capping overkill gold (e.g. at the
+      monster's base drop max) so one-shots aren't ALSO an economy exploit.
+      Boss HP/attack should be re-checked AFTER regular tuning (players will
+      now arrive with less HP and fewer items than today's zero-damage
+      runs).
+      USE test/balance-simulation.js (already exists, 30-run harness from
+      the 2026-08-19 balance pass) -- update its assumptions to the new
+      numbers and report before/after: average words per fight, average
+      player HP entering each boss, run win rate. Report the numbers in
+      PROGRESS.md so Jaxon can veto.
+      This is a tuning pass, NOT a mechanics rework: no new mechanics, no
+      changes to how counterattacks work. If simulation shows the targets
+      are unreachable by numbers alone, STOP, write up why, and flag for
+      Jaxon rather than inventing mechanics. Version bump to v0.11 when
+      complete (user-facing balance change).
+      VERIFICATION: `npm test` 16/16, `npm run test:qa` 24/24 (its
+      word-finder plays optimal-length words -- it directly exercises the
+      new numbers; its fights will take more words now, make sure its loop
+      caps tolerate that), balance-simulation before/after numbers in
+      PROGRESS.md.
+
+- [ ] BUG, small (review B4): every fight opens with a doubled article --
+      "A The Consonant Constrictor appears!" (js/wordbound/game.js line 371:
+      `log('A ' + state.monster.name + ' appears!')` while nearly every
+      monster name already starts with "The", and "Quoth" takes no article
+      at all). First line a player reads in every fight.
+      FIX: drop the 'A ' entirely (`state.monster.name + ' appears!'`) --
+      simplest and reads fine for every current name.
+      VERIFICATION: `npm test` 16/16; eyeball the log line in the test
+      output or a quick jsdom assertion that the message doesn't start
+      with "A The".
+
+- [ ] UX (review B5): staged-word editing is a trap. Clicking an
+      already-selected rack tile stages it AGAIN (selectTileForWord,
+      js/wordbound/game.js line 1006, has no dedupe/toggle), appending a
+      doubled letter that guarantees a confusing "not playable" rejection --
+      the same symptom the touch double-fire bug had, now reachable by any
+      mouse user. The only recovery is Clear, which wipes the whole word.
+      Also: clicking a blank ★ tile appends an empty string -- it highlights
+      as selected but visibly does nothing (blanks currently only work by
+      typing a word that needs them).
+      FIX: make clicking a selected tile DESELECT it -- remove its id from
+      state.selectedTileIds and rebuild #word-input from the remaining
+      selection in order (the selection array is the source of truth; don't
+      try to surgically edit the string). Keep typed input working exactly
+      as today (typing doesn't touch selectedTileIds -- fine, that's
+      existing behavior). For blanks, minimum viable: don't mark a blank
+      selected on click (make it a true no-op) and add one line to the How
+      to Play panel ("★ blanks: just type any word -- they fill in
+      automatically"); anything fancier (click blank -> type its letter) is
+      out of scope.
+      VERIFICATION: `npm test` plus new assertions: click tile -> letter
+      staged once; click same tile again -> letter removed, selectedTileIds
+      empty, .selected class gone; two different tiles then unclick first ->
+      input shows only second letter. Touch path must keep working --
+      re-run test/verify-touch-tap-fix.js (tap goes through the same
+      selectTileForWord).
+
+- [ ] FEEL (review F2): boss music never stops after the boss dies -- music
+      mode only changes in startCombat/startRun/endRun (js/wordbound/game.js
+      lines 167, 370, 183), so after a boss kill the tense square-wave loop
+      keeps playing through the tile reward, the boss hoard screen, and the
+      ENTIRE next floor's map until the next fight starts. Also minor, same
+      area: startCombat unconditionally stop+restarts music every fight even
+      when the mode isn't changing (normal -> normal), restarting the loop
+      from the top.
+      FIX: (1) in onMonsterDefeated (or resolveBossItemReward), when the
+      kill was a boss, switch back to normal music (or stop music -- pick
+      one and note it; switching to normal is probably right since the map
+      music IS the normal loop). (2) in startBackgroundMusic, early-return
+      if already playing the requested mode.
+      VERIFICATION: `npm test` 16/16 and `npm run test:qa` 24/24 (both
+      exercise the code path; neither can hear audio). jsdom/Playwright can
+      assert the internal mode variable if exposed for tests, or at minimum
+      assert no errors on the boss-kill path. Say plainly in PROGRESS.md
+      that actual audio behavior needs a real-browser ear check by Jaxon.
+
+- [ ] FEEL (review F3): every screen transition is a hard cut -- map ->
+      combat -> reward -> map all swap instantly via `hidden` class toggles;
+      the only entrance animation in the game is the boss's
+      (css/wordbound.css bossEntrance, line ~305). Add a short (150-250ms)
+      fade and/or slight rise animation to panel/screen appearances: a
+      single CSS animation on .combat-panel/.treasure-panel/.node-map (and
+      the main screens) when they become visible covers it -- reuse the
+      slideInTile/bossEntrance pattern. Respect prefers-reduced-motion
+      (wrap in the media query or disable via it). Do NOT delay input
+      availability -- animation is cosmetic, elements stay clickable
+      immediately (test:qa clicks fast; it will catch it if not).
+      VERIFICATION: `npm test` 16/16, `npm run test:qa` 24/24 (real clicks
+      through every transition), `npm run test:mobile` clean (CSS-layout
+      task -> mandatory gate per top-of-file rules).
+
+- [ ] POLISH batch, small (review F4) -- four cheap visual fixes, one run:
+      (1) the stock blue range slider (#music-volume) clashes with the
+      parchment/gold palette everywhere -- `accent-color: #f0d789` (or
+      similar) in css/wordbound.css;
+      (2) run-header wraps awkwardly even at 900px desktop ("HP 20 /" then
+      "20" on the next line, gold coin wrapping under HP) -- let the HP/gold/
+      floor labels keep natural width (white-space: nowrap on .hp-display /
+      .gold-display) and check flex-basis on .run-header children;
+      (3) the empty message log renders as a large dead black panel on the
+      first map view -- give #message-log a min-height reduction when empty
+      or a faint placeholder line ("The Stacks are quiet.") in the theme
+      voice;
+      (4) damage numbers always spawn dead-center at the same point
+      (game.js animateDamage, left/top 50%) -- add a small random offset
+      (±20-30px, plain Math.random is FINE here, it's cosmetic-only and
+      must NOT consume state.rng -- seeded-run determinism) and scale
+      font-size mildly with damage.
+      VERIFICATION: `npm run test:mobile` clean at 375/414 (CSS layout ->
+      mandatory), `npm test` 16/16, and desktop-width screenshots
+      (900-1024px) confirming the header no longer wraps -- the mobile gate
+      doesn't cover desktop, say what was eyeballed.
+
+- [ ] POLISH, small (review F4.5): tile-reward options render as three
+      full-width bars each containing one small letter -- while the rack
+      right above uses the game's nice .letter-tile styling. Restyle the
+      tile-reward (and boss-tile contexts if shared) choices to LOOK like
+      letter tiles: letter large with its point value in <sub>, bonus
+      description underneath, tile-sized buttons side by side instead of
+      stacked full-width bars (renderTileReward, game.js ~line 1317; CSS
+      .treasure-choice is shared with item choices -- add a modifier class
+      for tile-shaped choices rather than restyling the shared one).
+      VERIFICATION: `npm run test:mobile` clean (375/414 -- three tiles
+      side by side must not overflow; wrap if needed), `npm test` 16/16,
+      `npm run test:qa` 24/24 (it clicks these buttons).
+
+- [ ] DESIGN/BALANCE (review N4), do AFTER the balance ticket above lands:
+      restore boss fight arcs via multi-phase traits. The phase system
+      (traits.js activeTraitForHpRatio, monsters.js traitPhases) is built,
+      tested, and documented but unused -- all three bosses now have a
+      single phase, so a boss fight is "repeat your best word category 2-4
+      times." Give each boss 2 phases built ONLY from simple (bonus-on-
+      match, 1x baseline) traits -- e.g. Vowelmaw: vowelHungry above 50%,
+      doubled below; Unabridged Terror: lengthy then rareSeeker; Sovereign:
+      silentE then lengthy -- flavor picks are the implementing run's call,
+      note them in PROGRESS.md. Do NOT reuse the four resistance traits
+      (vowelless/palindromic/shortFuse/alphabetic, 0.3x floor) -- they were
+      removed from bosses deliberately (see the 2026-08-19/20 balance
+      history in this file). Also update monsters.js's header comment,
+      which still advertises multi-phase bosses that don't exist, and make
+      sure the in-combat weakness line updates when the phase flips
+      (renderCombat already recomputes from hp ratio -- verify, don't
+      assume; the node-map hint shows phase[0] only, which is fine, note
+      it).
+      VERIFICATION: `npm test` 16/16; `npm run test:qa` 24/24 (drives two
+      real boss fights); a targeted check that the displayed weakness text
+      changes when a boss crosses its threshold. Re-run
+      balance-simulation.js to confirm boss win rates stay in the band the
+      balance ticket established. Version bump (v0.12 or next) -- this is a
+      player-facing feature.
+
+- [ ] FEATURE (review N6): end-of-run stats screen. Victory/game-over
+      currently show one static line + the seed -- nothing to share or
+      screenshot, right when v0.10 made seeds visible. Track during the run
+      (in state, reset in startRun): words played, best word (highest
+      damage, store word + damage), total damage, monsters defeated, floors
+      cleared, gold earned. Show a compact stats block on BOTH game-over
+      and victory screens next to the seed (Achievements already tracks max
+      damage this run -- reuse/share rather than double-track if clean).
+      Keep it text -- no new panels/screens, just enrich the two existing
+      end screens. THEME.md voice for labels.
+      VERIFICATION: `npm test` plus assertions that a completed fight
+      increments the counters and the game-over screen renders them.
+      `npm run test:mobile` if the end-screen layout changes structurally.
+      Version bump.
+
+- [ ] CLEANUP, tiny (review B6): three drift/latent items, one run:
+      (1) js/wordbound/consumables.js -- comment says 12% drop chance, code
+      returns 0.20; comment claims rarity-weighted roll, code picks
+      uniformly. Fix the COMMENTS to match code (current behavior is fine),
+      or implement weighting if trivial -- either way make them agree.
+      (2) Game.useConsumable (game.js ~line 708) never checks monster death
+      after applying an effect -- safe today only because no consumable
+      deals direct damage; add the guard now (if monster.hp <= 0 route
+      through the same defeat path submitWord uses) or a loud comment at
+      minimum, so the first damaging consumable added doesn't ship a
+      0-HP-monster-still-fighting bug.
+      (3) monsters.js header comment still advertises multi-phase bosses
+      ("bosses have 2-3") -- true again only after the multi-phase ticket
+      above; sync whichever ships last.
+      VERIFICATION: `npm test` 16/16 (behavior should be unchanged unless
+      the useConsumable guard is added -- then add a targeted test for it).
+
 - [x] BUG, high priority: the touchscreen tap-to-play fix (commit a486e06,
       2026-08-20T00:59Z, "Fix touchscreen tap bug") double-fires on every
       tap -- each tapped rack tile's letter gets appended TWICE to

@@ -93,13 +93,16 @@ runs should look at to decide what's next once GOALS.md's queue empties.)
   emulated touch event is not the same as a real finger on real glass --
   worth 5 minutes on an actual phone before launch. Sandbox-only runs can't
   close this gap; it's Jaxon's to do.
-- **As of 2026-08-20T04:45Z, GOALS.md's queue and this known-gaps list are
-  both empty of anything the sandbox can act on.** Everything left above
-  needs Jaxon directly (a physical-device check, a feel/fun playtest, the
-  actual itch.io upload) or a product/scope decision only he can make
-  (meta-progression, if he wants it). Future runs: re-read this list fresh
-  rather than trusting this summary sentence, in case Jaxon added something
-  since.
+- **2026-08-20: full bugs/feel/fun review completed at Jaxon's request; 13
+  tickets queued in GOALS.md from it.** Headline findings: the killing blow
+  has zero feedback (and most fights end on it), seeded runs silently lose
+  determinism at event nodes (events.js uses Math.random via a broken
+  guard), and -- biggest -- regular monsters can't survive one decent word,
+  so a competent player takes zero damage outside boss fights and the whole
+  HP/heal/gold economy is dead weight (a BALANCE ticket with measurable
+  targets and a simulation requirement is in the queue). The launch-blocking
+  gaps that only Jaxon can close (physical-device touch check, feel/fun ear-
+  and-hands playtest, the actual itch.io upload) still stand.
 
 ## Draft store page copy (for Jaxon to review/edit, then paste into itch.io)
 

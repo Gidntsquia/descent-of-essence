@@ -5100,3 +5100,58 @@ sandbox-actionable busywork to invent.
 for an hourly sandbox run to pick up.** Future runs: re-read both files
 fresh rather than trusting this summary -- Jaxon may have added new items,
 or come back from a physical-device test with new findings to ticket.
+
+---
+
+## 2026-08-20T05:40Z -- Full bugs/feel/fun review (Jaxon, live) -> 13 new tickets queued
+
+Jaxon asked live in-session for a three-pass review of Wordbound: bugs,
+feel, and fun. This was a REVIEW run, not a fix run -- no game code was
+changed. Deliverables: a published review artifact (with screenshots from a
+real scripted playthrough) shared with Jaxon in-session, and, on his
+go-ahead, 13 new tickets at the TOP of GOALS.md's queue plus a refreshed
+ROADMAP.md known-gaps entry (the old "queue is empty" bullet was stale).
+
+**How the review was done:** full read of all 17 JS modules + CSS + both
+HTML entry points; `npm test` 16/16, `npm run test:mobile` clean at
+375/414px, `npm run test:qa` 24/24, zero console errors; plus a scripted
+Chromium playthrough (seed 340158248) with screenshots from main menu
+through first tile reward.
+
+**Headline findings (full details in the queued tickets, IDs B/F/N):**
+- B1: seeded runs silently lose determinism at events -- events.js guards on
+  `window.Wordbound.RNG`, which is never assigned (RNG registers at
+  `window.Game.RNG`), so all three event random rolls use Math.random().
+- B2: Foreword item double-subtracts played tiles (rack already has them
+  removed by onWordPlayed time) -- bonus almost never fires.
+- B3/F1: the killing blow renders NO feedback (death branch returns before
+  animateDamage/playCombatSound) -- and with current balance most fights end
+  on the first word, so most fights show no combat feedback at all.
+  Confirmed live: first fight one-shot, screenshot at +320ms already showed
+  the reward screen.
+- N1/N2: balance is degenerate -- any 6-letter word (~30+ score) one-shots
+  every regular monster (6-22 HP); monsters only counterattack if they
+  survive, so competent players take zero damage outside bosses; overkill
+  gold then REWARDS the one-shot. A BALANCE ticket with measurable targets
+  (regular fights should average >=1 counterattack) and a
+  balance-simulation.js before/after requirement is queued.
+- Plus: doubled article in every fight-open log line, no per-tile unstage
+  (re-click stages a letter twice), boss music never stops after a boss
+  dies, hard-cut screen transitions, stock blue volume slider, header
+  wrapping at desktop widths, bar-shaped tile rewards, single-phase bosses
+  (phase system built but unused), no end-of-run stats.
+
+**Queue order chosen:** quick high-value bugs (kill feedback, seed
+determinism, Foreword, grammar) -> the balance pass -> UX/feel polish ->
+design-flavored additions (multi-phase bosses explicitly AFTER the balance
+ticket; end-of-run stats; cleanup batch last).
+
+**What was verified vs. not:** everything above is from code reading plus
+real execution as described; audio was reasoned from the Web Audio code
+only (can't hear from the sandbox), real-device touch remains untested as
+always, and the N1/N2 analysis is arithmetic from scoring/monster tables
+spot-confirmed by one playthrough -- the balance ticket requires simulation
+numbers before/after rather than trusting this.
+
+**Current state:** v0.10, all suites green, no game-code changes this run.
+Next unchecked GOALS.md item: the B3/F1 kill-blow-feedback ticket.
