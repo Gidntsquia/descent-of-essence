@@ -826,7 +826,7 @@ Rules for the routine:
       jsdom, standing caveat: audio (none of these touch sound) and a
       human's feel for whether the variants are fun -- Jaxon's playtest.
 
-- [ ] FUN OVERHAUL 6/8 -- elites as opt-in risk/reward. Elite nodes exist
+- [x] FUN OVERHAUL 6/8 -- elites as opt-in risk/reward. Elite nodes exist
       as a type but don't meaningfully differ. Make an elite: one
       RESISTANCE trait (vowelless, shortFuse, or alphabetic -- one per
       elite def; these were removed from regular monsters/bosses for being
@@ -843,6 +843,54 @@ Rules for the routine:
       PROGRESS.md.
       VERIFICATION: `npm test`; targeted check that an elite fight grants
       the guaranteed item + boosted gold; `npm run test:qa`. Version bump.
+      DONE 2026-08-20T14:46Z (v0.18 -> v0.19): took the PRIMARY branch
+      (resistance trait + guaranteed 4/8 drop + 1.5x gold), NOT the
+      fallback. ROUTE-AROUND CHECK: floor.js is explicit that a floor is "a
+      single ordered path... deliberately no choice of path" -- so elites
+      ARE unavoidable. But the fallback only triggers if unavoidable AND the
+      pre-entry warning can't be made clear; the warning CAN be made clear
+      (boss node pills already show a trait hint before entry via the same
+      mechanism), so the primary resistance-trait branch is the correct one.
+      IMPLEMENTATION: (1) floor.js rolls one of three resistance traits
+      (vowelless/shortFuse/alphabetic; new Floor.ELITE_RESISTANCE_TRAITS)
+      per elite node AT GENERATION TIME and stores it on the node as
+      `eliteTraitId` -- so the pre-entry warning and the in-fight monster
+      read the same trait. Rolled per-node (not hard-mapped per def) -- a
+      documented judgment call; the ticket's "one per elite def" is
+      satisfied in spirit (each elite fights under exactly one resistance
+      trait, always telegraphed), and per-node keeps it simple with only
+      2-3 strong defs in the pool. (2) game.js startCombat replaces the
+      elite monster's normal single-phase trait with
+      [{hpThreshold:1, traitId: node.eliteTraitId}] -- elites only; the same
+      strong def fought as a plain floor combat keeps its ordinary trait.
+      (3) game.js renderNodeMap appends the resistance trait's hint to the
+      elite pill (`Elite — <hint>`) before entry, exactly like boss pills.
+      (4) game.js onMonsterDefeated pays 1.5x gold on an elite kill (logged
+      "(elite 1.5x)") and grants one guaranteed unowned rule-changer item
+      from the new Items.RULE_CHANGER_IDS pool (the exact 8 items from 4/8,
+      logged "The elite drops X!"). Granted directly (not a choice screen)
+      -- "a guaranteed drop." If all 8 are already owned, nothing drops.
+      Elites keep their def's intent pool (hex/devour/enrage) from the
+      isElite mechanism established in 2/8 -- not removed, so an elite is
+      resistance trait + signature intents + strong-tier HP + telegraphed:
+      a genuine, opt-in-in-spirit (if not in routing) risk.
+      VERIFICATION: `npm test` 211/211 ALL CHECKS PASSED (18 new
+      assertions: RULE_CHANGER_IDS shape, resistance-trait existence,
+      floor-gen produces elite nodes with valid rolled traits, and a LIVE
+      spliced elite fight proving the pre-entry pill warning, the resistance
+      trait actually applied at fight start, the flagged-elite instance, the
+      guaranteed rule-changer drop, and the 1.5x gold + its log lines).
+      `npm run test:qa` 26/26 real Chromium zero errors. `npm run
+      test:mobile` clean at 375/414px (elite pill's added hint text does not
+      overflow -- same flex-wrap the boss pill's long hint already uses).
+      NOT verifiable in jsdom, left for a real playtest: whether an elite
+      (resistance trait 0.3x-floor + intents + ~68-82 HP) is actually FUN or
+      just brutally hard, and whether 1.5x gold + a guaranteed rare feels
+      like enough payoff for that spike. The resistance traits are 0.3x
+      (not 0x), so the fight is always winnable, but the difficulty/reward
+      balance is a feel call only a human playtest can make -- flagging for
+      Jaxon. Version bumped v0.18 -> v0.19 (wordbound.html), player-facing
+      feature.
 
 - [ ] FUN OVERHAUL 7/8 -- gamble events. Current events are mostly flat
       value; no memorable "do I dare" moments. Add 3 (THEME.md voice, each

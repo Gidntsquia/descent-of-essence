@@ -410,6 +410,16 @@
     // instance here so Intents.rollIntent knows whether the def's signature
     // pool (hex/devour/mend/enrage) is actually live for this fight.
     state.monster.isElite = node.type === 'elite';
+    // FUN OVERHAUL 6/8 (GOALS.md, 2026-08-20): an elite fights with the
+    // resistance trait rolled onto its node at floor-generation time (the
+    // same trait the node pill already warned the player about), REPLACING
+    // the def's normal single-phase trait. Only for elites -- the same
+    // strong-tier def fought as a plain floor combat keeps its ordinary
+    // trait. Guarded on eliteTraitId so a save/floor generated before this
+    // change (no eliteTraitId) simply keeps the def's own trait.
+    if (state.monster.isElite && node.eliteTraitId) {
+      state.monster.traitPhases = [{ hpThreshold: 1.0, traitId: node.eliteTraitId }];
+    }
     // FUN OVERHAUL 5/8: a Volatile tile that cracked last fight is only
     // "unusable for the rest of the fight" -- clear the flag on every deck
     // tile (the persistent tile objects, not just this fight's pile) so it's
@@ -774,6 +784,10 @@
     // rest of this balance pass exists to discourage.
     var bonusGold = Math.min(goldDrop[1], Math.floor(overkill * 0.5));
     var totalGold = baseGold + bonusGold;
+    // FUN OVERHAUL 6/8 (GOALS.md, 2026-08-20): elites pay 1.5x gold, the
+    // reward half of their opt-in risk/reward.
+    var isElite = !!state.monster.isElite;
+    if (isElite) totalGold = Math.round(totalGold * 1.5);
     state.player.gold += totalGold;
     if (state.runStats) {
       state.runStats.monstersDefeated += 1;
@@ -782,8 +796,24 @@
 
     var goldMsg = 'Defeated ' + state.monster.name + '! Gained ' + totalGold + ' gold';
     if (bonusGold > 0) goldMsg += ' (including ' + bonusGold + ' overkill bonus)';
+    if (isElite) goldMsg += ' (elite 1.5x)';
     goldMsg += '.';
     log(goldMsg);
+
+    // FUN OVERHAUL 6/8: an elite guarantees a rule-changer item (the 4/8
+    // pool). Granted directly rather than as a choice screen -- "a guaranteed
+    // drop" -- from the items the player doesn't already own. If somehow all
+    // 8 are owned, nothing drops (rare, and there's nothing left to give).
+    if (isElite && Items.RULE_CHANGER_IDS) {
+      var unownedRuleChangers = Items.RULE_CHANGER_IDS.filter(function (id) {
+        return state.player.items.indexOf(id) === -1;
+      });
+      if (unownedRuleChangers.length > 0) {
+        var granted = state.rng.choice(unownedRuleChangers);
+        state.player.items.push(granted);
+        log('The elite drops ' + Items.ITEM_DEFS[granted].name + '!');
+      }
+    }
 
     // Small chance to drop a consumable item
     if (Wordbound.Consumables && state.rng.next() < Wordbound.Consumables.getConsumableDropChance()) {
@@ -1551,6 +1581,18 @@
           if (traitDef && traitDef.hint) {
             label += ' — ' + traitDef.hint;
           }
+        }
+      }
+
+      // FUN OVERHAUL 6/8 (GOALS.md, 2026-08-20): warn BEFORE entry on an
+      // elite -- these carry a punishing resistance trait, so surfacing its
+      // exact weakness on the pill is what makes the resistance fair (the
+      // player walks in knowing how to hurt it). Same trait-hint mechanism
+      // the boss pills already use, reading the node's rolled eliteTraitId.
+      if (node.type === 'elite' && node.eliteTraitId) {
+        var eliteTraitDef = Traits.TRAITS[node.eliteTraitId];
+        if (eliteTraitDef && eliteTraitDef.hint) {
+          label += ' — ' + eliteTraitDef.hint;
         }
       }
 

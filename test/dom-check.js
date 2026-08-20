@@ -1239,6 +1239,89 @@ async function main() {
     }
   }
 
+  // FUN OVERHAUL 6/8 (GOALS.md, 2026-08-20): elites as opt-in risk/reward.
+  // Runs last (it replaces the floor/monster). Isolated floor-generation
+  // checks + a live elite fight driven to a kill to prove the resistance
+  // trait, pre-entry warning, guaranteed rule-changer drop, and 1.5x gold.
+  {
+    const Floor = window.Wordbound.Floor;
+    const Traits = window.Wordbound.Traits;
+    const Items = window.Wordbound.Items;
+    const Monsters = window.Wordbound.Monsters;
+    const Tiles = window.Wordbound.Tiles;
+    const rng = window.Game.RNG.create('elite-test-seed');
+
+    // The rule-changer pool is exactly the 8 items from 4/8 and they all exist.
+    check('elite: RULE_CHANGER_IDS has the 8 rule-changer items', Items.RULE_CHANGER_IDS.length === 8);
+    check('elite: every RULE_CHANGER_ID is a real item def', Items.RULE_CHANGER_IDS.every((id) => !!Items.ITEM_DEFS[id]));
+    check('elite: all three resistance traits exist in TRAITS', Floor.ELITE_RESISTANCE_TRAITS.every((t) => !!Traits.TRAITS[t]));
+
+    // Floors 2 and 3 generate an elite node carrying a rolled resistance trait.
+    let sawElite = false, allEliteTraitsValid = true;
+    for (let f = 2; f <= 3; f++) {
+      for (let i = 0; i < 20; i++) {
+        const floor = Floor.generateFloor(f, rng);
+        floor.nodes.filter((n) => n.type === 'elite').forEach((n) => {
+          sawElite = true;
+          if (Floor.ELITE_RESISTANCE_TRAITS.indexOf(n.eliteTraitId) === -1) allEliteTraitsValid = false;
+        });
+      }
+    }
+    check('elite: floors 2-3 generate elite nodes', sawElite);
+    check('elite: every elite node carries a valid resistance trait id', allEliteTraitsValid);
+
+    // Live: splice a synthetic elite node onto the current floor, enter it,
+    // and confirm the resistance trait is applied and the node pill warns.
+    state.combatActive = false;
+    state.screen = 'RUN';
+    state.pendingEventSkipNextCombat = false;
+    const eliteNode = { id: 'node-elite-test', type: 'elite', defId: 'sentinel', eliteTraitId: 'alphabetic', cleared: false };
+    state.floor.nodes.push(eliteNode);
+    state.currentNodeIndex = state.floor.nodes.length - 1;
+
+    // Pre-entry warning: while still on the map (BEFORE entering), the elite's
+    // node pill shows its resistance trait hint. Force a RUN-screen render via
+    // the deck-viewer close path (render() is module-private) so the freshly
+    // spliced node is drawn, then read the pill text.
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    const eliteHint = Traits.TRAITS['alphabetic'].hint;
+    const nodePillText = Array.from(document.querySelectorAll('#node-map .node-pill')).map((p) => p.textContent).join(' | ');
+    check('elite: the node-map pill warns with the resistance trait hint before entry', nodePillText.indexOf(eliteHint) !== -1);
+
+    window.Wordbound.Game.enterCurrentNode();
+    await new Promise((r) => setTimeout(r, 80));
+    check('elite: entering an elite node starts combat', state.combatActive === true);
+    check('elite: the monster is flagged as an elite', state.monster.isElite === true);
+    check('elite: the elite fights with the node\'s rolled resistance trait', state.monster.traitPhases[0].traitId === 'alphabetic');
+
+    // Live: kill the elite and confirm the guaranteed rule-changer drop +
+    // 1.5x gold. Force a plain trait + 1 HP so the kill is deterministic (the
+    // reward path doesn't depend on the trait), and strip any owned
+    // rule-changers so the drop is guaranteed to have something to give.
+    state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+    state.monster.hp = 1;
+    state.monster.maxHp = 1;
+    state.monster.intent = { type: 'attack', value: 0 };
+    state.hexedTileId = null;
+    state.player.hp = state.player.maxHp;
+    state.player.items = state.player.items.filter((id) => Items.RULE_CHANGER_IDS.indexOf(id) === -1);
+    const itemsBefore = state.player.items.length;
+    const goldBefore = state.player.gold;
+    state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+    window.Wordbound.Game.submitWord('CAT');
+    // Killing blow runs onMonsterDefeated after TILE_PLAY_ANIM_MS (220) +
+    // MONSTER_DEATH_BEAT_MS (500) -- wait past both.
+    await new Promise((r) => setTimeout(r, 800));
+    check('elite defeat: produced zero errors', errors.length === 0);
+    if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+    const gainedItems = state.player.items.slice(itemsBefore);
+    check('elite defeat: granted exactly one guaranteed rule-changer item', gainedItems.length === 1 && Items.RULE_CHANGER_IDS.indexOf(gainedItems[0]) !== -1);
+    check('elite defeat: gold increased (1.5x elite bonus applied)', state.player.gold > goldBefore);
+    check('elite defeat: log announces the elite drop', state.messages.some((m) => /elite drops/i.test(m)));
+    check('elite defeat: log flags the 1.5x elite gold', state.messages.some((m) => /1\.5x/.test(m)));
+  }
+
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 }

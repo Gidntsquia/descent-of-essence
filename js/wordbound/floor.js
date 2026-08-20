@@ -29,6 +29,17 @@
   Floor.TOTAL_FLOORS = 3;
   Floor.ELITE_FLOOR_NUMBERS = [2, 3];
 
+  // FUN OVERHAUL 6/8 (GOALS.md, 2026-08-20): the three RESISTANCE traits
+  // (0.3x-floor: most words barely dent it, one specific pattern cuts deep).
+  // These were pulled off regular monsters/bosses in the 2026-08-19/20
+  // balance pass for being too punishing UNTELEGRAPHED -- which is exactly
+  // what makes them right for a LABELED elite, whose node pill warns the
+  // player of the exact weakness BEFORE they enter (see game.js
+  // renderNodeMap). One is rolled per elite node at floor-generation time and
+  // stored on the node so both the pre-entry warning and the in-fight monster
+  // read the same trait.
+  Floor.ELITE_RESISTANCE_TRAITS = ['vowelless', 'shortFuse', 'alphabetic'];
+
   function getAllowedTiers(floorNumber) {
     if (floorNumber <= 1) return ['weak', 'normal'];
     if (floorNumber === 2) return ['weak', 'normal', 'strong'];
@@ -87,11 +98,18 @@
 
     var nodes = types.map(function (type) {
       var defId = null;
+      var eliteTraitId = null;
       if (type === 'combat') defId = pickCombatDefId(floorNumber, rng);
-      else if (type === 'elite') defId = pickEliteDefId(rng);
+      else if (type === 'elite') {
+        defId = pickEliteDefId(rng);
+        // Roll the resistance trait here (not at fight start) so the node map
+        // can warn the player before entry -- see game.js startCombat, which
+        // applies this exact trait, and renderNodeMap, which shows its hint.
+        eliteTraitId = rng.choice(Floor.ELITE_RESISTANCE_TRAITS);
+      }
       else if (type === 'boss') defId = pickBossDefId(floorNumber);
       else if (type === 'event') defId = (window.Wordbound && window.Wordbound.Events) ? window.Wordbound.Events.pickRandomEvent(rng) : null;
-      return { id: 'node' + (nextNodeId++), type: type, defId: defId, cleared: false };
+      return { id: 'node' + (nextNodeId++), type: type, defId: defId, eliteTraitId: eliteTraitId, cleared: false };
     });
 
     return { floorNumber: floorNumber, nodes: nodes };

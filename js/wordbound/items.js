@@ -461,6 +461,22 @@
     }
   });
 
+  // The 8 build-defining rule-changer items from GOALS.md "FUN OVERHAUL 4/8".
+  // Kept as one named list so the elite guaranteed-drop (FUN OVERHAUL 6/8)
+  // draws from exactly this pool rather than duplicating the id list or
+  // re-deriving it from rarity (rarity alone would also pull in unrelated
+  // rares like Foreword/Vowel Leech). Order is the ticket's own numbering.
+  Items.RULE_CHANGER_IDS = [
+    'illuminated_initial',
+    'errant_footnote',
+    'vowel_reliquary',
+    'consonant_cluster',
+    'long_s_ligature',
+    'cursed_quill',
+    'gilded_bookmark',
+    'palimpsest'
+  ];
+
   Items.getRackCapacity = function (player) {
     var capacity = 7;
     (player.items || []).forEach(function (itemId) {
