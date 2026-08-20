@@ -7542,3 +7542,91 @@ message text; post-heal HP is exactly maxHp) plus confirmed the existing
 no-clamp Mend test still passes unchanged. `npm test`: **110/110**, ALL
 CHECKS PASSED. No version bump (display-only, no player-facing balance
 change). See GOALS.md for the full ticket writeup.
+
+---
+
+### 2026-08-20T11:16Z -- sim gate #2 RESULT + STOPPING (data-driven, box left unchecked, flagged for Jaxon)
+
+**Sim gate #2 result** (after the boss-HP-iteration-#1 cut: vowelmaw 38
+unchanged, unabridged 60->35, sovereign 90->45; n=30, `test/
+balance-simulation.js 30`):
+
+| metric | gate target | pre-fix | gate #1 | **gate #2** |
+|---|---|---|---|---|
+| "best" win rate | 33-50% | 7% | 17% | **30%** (9/30) -- still MISS |
+| stall rate | <10% | 33% | 17% | **13%** (4/30) -- still MISS |
+| Sovereign words/fight | <8 | 27.7 | 15.3 | **1.7** -- **PASSES** |
+
+Big jump from gate #1 (win 17%->30%, stalls 17%->13%, Sovereign
+15.3->1.7 words). Floor-3 boss criterion now solidly met: 9/9 (100%) of
+runs that reached Sovereign cleared it. Floor-2 boss (Unabridged Terror)
+also basically stopped killing anyone: 0/10 kills.
+
+**Why I'm stopping instead of spending the second sanctioned boss-HP
+iteration:** pulled the raw per-run data
+(`test/balance-simulation-results.json`) to see what's ACTUALLY still
+causing the remaining 70% loss rate / 13% stall rate at gate #2, since
+"adjust boss HP further" only makes sense if bosses are still the
+problem.
+
+- **Deaths** (17 total, "best" strategy): only **3 (18%)** were boss
+  kills, and all 3 were the SAME boss -- The Vowelmaw (floor-1). The
+  other **14 (82%)** were regular/strong-tier monsters: Spine Splinter
+  x3, The Card Catalog x3, Binding Strap, Quoth, The Appendix, The
+  Hoarder, Echo Pup, The Vowel Slurper, Filler Word, The Consonant
+  Constrictor (one each).
+- **Stalls** (4 total): only 1 was a boss fight (Unabridged Terror -- and
+  a strange one: 40 words played, the player took **zero** damage the
+  entire fight, so this wasn't a "player losing slowly" stall, more like
+  a "boss not going down fast enough despite the player never being at
+  risk" case -- possibly a rack/word-availability edge case worth a
+  dedicated look someday, not obviously an HP problem since the player
+  was never threatened). The other 3 stalls were also regular/strong-tier
+  (Spine Splinter, The Card Catalog x2).
+
+Bosses are demonstrably no longer the bottleneck -- 82% of deaths and 75%
+of stalls are non-boss. A further boss-HP-only cut (the only lever this
+ticket's gate sanctions) has no plausible mechanism left to move win rate
+or stall rate: floor-3 is already trivial (1.7 words) and floor-2's boss
+already never kills anyone. Cutting it further would be exactly the
+"guess without checking the sim data" the ticket explicitly says not to
+do -- the data already answers the question, and the answer points
+somewhere the ticket put out of scope ("nothing else... no
+regular-monster HP changes"). This is the "numbers suggest something
+structural, not just numeric" case the ticket names as the reason to flag
+rather than keep guessing.
+
+**Decision: GOALS.md box stays UNCHECKED.** Wrote the full before/after
+table, per-monster death/stall breakdown, and a recommendation directly
+into the ticket in GOALS.md (see there for the complete writeup) rather
+than duplicating it fully here. Recommendation for Jaxon: a fresh
+regular/strong-tier monster HP pass (floors 1-2 non-boss defs, same
+spirit as the original N1/N2/N3 ticket but accounting for combo/novelty
++ monster intents + 2-phase bosses which didn't exist when N1/N2/N3 was
+tuned) is the likely next lever -- OR a judgment call that ~30% win /
+~13% stalls is already close enough for an itch.io launch and not worth
+further bot-simulation precision-chasing. Either way, that's a call only
+Jaxon should make, not something to guess at overnight.
+
+**Not reverting anything.** The Mend/Enrage/Devour knobs and both boss-HP
+cuts are kept -- they're a real, measured, net-positive improvement on
+every single metric (win 7%->30%, stalls 33%->13%, Sovereign words
+27.7->1.7) with zero downside found in verification:
+- `npm test`: **110/110**, ALL CHECKS PASSED.
+- `npm run test:qa` (real Chromium, `test/orchestrator-qa-boss-reward.js`,
+  two full boss fights + reward flow at 375px): **26/26 clean**, zero
+  console/page errors.
+- No version bump -- the ticket's own instruction was to bump on gate
+  PASS ("player-facing numbers"); since the gate is being left unmet and
+  flagged rather than declared complete, holding the version bump until
+  Jaxon either approves this as final or steers a follow-up pass felt
+  more honest than bumping on a partial/flagged state.
+
+**What's next:** per GOALS.md's own rules ("if a task is blocked... move
+to the next one"), NOT continuing to FUN OVERHAUL 4/8+ yet since the
+literal gate hasn't passed. Picking up the next safe, unblocked,
+non-combat-balance queue item instead: the F4 POLISH batch (four small
+CSS/visual fixes -- slider accent color, run-header wrap, empty
+message-log placeholder, randomized damage-number offset). That's a
+CSS-layout task, so `npm run test:mobile` is mandatory before checking
+its box, same standard as everything else.

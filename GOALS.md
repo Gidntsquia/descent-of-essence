@@ -484,6 +484,69 @@ Rules for the routine:
       resume top-to-bottom as normal.
       VERIFICATION: npm test, npm run test:qa, sim numbers in PROGRESS.md
       (before/after table). Version bump (player-facing numbers).
+      IMPLEMENTED 2026-08-20T11:01-11:15Z (knobs 1-4 exactly as specified,
+      then one further boss-HP-only iteration per the gate's own escape
+      valve). Full before/after table and per-monster death breakdown in
+      PROGRESS.md. STOPPING HERE, box left UNCHECKED -- flagging for
+      Jaxon, this is the "numbers suggest something structural, not just
+      numeric" case the ticket names, not a numeric miss further boss-HP
+      tuning can fix:
+      | metric | target | pre-fix | gate #1 (knobs 1-4) | gate #2 (+1 boss-HP iter) |
+      |---|---|---|---|---|
+      | win rate (best) | 33-50% | 7% | 17% | **30%** |
+      | stall rate | <10% | 33% | 17% | **13%** |
+      | Sovereign words/fight | <8 | 27.7 | 15.3 | **1.7** (PASSES) |
+      Gate #2 result: win rate and stall rate both still miss their bands,
+      but only barely (30% is 3 points under the 33% floor; 13% stalls is
+      ~3 points over the 10% ceiling) -- and CRITICALLY, floor-3 boss
+      (Sovereign) now clears 9/9 (100%) of encounters and floor-2 boss
+      (Unabridged Terror) went 0/10 kills, both far inside target. Pulled
+      the raw per-run data (test/balance-simulation-results.json) to find
+      what's ACTUALLY still killing/stalling runs at gate #2: of 17 "best"
+      strategy deaths, only 3 (18%, all The Vowelmaw, floor-1 boss) were
+      boss kills -- the other 14 (82%) were regular/strong-tier monsters:
+      Spine Splinter x3, The Card Catalog x3, Binding Strap, Quoth, The
+      Appendix, The Hoarder, Echo Pup, The Vowel Slurper, Filler Word, The
+      Consonant Constrictor, one each. Of the 4 stalls, only 1 was a boss
+      fight (Unabridged Terror, 40 words, 0 damage taken by the player the
+      entire fight -- an odd outlier worth a look but not obviously an HP
+      problem since the player was never in danger); the other 3 stalls
+      were also regular/strong-tier (Spine Splinter, The Card Catalog x2).
+      REASONING FOR STOPPING NOW rather than spending the second
+      sanctioned boss-HP-only iteration: bosses are demonstrably no longer
+      the bottleneck (82% of deaths, 75% of stalls are non-boss), so a
+      further boss-HP cut has no plausible mechanism left to move win-rate
+      or stall-rate -- floor-3 is already trivial (1.7 words) and floor-2's
+      boss already never kills anyone. Spending the iteration anyway would
+      be exactly the "guess without checking sim data" the ticket says not
+      to do; the data already answers the question. The actual remaining
+      gap is regular/strong-tier monster HP/damage on floors 1-2 (Spine
+      Splinter, Card Catalog, Binding Strap, Quoth, Appendix, Hoarder) --
+      explicitly OUT OF SCOPE for this ticket ("nothing else... no
+      regular-monster HP changes"), and those numbers were last tuned by
+      the original N1/N2/N3 pass BEFORE combo/novelty, monster intents, or
+      2-phase bosses existed, so they're plausibly stale now for reasons
+      unrelated to the Enrage-spiral bug this ticket chased.
+      KEPT (net-positive regardless of the gate miss): the Mend/Enrage/
+      Devour non-compounding knobs and both boss-HP cuts (vowelmaw 50->38,
+      unabridged 80->60->35, sovereign 120->90->45) all measurably improved
+      every metric (win 7%->30%, stalls 33%->13%, Sovereign 27.7->1.7
+      words) with zero downside found in `npm test` (110/110) or
+      `npm run test:qa` (26/26, real Chromium, zero console/page errors) --
+      not reverting any of it.
+      RECOMMENDATION for Jaxon: a fresh regular/strong-tier monster HP/
+      damage pass (same spirit as the original N1/N2/N3 ticket, scoped to
+      floors 1-2's non-boss defs) is likely the actual next lever, OR a
+      judgment call that ~30% win / ~13% stalls is close enough to ship
+      itch.io-launch-ready and not worth further precision-tuning against
+      a bot-driven simulation. Separately, the one boss-fight stall
+      (Unabridged Terror, 40 words / 0 damage taken) may be worth a
+      dedicated look -- possibly a rack/word-availability edge case rather
+      than a balance number.
+      Not continuing to FUN OVERHAUL 4/8+ yet since the gate (as literally
+      written) hasn't passed -- picking up the next safe, unblocked queue
+      item instead (see PROGRESS.md for which and why), same pattern as
+      the previous flag-and-continue on this same ticket.
 
 - [ ] FUN OVERHAUL 4/8 -- build-defining items (rule-changers, not stat
       sticks). Current items are mostly passive stat bumps, so no two runs
