@@ -19,10 +19,15 @@
 //     (e.g. ['hex', 'devour']) -- 'mend' drops out of the pool once
 //     monster.mendUsed is true (once-per-fight, so it's never telegraphed
 //     as available again after it fires), same as 'enrage' drops out once
-//     monster.enrageStacks reaches ENRAGE_MAX_STACKS (GOALS.md balance
-//     ticket, 2026-08-20: Enrage had no cap at all, letting a long fight
-//     spiral into an ever-growing attack stat -- see that ticket and
-//     PROGRESS.md for the win-rate data that drove the cap). Uses `rng`
+//     monster.enrageStacks reaches ENRAGE_MAX_STACKS and 'devour' drops out
+//     once monster.devourUsed is true (also once-per-fight, added in the
+//     same pass as the ratio/bonus cuts below) (GOALS.md balance ticket,
+//     2026-08-20: Enrage had no cap at all, letting a long fight spiral
+//     into an ever-growing attack stat; a follow-up orchestrator decision
+//     the same day found the cap alone wasn't enough and also cut Enrage's
+//     per-stack bonus, Mend's heal ratio, and added Devour's cap -- see
+//     that ticket and PROGRESS.md for the win-rate data behind both
+//     passes). Uses `rng`
 //     (state.rng) so seeded runs stay deterministic -- never Math.random.
 //   describeIntent(intent) -> "Next: ..." display string.
 //   executeIntent(intent, ctx) -> { damage, message, tileLockedId,
@@ -41,9 +46,20 @@
   var Intents = (window.Wordbound.Intents = {});
 
   var HEAVY_MULTIPLIER = 1.6;
-  var ENRAGE_ATTACK_BONUS = 2;
+  // Enrage/Mend/Devour tuning (GOALS.md balance ticket, 2026-08-20
+  // "orchestrator decision"): the original numbers (ENRAGE_ATTACK_BONUS=2,
+  // MEND_HEAL_RATIO=0.15, Devour with no per-fight cap) were sized before
+  // multi-phase bosses existed, and simulation showed they turned every
+  // extra monster turn into a compounding advantage -- fights got longer,
+  // which let Enrage/Mend/Devour fire more times, which made fights longer
+  // still. These are the non-compounding versions: Enrage's cap was added
+  // in a prior pass (ENRAGE_MAX_STACKS) but the per-stack bonus was still
+  // too strong even capped; this pass halves it. Mend heals less. Devour
+  // gets the same once-per-fight guard Mend already had (see
+  // monster.devourUsed below) -- see PROGRESS.md for the sim data.
+  var ENRAGE_ATTACK_BONUS = 1;
   var ENRAGE_MAX_STACKS = 3;
-  var MEND_HEAL_RATIO = 0.15;
+  var MEND_HEAL_RATIO = 0.10;
   var DEVOUR_DAMAGE_THRESHOLD = 12;
 
   Intents.HEAVY_MULTIPLIER = HEAVY_MULTIPLIER;
@@ -64,6 +80,7 @@
       (monster.intents || []).forEach(function (sig) {
         if (sig === 'mend' && monster.mendUsed) return; // once per fight, don't re-telegraph a spent move
         if (sig === 'enrage' && (monster.enrageStacks || 0) >= ENRAGE_MAX_STACKS) return; // capped, don't re-telegraph a spent move
+        if (sig === 'devour' && monster.devourUsed) return; // once per fight (2026-08-20 balance pass): an uncapped Devour in a long fight could eat the whole rack
         pool.push({ type: sig, weight: 1 });
       });
     }
@@ -132,7 +149,14 @@
       if ((ctx.turnDamage || 0) < DEVOUR_DAMAGE_THRESHOLD) {
         var idx = (player.rack && player.rack.length) ? rng.randInt(0, player.rack.length - 1) : -1;
         if (idx >= 0) {
+          // Splices the tile object out of the in-fight rack array only --
+          // it was never removed from state.deck, so it's already
+          // fight-scoped (a fresh pile gets shuffled from the deck at the
+          // start of the NEXT fight and the eaten tile is back in
+          // rotation). monster.devourUsed caps this to once per fight so a
+          // long fight can't eat the whole rack.
           var eaten = player.rack.splice(idx, 1)[0];
+          monster.devourUsed = true;
           result.tileDevouredLetter = eaten.letter;
           result.message = monster.name + ' devours your ' + eaten.letter + ' tile — gone for the rest of the fight.';
         } else {
