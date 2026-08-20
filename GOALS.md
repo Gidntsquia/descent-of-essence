@@ -51,6 +51,147 @@ Rules for the routine:
 
 ## Queue
 
+- [ ] BUG, high priority: the touchscreen tap-to-play fix (commit a486e06,
+      2026-08-20T00:59Z, "Fix touchscreen tap bug") double-fires on every
+      tap -- each tapped rack tile's letter gets appended TWICE to
+      `#word-input` and the same tile id gets pushed twice into
+      `state.selectedTileIds`, corrupting the word being formed. Found
+      2026-08-20 during a real-browser Playwright QA pass using actual touch
+      emulation (`browser.newContext({ hasTouch: true })` +
+      `page.touchscreen.tap()` / `locator.tap()`, NOT a mouse `.click()` --
+      the mouse-click path is unaffected and still works correctly).
+      Reproduced twice independently (two different tiles, two different tap
+      APIs -- raw `page.touchscreen.tap()` on one tile and `locator.tap()` on
+      another), both with identical symptoms.
+      REPRO: fresh run, enter first combat, real tap (not click) on a rack
+      tile showing "T". Observed: `#word-input` becomes `"TT"`, not `"T"`;
+      `state.selectedTileIds` becomes `["tile9","tile9"]` -- the SAME tile id
+      twice, not two different tiles. A second real tap on a different tile
+      ("R") continued the pattern: input became `"TTRR"`, `selectedTileIds`
+      `["tile9","tile9","tile7","tile7"]`. Tapping out any real multi-letter
+      word this way doubles every letter in sequence (e.g. tapping C-A-T
+      produces "CCAATT"), which fails dictionary validation for virtually
+      every real word -- `Game.submitWord` (js/wordbound/game.js ~line 468)
+      logs `"CCAATT" is not playable` and rejects it. Net effect:
+      tap-to-play is still effectively non-functional for real words on a
+      real touchscreen, just broken in a more confusing way than before the
+      fix (an incorrect "not playable" rejection instead of silently doing
+      nothing).
+      ROOT CAUSE: a486e06 correctly stopped calling `preventDefault()`
+      unconditionally on `touchstart` (js/wordbound/game.js ~line 1458-1462)
+      -- that was the ORIGINAL bug (it suppressed the browser's synthesized
+      post-touchend `click`, so taps did nothing). But the fix's `touchend`
+      path (~line 1471-1473) calls `endTouchReorder(tile)`, which, when no
+      drag threshold was crossed, calls `selectTileForWord(tappedTile)`
+      directly (~line 1070-1073):
+      ```
+      } else if (!state.touchDragThresholdCrossed && tappedTile) {
+        // No drag happened: treat as a tap and play the letter
+        selectTileForWord(tappedTile);
+      }
+      ```
+      Nothing in the touchstart/touchmove/touchend handlers ever calls
+      `preventDefault()` for a plain, non-drag tap. Per standard browser
+      touch-to-mouse-event synthesis (the same mechanism the ORIGINAL bug's
+      blanket `preventDefault()` used to suppress), an un-prevented touch tap
+      still gets a synthesized `click` event dispatched shortly after
+      `touchend`, targeting whatever element now occupies that screen
+      position. Since `selectTileForWord()` calls `render()` (~line 1010),
+      which rebuilds `#rack-display` from scratch (~line 1415,
+      `rack.innerHTML = ''`) and re-attaches a fresh `click` listener to the
+      newly-created tile button in the same rack position (~line 1436-1438,
+      `btn.addEventListener('click', function () { selectTileForWord(tile);
+      });`), the delayed synthesized click lands on that *replacement*
+      element and fires `selectTileForWord(tile)` a SECOND time for the same
+      underlying tile. Confirmed directly with a diagnostic: a listener
+      attached only to the ORIGINAL (pre-render) tile element captured
+      exactly one `touchstart` + one `touchend` and no `click` (because the
+      synthesized click landed on the replacement element instead, not the
+      one being listened to), while the game's actual state still showed the
+      double-append.
+      WHY the existing regression test didn't catch this:
+      test/verify-touch-tap-fix.js's only relevant assertion is
+      `afterTapValue.length > 0` (its line 48) -- "something got typed," not
+      "exactly the tapped letter, once." A doubled letter still satisfies
+      `length > 0`. Separately, that script currently can't even run locally
+      at all (see the TEST-INFRA ticket immediately below) so it hasn't
+      actually been re-run since a486e06 shipped; running it today (patched
+      only enough to launch locally, in a scratch copy, logic untouched)
+      still printed its own "PASS: Tap played a letter" despite the
+      doubling, confirming the assertion gap rather than a since-fixed bug.
+      FIX: suppress the browser's synthesized click for the plain-tap case,
+      the same way the drag case already implicitly does via its own
+      `preventDefault()` in `touchmove`. Simplest: pass the event through to
+      `endTouchReorder` and call `e.preventDefault()` (guarded on
+      `e.cancelable`) right before `selectTileForWord(tappedTile)` in the
+      no-drag branch:
+      ```
+      btn.addEventListener('touchend', function (e) {
+        endTouchReorder(tile, e);
+      });
+      ```
+      Alternative: drop the explicit `selectTileForWord(tappedTile)` call
+      from `endTouchReorder` entirely and let the untouched, un-prevented
+      touch sequence's natural synthesized `click` (already confirmed to
+      reach the existing `click` listener) be the ONLY thing that plays the
+      tapped letter -- simpler, but more implicit/timing-dependent; pick
+      whichever is cleanly verifiable. Either way, also tighten
+      test/verify-touch-tap-fix.js's assertion to check the exact resulting
+      value (e.g. `afterTapValue === expectedLetter`, not just `.length >
+      0`) and that `state.selectedTileIds.length === 1` after one tap, so
+      this class of regression can't pass silently again.
+      VERIFICATION: real Playwright touch emulation (`hasTouch: true`,
+      `page.touchscreen.tap()` and/or `locator.tap()`), tapping a single
+      rack tile once and confirming `#word-input` gains EXACTLY one copy of
+      that tile's letter and `state.selectedTileIds` gains EXACTLY one entry
+      (the tapped tile's id, once). Also re-confirm drag-to-reorder via
+      simulated touch still works and still does NOT also append a letter
+      (the two interactions must stay mutually exclusive, per the original
+      ticket). `npm test` 16/16.
+
+- [ ] TEST-INFRA: three Playwright test scripts hardcode the cloud-sandbox-
+      only chromium path and can't run at all on a normal local checkout
+      (confirmed today on Jaxon's local Mac: `browserType.launch: Failed to
+      launch chromium because executable doesn't exist at
+      /opt/pw-browsers/chromium`) -- the exact class of bug already found
+      and fixed once for test/verify-mobile-layout.js (see this file's
+      TEST-INFRA entry from earlier tonight), just never applied to the rest
+      of the test suite.
+      AFFECTED: test/verify-touch-tap-fix.js line 4 (`chromium.launch({
+      executablePath: '/opt/pw-browsers/chromium' })`, no fallback) -- this
+      one ALSO separately hardcodes a cloud-sandbox-only file path (line 12,
+      `file:///home/user/descent-of-essence/wordbound.html`, which doesn't
+      exist on a local checkout either, so it fails a second, independent
+      way even once the browser launches); test/verify-keyboard-playable.js
+      lines 274-275; test/measure-wordlist-load.js lines 52-53. Compare to
+      the already-correct pattern used elsewhere (test/verify-mobile-layout.js,
+      test/verify-itch-build.js, test/orchestrator-qa-boss-reward.js,
+      tools/record-gameplay.js): check `fs.existsSync(sandboxChromiumPath)`
+      first and only pass `executablePath` when it's actually there,
+      otherwise let `chromium.launch()` fall back to its own default
+      resolution.
+      Found 2026-08-20 while trying to actually run these scripts locally as
+      part of a real-browser QA pass (needed test/verify-touch-tap-fix.js
+      specifically to investigate the double-tap bug above) -- had to make a
+      throwaway patched copy in a scratch dir just to execute it at all.
+      FIX: apply the same `fs.existsSync(sandboxChromiumPath) ?
+      { executablePath: sandboxChromiumPath } : {}` pattern to all three
+      scripts' `chromium.launch()` calls; fix verify-touch-tap-fix.js's
+      hardcoded `/home/user/...` URL to resolve relative to the repo (e.g.
+      `` file://${path.join(__dirname, '..', 'wordbound.html')} ``, matching
+      how other scripts avoid a hardcoded absolute repo path). While in
+      there, note verify-touch-tap-fix.js also never sets a non-zero exit
+      code on failure (no `process.exit(1)` / `process.exitCode` anywhere --
+      it just logs ✓/✗ characters to stdout), so a real failure wouldn't
+      even fail an `npm run` invocation or CI; worth adding real pass/fail
+      tracking with a matching exit code while touching this file, same
+      pattern test/dom-check.js already uses.
+      VERIFICATION: all three scripts run successfully end to end on a fresh
+      local clone (no manual path edits, no cloud-sandbox-only directories
+      required) AND still work unmodified in the cloud sandbox (the
+      `fs.existsSync` branch keeps that path alive there). `npm test` 16/16
+      (these are test-only changes).
+
 - [x] BUG, high priority (softlock, game-breaking): skipping a fight via the
       "Sit and breathe" event choice permanently strands the run if the
       skipped fight turns out to be that floor's boss. FIXED 2026-08-20T02:56Z
