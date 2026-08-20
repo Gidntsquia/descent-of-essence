@@ -643,7 +643,7 @@ Rules for the routine:
       re-buffing already-shipped boss HP is exactly the kind of judgment
       call this ticket's own history has repeatedly deferred to Jaxon.
 
-- [ ] FUN OVERHAUL 4/8 -- build-defining items (rule-changers, not stat
+- [x] FUN OVERHAUL 4/8 -- build-defining items (rule-changers, not stat
       sticks). Current items are mostly passive stat bumps, so no two runs
       PLAY differently; the fun of a roguelike is assembling a build that
       warps your decisions. Add EXACTLY these 8 items to items.js (names
@@ -669,6 +669,91 @@ Rules for the routine:
       VERIFICATION: `npm test` + one targeted jsdom assertion per item
       (drive two words, assert exact damage/HP/gold math). `npm run
       test:qa`. Version bump.
+      DONE 2026-08-20T13:48Z: all 8 items added to js/wordbound/items.js
+      exactly as specified (ids: illuminated_initial, errant_footnote,
+      vowel_reliquary, consonant_cluster, long_s_ligature, cursed_quill,
+      gilded_bookmark, palimpsest). All 8 hook onWordPlayed, the single
+      word-damage site (Foreword's bug was already fixed by an earlier
+      ticket, confirmed before starting). Added a new
+      `Items.applyPercentBonus(ctx, pct)` helper alongside the existing
+      `applyBonusDamage` for the 5 percentage-based items (Illuminated
+      Initial, Errant Footnote, Long-S Ligature, Gilded Bookmark,
+      Palimpsest) -- rounds and applies `result.damage * pct`, stacking
+      additively with any other item that already fired on the same word,
+      consistent with how flat-bonus items already stacked.
+      NEW PLUMBING (js/wordbound/game.js, Game.submitWord): three of the
+      eight items need per-fight word SEQUENCE, which nothing tracked
+      before -- added `state.previousWordThisFight` (the upper-cased word
+      played immediately before this one, null on the fight's first word)
+      and `state.wordsPlayedThisFightCount` (1-based, includes repeats),
+      both reset in startCombat alongside the existing comboState reset,
+      and fed to item hooks via new `ctx.previousWord`/
+      `ctx.wordsPlayedThisFight` fields. Also added `ctx.messages` (an
+      array hooks push proc strings onto, e.g. "Gilded Bookmark: x2!") --
+      the caller logs each one after runHook returns, per the ticket's own
+      "silent modifiers don't create builds" instruction; this is the
+      first time any item hook logs anything (all 15 pre-existing items
+      are silent, untouched here).
+      REAL BUG FOUND AND FIXED while wiring this up, not in the original
+      ticket text: Cursed Quill's self-damage lands on the PLAYER'S OWN
+      turn (inside the onWordPlayed hook), before the monster ever gets a
+      counterattack -- but the existing player-death check only ran in the
+      "monster survives" branch (after the counterattack), and the
+      killing-blow branch never checked player HP at all (it never needed
+      to before an item could hurt the player on their own turn). A word
+      that kills the monster AND, via Cursed Quill, drops the player to 0
+      in the same blow would have fallen through to the tile-reward screen
+      with a "dead" player still nominally in play -- the same CLASS of
+      bug (an interaction nobody actually ran through the DOM) that
+      GOALS.md's own top-of-file warning exists to catch. Fixed by adding
+      an explicit `state.player.hp <= 0` check right after the
+      onWordPlayed hook runs (and its log messages print), before either
+      the killing-blow or monster-survives branch, routing to `endRun(false)`
+      -- verified with a targeted jsdom check (Cursed Quill at 1 HP drops
+      the player to exactly 0, no floor, per the ticket's own "can kill
+      you, that's the deal" wording).
+      WIRING INTO POOLS: confirmed no additional plumbing was needed beyond
+      setting each item's `rarity`/`shopPrice` fields correctly --
+      `rollTreasureOptions`/`rollShopOptions` already draw uniformly from
+      ALL item ids regardless of rarity, and `rollBossRewardOptions`
+      already filters to rare/legendary only (js/wordbound/game.js). Since
+      6 of the 8 new items are rare, the boss-reward pool grew from 3 items
+      (vowel_leech, foreword, second_wind) to 9, which satisfies "should
+      favor these rares" as a natural consequence rather than needing a
+      separate weighting change.
+      JUDGMENT CALLS (none change the ticket's specified mechanics, only
+      fill in gaps its text left open): Vowel Reliquary's "vowels score
+      triple their letter value" is computed as +2x each vowel's
+      LETTER_VALUES entry (all vowels are 1pt in this game's scoring, so
+      practically +2 damage per vowel) -- consistent with how the
+      pre-existing Vowel Leech item already reads vowels straight from
+      `ctx.word`, not from resolved tile objects, so a blank tile used to
+      spell a vowel does NOT count (matches the existing pattern, not
+      separately specified either way by the ticket). Percentage items
+      compute their bonus off `ctx.result.damage` AS IT STANDS when they
+      fire (i.e. after any earlier-firing item's own bonus already
+      applied), same additive-in-sequence behavior `Items.runHook` already
+      gives every hook -- not attempted to special-case "true multiplier of
+      base" semantics, since no existing item does that either.
+      VERIFICATION: `npm test` 150/150 (ALL CHECKS PASSED; 21 new targeted
+      assertions -- one isolated Combat.playWord + Items.runHook check per
+      item's positive case, matching the existing Foreword-check pattern
+      exactly, plus a negative/non-firing case for every conditional item,
+      plus 2 live-DOM checks piggybacked on this fight's first-ever real
+      word submission confirming the new previousWord/wordsPlayedThisFight
+      state actually gets populated end to end through Game.submitWord, not
+      just in the isolated unit-test ctx shape). `npm run test:qa` 26/26
+      real Chromium, zero console/page errors (also incidentally confirms
+      the boss-reward pool now offers 3 distinct rares instead of repeating
+      the same old 2-3 every time). Version bumped v0.16 -> v0.17
+      (player-facing feature). Housekeeping note: this run started with a
+      detached HEAD one commit behind a concurrent session that had ALREADY
+      completed the BALANCE ticket (with a real fix to
+      balance-simulation.js's own hex-tile bug that this run's own earlier,
+      now-discarded attempt at the same ticket had missed) -- discarded this
+      run's redundant/inferior balance work, rebased onto the real
+      `origin/main`, and picked up FUN OVERHAUL 4/8 fresh from there instead
+      of re-litigating an already-closed ticket.
 
 - [ ] FUN OVERHAUL 5/8 -- special tile variants in rewards/shop. Tile
       rewards are the most frequent decision in the game and every option

@@ -106,6 +106,8 @@
     touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
     selectedTileIds: [], // tiles selected for staging (in click order)
     comboState: { combo: 0, usedWords: new Set() }, // word novelty + combo streaks, reset in startCombat
+    previousWordThisFight: null, // GOALS.md "FUN OVERHAUL 4/8": word played immediately before the current one this fight, reset in startCombat, fed to item hooks via ctx.previousWord
+    wordsPlayedThisFightCount: 0, // 1-based once incremented; ===1 on the fight's first word, includes repeats -- reset in startCombat, fed to item hooks via ctx.wordsPlayedThisFight
     hexedTileId: null, // set by a Hex monster intent, cleared when the rack that held it cycles away (see monster-intents ticket)
     runStats: null // { wordsPlayed, bestWord, bestWordDamage, totalDamage, monstersDefeated, floorsCleared, goldEarned } -- reset in startRun, shown on the game-over/victory screens (review N6)
   };
@@ -378,6 +380,8 @@
     state.pile = { drawPile: Tiles.shuffleIntoDrawPile(state.deck, state.rng), discardPile: [] };
     state.player.rack = [];
     state.comboState = { combo: 0, usedWords: new Set() };
+    state.previousWordThisFight = null;
+    state.wordsPlayedThisFightCount = 0;
     state.hexedTileId = null;
     Items.runHook('onRunStart', { player: state.player, pileState: state.pile }, state.player);
     refillRack();
@@ -530,8 +534,19 @@
     // browser ever paints a frame with the animation running.
     markTilesPlayed(result.tilesUsed);
 
-    var ctx = { player: state.player, monster: state.monster, word: result.word, tilesUsed: result.tilesUsed, result: result };
+    // FUN OVERHAUL 4/8 (GOALS.md, 2026-08-20): rule-changer items need to
+    // know word sequence within the fight -- previousWord (for
+    // Illuminated Initial/Palimpsest) and a 1-based play count (for Errant
+    // Footnote/Gilded Bookmark). Both track this call's word for the NEXT
+    // one, same "before this word" convention combo.js already uses.
+    state.wordsPlayedThisFightCount += 1;
+    var ctx = {
+      player: state.player, monster: state.monster, word: result.word, tilesUsed: result.tilesUsed, result: result,
+      previousWord: state.previousWordThisFight, wordsPlayedThisFight: state.wordsPlayedThisFightCount, messages: []
+    };
     Items.runHook('onWordPlayed', ctx, state.player);
+    state.previousWordThisFight = result.word;
+    ctx.messages.forEach(function (msg) { log(msg); });
 
     var tag = result.multiplier === 0 ? ' -- no effect!' : result.multiplier > 1 ? ' -- weak point!' : '';
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
@@ -543,6 +558,22 @@
       log('The Archive has heard that one before.');
     } else if (result.comboAtPlay > 0) {
       log('Combo x' + result.comboAtPlay + '! +' + Math.round(result.comboAtPlay * 12) + '% damage.');
+    }
+
+    // A rule-changer item's own self-damage (Cursed Quill) lands on the
+    // player's OWN turn, inside the onWordPlayed hook above -- before the
+    // monster ever gets a counterattack. The normal player-death check
+    // further down only covers the counterattack path, and the killing-blow
+    // branch below never checks player HP at all (it didn't need to before
+    // an item could hurt the player on their own turn) -- so a word that
+    // kills the monster AND, via Cursed Quill, drops the player to 0 in the
+    // same blow would otherwise fall through to the reward screen with a
+    // "dead" player still in play. Catch it here, after the log lines above
+    // so the player sees what happened, but before either branch runs.
+    if (state.player.hp <= 0) {
+      state.combatActive = false;
+      endRun(false);
+      return;
     }
 
     if (Achievements) Achievements.trackDamage(result.damage);

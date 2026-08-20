@@ -105,6 +105,164 @@ async function main() {
     }
   }
 
+  // FUN OVERHAUL 4/8 (GOALS.md, 2026-08-20): 8 build-defining rule-changer
+  // items. Same isolated Combat.playWord + Items.runHook pattern as the
+  // Foreword check above -- exact damage/HP math per item, plus a positive
+  // and a negative case where the item is conditional.
+  {
+    const Combat = window.Wordbound.Combat;
+    const Tiles = window.Wordbound.Tiles;
+    const Items = window.Wordbound.Items;
+    const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+    const freshRack = () => ['C', 'A', 'T', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+
+    // 1. Illuminated Initial: word starts with the same letter as the
+    // previous word -> +40%.
+    {
+      const player = { rack: freshRack(), items: ['illuminated_initial'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'CRAG', wordsPlayedThisFight: 2, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Illuminated Initial: +40% when the word shares its previous word\'s first letter', result.damage === before + Math.round(before * 0.4));
+      check('Illuminated Initial: logs a proc message', ctx.messages.indexOf('Illuminated Initial: +40%!') !== -1);
+    }
+    {
+      // Negative case: different first letter -> no bonus, no message.
+      const player = { rack: freshRack(), items: ['illuminated_initial'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'DOG', wordsPlayedThisFight: 2, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Illuminated Initial: no bonus on a different first letter', result.damage === before && ctx.messages.length === 0);
+    }
+
+    // 2. Errant Footnote: every 3rd word played this fight deals x2 (+100%).
+    {
+      const player = { rack: freshRack(), items: ['errant_footnote'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 3, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Errant Footnote: doubles damage on the 3rd word this fight', result.damage === before * 2);
+      check('Errant Footnote: logs a proc message', ctx.messages.indexOf('Errant Footnote: x2!') !== -1);
+    }
+    {
+      const player = { rack: freshRack(), items: ['errant_footnote'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 2, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Errant Footnote: no bonus on the 2nd word this fight', result.damage === before);
+    }
+
+    // 3. Vowel Reliquary: vowels score triple their letter value (+2x
+    // their base value, since base is already counted once).
+    {
+      const player = { rack: freshRack(), items: ['vowel_reliquary'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      // "CAT" has one vowel (A, LETTER_VALUES.A === 1) -> +2*1 = +2.
+      check('Vowel Reliquary: +2 bonus for CAT\'s one vowel (A, value 1)', result.damage === before + 2);
+    }
+
+    // 4. Consonant Cluster: +2 damage per consonant in the word.
+    {
+      const player = { rack: freshRack(), items: ['consonant_cluster'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      // "CAT" has two consonants (C, T) -> +2*2 = +4.
+      check('Consonant Cluster: +4 bonus for CAT\'s two consonants', result.damage === before + 4);
+    }
+
+    // 5. Long-S Ligature: 6+ letter words deal +25% and heal 1 HP.
+    {
+      const rack = ['G', 'A', 'R', 'D', 'E', 'N', 'X'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['long_s_ligature'], hp: 15, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'GARDEN');
+      check('Long-S Ligature test setup: "GARDEN" (6 letters) is playable', !!result);
+      if (result) {
+        const before = result.damage;
+        const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+        Items.runHook('onWordPlayed', ctx, player);
+        check('Long-S Ligature: +25% on a 6+ letter word', result.damage === before + Math.round(before * 0.25));
+        check('Long-S Ligature: heals 1 HP on a 6+ letter word', player.hp === 16);
+      }
+    }
+    {
+      // Negative case: under 6 letters -> no bonus, no heal.
+      const player = { rack: freshRack(), items: ['long_s_ligature'], hp: 15, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Long-S Ligature: no bonus/heal under 6 letters', result.damage === before && player.hp === 15);
+    }
+
+    // 6. Cursed Quill: +10 flat damage, 2 self-damage per word (can drop to
+    // 0, deliberately no floor-at-1 guard -- "that's the deal").
+    {
+      const player = { rack: freshRack(), items: ['cursed_quill'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Cursed Quill: +10 flat damage', result.damage === before + 10);
+      check('Cursed Quill: 2 self-damage applied', player.hp === 18);
+    }
+    {
+      // Edge case: can actually kill the player (no floor).
+      const player = { rack: freshRack(), items: ['cursed_quill'], hp: 1, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Cursed Quill: can drop the player to 0 HP (no floor)', player.hp === 0);
+    }
+
+    // 7. Gilded Bookmark: the fight's first word deals x2.
+    {
+      const player = { rack: freshRack(), items: ['gilded_bookmark'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Gilded Bookmark: doubles damage on the fight\'s first word', result.damage === before * 2);
+    }
+    {
+      const player = { rack: freshRack(), items: ['gilded_bookmark'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'DOG', wordsPlayedThisFight: 2, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Gilded Bookmark: no bonus on the fight\'s second word', result.damage === before);
+    }
+
+    // 8. Palimpsest: word shares 3+ distinct letters with the previous word
+    // -> +30%.
+    {
+      const player = { rack: freshRack(), items: ['palimpsest'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      // 'TACO' shares C, A, T with 'CAT' -- 3 distinct letters.
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'TACO', wordsPlayedThisFight: 2, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Palimpsest: +30% when sharing 3+ distinct letters with the previous word', result.damage === before + Math.round(before * 0.3));
+    }
+    {
+      const player = { rack: freshRack(), items: ['palimpsest'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      // 'DOG' shares zero letters with 'CAT'.
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'DOG', wordsPlayedThisFight: 2, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Palimpsest: no bonus sharing fewer than 3 distinct letters', result.damage === before);
+    }
+  }
+
   // Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): three
   // distinct words should each get a bigger damage multiplier than the last
   // (+12%/stack off the streak BEFORE that word), and replaying an
@@ -453,6 +611,18 @@ async function main() {
       await new Promise((r) => setTimeout(r, 300));
 
       check('monster intent: Hex turn produces zero errors', errors.length === 0);
+
+      // FUN OVERHAUL 4/8 (GOALS.md, 2026-08-20) plumbing check, piggybacked
+      // on this fight's first-ever word submission (this is the earliest
+      // btn-submit-word click in this whole script): Game.submitWord should
+      // have populated the new previousWord/wordsPlayedThisFight tracking
+      // fields the new rule-changer items read from ctx. Item-specific
+      // damage math is covered by isolated Combat.playWord + Items.runHook
+      // checks further up (same pattern as the Foreword check) -- this only
+      // proves the live game.js wiring feeds them correctly end to end.
+      check('FUN OVERHAUL 4/8: wordsPlayedThisFightCount is 1 after the fight\'s first word', state.wordsPlayedThisFightCount === 1);
+      check('FUN OVERHAUL 4/8: previousWordThisFight records the word just played', state.previousWordThisFight === safeWord.toUpperCase());
+
       check('monster intent: telegraphed Hex actually locked a tile', !!state.hexedTileId);
       const hexedTile = state.player.rack.find((t) => t.id === state.hexedTileId);
       check('monster intent: the locked tile is still in the rack (locked, not removed)', !!hexedTile);

@@ -16,12 +16,27 @@
 //       onDraw(ctx)          ctx = { player, drawnTiles, pileState, rng }
 //                            drawnTiles is the array of Tile objects just
 //                            drawn (tiles.js); hooks may mutate it in place.
-//       onWordPlayed(ctx)    ctx = { player, monster, word, tilesUsed, result }
+//       onWordPlayed(ctx)    ctx = { player, monster, word, tilesUsed, result,
+//                            previousWord, wordsPlayedThisFight, messages }.
 //                            tilesUsed is the array of Tile objects played.
 //                            result is the object Combat.playWord returned;
 //                            hooks may add to result.damage (already applied
 //                            to monster.hp by the caller's follow-up) or heal
 //                            player.hp. See applyBonusDamage below.
+//                            previousWord (GOALS.md "FUN OVERHAUL 4/8") is the
+//                            upper-cased word played immediately before this
+//                            one THIS FIGHT, or null on the fight's first word
+//                            (repeats count as their own previous word too --
+//                            this just tracks sequence, independent of
+//                            combo/novelty). wordsPlayedThisFight is a 1-based
+//                            count of words played so far this fight,
+//                            INCLUDING this one and any repeats (so ===1 means
+//                            "this is the fight's first word"). messages is an
+//                            array hooks can push user-facing strings onto
+//                            (e.g. "Gilded Bookmark: x2!") -- the caller logs
+//                            each one after all hooks run. Silent modifiers
+//                            don't create builds; every new proc should push
+//                            a message here.
 //       onPlayerDamaged(ctx) ctx = { player, monster, damage } -- damage is
 //                            mutable; caller applies ctx.damage, not the
 //                            original amount.
@@ -33,6 +48,11 @@
 //   applyBonusDamage(ctx, amount) -> helper hooks call to add extra damage
 //       to a monster mid-onWordPlayed (mutates ctx.monster.hp directly since
 //       Combat.playWord has already returned by the time hooks run).
+//   applyPercentBonus(ctx, pct) -> helper for percentage-of-current-damage
+//       items (e.g. 0.4 for +40%, 1.0 for a flat x2 -- "x2" is "+100%" of the
+//       current total, not a multiply-in-place, so it stacks additively with
+//       any other percent bonus that already fired this same word, same as
+//       every other onWordPlayed hook). Returns the rounded bonus applied.
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -286,6 +306,161 @@
     }
   });
 
+  // ---- FUN OVERHAUL 4/8 (GOALS.md, 2026-08-20): build-defining rule-changer
+  // items. All 8 hook onWordPlayed and read the new ctx fields
+  // (previousWord, wordsPlayedThisFight) game.js's Game.submitWord now
+  // provides. Every proc pushes a message onto ctx.messages -- silent
+  // modifiers don't create builds, per the ticket's own instruction.
+
+  def({
+    id: 'illuminated_initial',
+    name: 'Illuminated Initial',
+    hint: 'The first letter, gilded -- echo it and the page catches fire.',
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (!ctx.previousWord || !ctx.word) return;
+        if (ctx.word[0] !== ctx.previousWord[0]) return;
+        Items.applyPercentBonus(ctx, 0.4);
+        ctx.messages.push('Illuminated Initial: +40%!');
+      }
+    }
+  });
+
+  def({
+    id: 'errant_footnote',
+    name: 'Errant Footnote',
+    hint: 'Every third mark in the margin lands twice as hard.',
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (!ctx.wordsPlayedThisFight || ctx.wordsPlayedThisFight % 3 !== 0) return;
+        Items.applyPercentBonus(ctx, 1.0);
+        ctx.messages.push('Errant Footnote: x2!');
+      }
+    }
+  });
+
+  def({
+    id: 'vowel_reliquary',
+    name: 'Vowel Reliquary',
+    hint: 'Sacred vowels, kept behind glass -- speak them and they blaze.',
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        var VOWELS = ['A', 'E', 'I', 'O', 'U'];
+        var Lexicon = window.Wordbound.Lexicon;
+        var bonus = 0;
+        ctx.word.split('').forEach(function (l) {
+          if (VOWELS.indexOf(l) !== -1) bonus += 2 * (Lexicon.LETTER_VALUES[l] || 0);
+        });
+        if (bonus > 0) {
+          Items.applyBonusDamage(ctx, bonus);
+          ctx.messages.push('Vowel Reliquary: +' + bonus + '!');
+        }
+      }
+    }
+  });
+
+  def({
+    id: 'consonant_cluster',
+    name: 'Consonant Cluster',
+    hint: 'Hard sounds, harder blows -- every consonant adds its weight.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        var VOWELS = ['A', 'E', 'I', 'O', 'U'];
+        var consonantCount = ctx.word.split('').filter(function (l) { return VOWELS.indexOf(l) === -1; }).length;
+        if (consonantCount > 0) {
+          var bonus = consonantCount * 2;
+          Items.applyBonusDamage(ctx, bonus);
+          ctx.messages.push('Consonant Cluster: +' + bonus + '!');
+        }
+      }
+    }
+  });
+
+  def({
+    id: 'long_s_ligature',
+    name: 'Long-S Ligature',
+    hint: 'An old, elegant stroke -- the longer the word, the deeper it cuts, and mends.',
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (ctx.word.length < 6) return;
+        Items.applyPercentBonus(ctx, 0.25);
+        ctx.player.hp = Math.min(ctx.player.maxHp, ctx.player.hp + 1);
+        ctx.messages.push('Long-S Ligature: +25% and mended!');
+      }
+    }
+  });
+
+  def({
+    id: 'cursed_quill',
+    name: 'Cursed Quill',
+    hint: 'It writes on its own terms -- power for a price paid in your own blood.',
+    rarity: 'rare',
+    shopPrice: 40,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        Items.applyBonusDamage(ctx, 10);
+        // Deliberately no floor here (unlike Thick Skin/Second Wind's
+        // damage-reduction hooks) -- the ticket's own wording is "can kill
+        // you, that's the deal." Game.submitWord checks player.hp right
+        // after onWordPlayed hooks run specifically so this self-damage
+        // (which lands on the player's OWN turn, before any monster
+        // counterattack) can end the run even on a word that also kills
+        // the monster in the same blow.
+        ctx.player.hp = Math.max(0, ctx.player.hp - 2);
+        ctx.messages.push('Cursed Quill: +10, and it costs you 2.');
+      }
+    }
+  });
+
+  def({
+    id: 'gilded_bookmark',
+    name: 'Gilded Bookmark',
+    hint: 'Marks where you started -- the first word of a fight always rings loudest.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (ctx.wordsPlayedThisFight !== 1) return;
+        Items.applyPercentBonus(ctx, 1.0);
+        ctx.messages.push('Gilded Bookmark: x2!');
+      }
+    }
+  });
+
+  def({
+    id: 'palimpsest',
+    name: 'Palimpsest',
+    hint: 'Old text bleeds through the new -- echo enough of it and the page erupts.',
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (!ctx.previousWord) return;
+        var prevLetters = {};
+        ctx.previousWord.split('').forEach(function (l) { prevLetters[l] = true; });
+        var shared = 0;
+        var seen = {};
+        ctx.word.split('').forEach(function (l) {
+          if (prevLetters[l] && !seen[l]) { shared++; seen[l] = true; }
+        });
+        if (shared >= 3) {
+          Items.applyPercentBonus(ctx, 0.3);
+          ctx.messages.push('Palimpsest: +30%!');
+        }
+      }
+    }
+  });
+
   Items.getRackCapacity = function (player) {
     var capacity = 7;
     (player.items || []).forEach(function (itemId) {
@@ -309,6 +484,12 @@
     ctx.monster.hp = Math.max(0, ctx.monster.hp - amount);
     ctx.result.damage += amount;
     ctx.result.monsterDied = ctx.monster.hp <= 0;
+  };
+
+  Items.applyPercentBonus = function (ctx, pct) {
+    var bonus = Math.round(ctx.result.damage * pct);
+    if (bonus > 0) Items.applyBonusDamage(ctx, bonus);
+    return bonus;
   };
 
   // Load unlockable items from achievements module

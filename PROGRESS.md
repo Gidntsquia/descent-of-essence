@@ -8431,3 +8431,103 @@ unblock condition.
 next in the queue. Separately, Jaxon may want to weigh in on the
 boss-HP-recompensation question above whenever he's back -- it doesn't
 block anything, just flagged for his judgment.
+
+---
+
+## 2026-08-20T13:48Z
+
+**FUN OVERHAUL 4/8: 8 build-defining rule-changer items -- box checked, v0.16 -> v0.17**
+
+Fresh run, zero memory of prior sessions. Started on the BALANCE ticket
+(still showing `- [ ]` in the checkout I started from) and did a full
+outlier-HP-pass + strong-tier-nudge per its Orchestrator Decision #2 steer --
+but partway through, a `git fetch origin main` (prompted by the routine's own
+"reattach detached HEAD" pattern several prior runs have hit) revealed a
+**concurrent session had already completed the exact same ticket** on
+`origin/main`, with a real bug fix this run's own attempt had missed
+(`test/balance-simulation.js` didn't know about Hex-locked tiles and could
+loop proposing a rejected word to the sim's 40-word stall cap, inflating the
+apparent stall rate) and a materially better result (60% win / 0% stall vs.
+this run's own 37%/13%). Discarded this run's redundant/inferior balance
+work entirely (`git checkout -- .` + `git checkout -B main origin/main`) and
+picked up **FUN OVERHAUL 4/8** fresh from the real, up-to-date main instead
+of re-litigating an already-closed ticket. No balance files were touched in
+the version actually committed.
+
+**What shipped:** all 8 items from the ticket, added to `js/wordbound/items.js`
+(ids: `illuminated_initial`, `errant_footnote`, `vowel_reliquary`,
+`consonant_cluster`, `long_s_ligature`, `cursed_quill`, `gilded_bookmark`,
+`palimpsest`), each hooking `onWordPlayed` exactly as the ticket specified.
+Full reasoning, judgment calls, and the pool-wiring confirmation are written
+into GOALS.md's own DONE note (this entry summarizes, doesn't duplicate).
+
+**New shared infrastructure (js/wordbound/items.js):**
+- `Items.applyPercentBonus(ctx, pct)` -- a new helper alongside the existing
+  `applyBonusDamage`, for the 5 percentage-based items (Illuminated Initial
+  +40%, Errant Footnote x2, Long-S Ligature +25%, Gilded Bookmark x2,
+  Palimpsest +30%). Rounds and applies `result.damage * pct` at the moment
+  the hook fires, so it stacks additively with whatever bonus already landed
+  from an earlier-firing item this same word -- same sequential-mutation
+  behavior every existing flat-bonus item already had, just extended to
+  percentages rather than inventing new "true multiplier of base" semantics.
+
+**New plumbing (js/wordbound/game.js, `Game.submitWord`):** three of the
+eight items need per-fight word SEQUENCE, which nothing tracked before this.
+Added `state.previousWordThisFight` (the upper-cased word played immediately
+before this one, null on the fight's first word) and
+`state.wordsPlayedThisFightCount` (1-based, repeats included), both reset in
+`startCombat` alongside the existing `comboState` reset, fed to item hooks
+via new `ctx.previousWord`/`ctx.wordsPlayedThisFight` fields. Also added
+`ctx.messages` -- an array item hooks push proc strings onto (e.g. "Gilded
+Bookmark: x2!"), logged by the caller after `runHook` returns. This is the
+first time any item hook logs anything; all 15 pre-existing items stay
+silent, untouched by this change.
+
+**Real bug found and fixed while wiring this up** (not called out in the
+original ticket text, found by reasoning through the interaction, not by
+`npm test` catching it -- worth flagging since it's exactly the class of bug
+the top-of-file warning exists to prevent): Cursed Quill's self-damage lands
+on the PLAYER'S OWN turn (inside the `onWordPlayed` hook), before the
+monster ever gets a counterattack. The pre-existing player-death check only
+ran in the "monster survives" branch (after the counterattack); the
+killing-blow branch never checked player HP at all, because no item had ever
+been able to hurt the player on their own turn before. A word that kills the
+monster AND, via Cursed Quill, drops the player to 0 in the same blow would
+have silently fallen through to the tile-reward screen with a "dead" player
+still nominally in play. Fixed with an explicit `state.player.hp <= 0` check
+right after the `onWordPlayed` hook runs (and its log lines print), before
+either branch, routing to `endRun(false)`. Verified with a targeted jsdom
+check: Cursed Quill at 1 HP drops the player to exactly 0 (no floor,
+matching the ticket's own "can kill you, that's the deal" wording).
+
+**Pool wiring:** confirmed no additional code was needed beyond each item's
+own `rarity`/`shopPrice` fields -- `rollTreasureOptions`/`rollShopOptions`
+already draw uniformly from every item id regardless of rarity, and
+`rollBossRewardOptions` already filters to rare/legendary only. Since 6 of
+the 8 new items are rare, the boss-reward pool grew from 3 items
+(`vowel_leech`, `foreword`, `second_wind`) to 9 -- satisfies "boss-item pool
+should favor these rares" as a natural consequence of the rarity tags, no
+separate weighting logic needed.
+
+**Verification:** `npm test` 150/150 (ALL CHECKS PASSED). 21 new targeted
+assertions: one isolated `Combat.playWord` + `Items.runHook` check per
+item's positive case (same synthetic-ctx pattern the existing Foreword check
+already used), a negative/non-firing case for every conditional item, plus 2
+live-DOM checks piggybacked on this fight's first-ever real word submission
+(the existing Hex-intent test block) confirming `previousWordThisFight`/
+`wordsPlayedThisFightCount` actually populate end to end through
+`Game.submitWord`, not just in an isolated unit-test's hand-built ctx.
+`npm run test:qa` 26/26 real Chromium, zero console/page errors -- also
+incidentally shows the boss-reward pool now offering 3 distinct rares
+instead of repeatedly cycling the same old 2-3 items. Version bumped
+v0.16 -> v0.17 (`wordbound.html` `.version-info`), player-facing feature.
+
+**Not independently verified:** audio (jsdom has no Web Audio API, and none
+of these items touch sound anyway) and a real human's *feel* for whether
+these builds are actually fun in practice -- that's Jaxon's playtest to do,
+same standing caveat as every other feature ticket.
+
+**What's next:** FUN OVERHAUL 5/8 (special tile variants: Gilded/Charged/
+Vampiric/Volatile) is next in the queue, now unblocked along with 6/8-8/8.
+No known blockers. Working tree clean, everything committed and pushed at
+the end of this run.
