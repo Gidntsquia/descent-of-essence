@@ -5013,3 +5013,90 @@ remaining scripts with hardcoded cloud-sandbox-only chromium paths --
 fixed above as a side-effect of this run, so that ticket's remaining scope
 is now smaller than originally filed; worth noting in the next run so it
 doesn't re-fix the same file).
+
+---
+
+## 2026-08-20T05:12Z -- TEST-INFRA: fixed remaining hardcoded chromium paths (queue now empty)
+
+**Context on entry:** local container's `main` branch ref was stale (pointed
+at 115e324, an old commit far behind current work) while `HEAD` was
+detached at 6275981 (the real latest work, matching origin/main after a
+fresh `git fetch`). This looked alarming at first (looked like a
+force-push had wiped history) but was just a stale local ref from
+container init -- `git fetch origin main` confirmed origin/main really is
+at 6275981, so no data was lost. Reset local `main` to track
+`origin/main` properly (`git checkout -B main origin/main`) before doing
+anything else. Flagging this here in case it recurs -- worth Jaxon knowing
+the container's initial branch state doesn't always match origin without
+an explicit fetch.
+
+**Task:** GOALS.md's only remaining unchecked item, the TEST-INFRA ticket
+for three Playwright scripts hardcoding `/opt/pw-browsers/chromium` with no
+fallback. Per the previous run's note, `verify-touch-tap-fix.js` (one of
+the three named scripts) was already fixed as a side-effect of the
+touch-double-fire bug fix, so this run's actual remaining scope was just
+two files: `test/verify-keyboard-playable.js` (line 274-275) and
+`test/measure-wordlist-load.js` (line 52-53). Neither of these two ever had
+the hardcoded-absolute-`file://`-URL half of the original bug (both already
+serve the game over a local `http://localhost` server, not `file://`), so
+only the `executablePath` fix was needed for either.
+
+**Fix:** applied the same `fs.existsSync(sandboxChromiumPath) ? {
+executablePath: sandboxChromiumPath } : {}` pattern already used in
+verify-mobile-layout.js / verify-itch-build.js / orchestrator-qa-boss-reward.js
+to both files. Both already had proper `process.exit(0)`/`process.exit(1)`
+pass/fail exit codes (unlike the original verify-touch-tap-fix.js, which
+needed that added separately) -- confirmed via grep before touching either,
+so no exit-code work was needed here.
+
+**Verification:**
+1. `npm install` (this container had never had `node_modules` installed --
+   `@playwright/test` wasn't resolvable until this ran).
+2. Ran both fixed scripts directly in this sandbox (where
+   `/opt/pw-browsers/chromium` DOES exist, so this only proves the
+   `fs.existsSync` branch that takes the sandbox path still works, not the
+   fallback branch -- that's the same limitation the earlier
+   verify-mobile-layout.js fix had, since a local no-sandbox-chromium
+   environment isn't available here either):
+   - `node test/verify-keyboard-playable.js`: 7 passed, 1 inconclusive
+     warning (pre-existing, unrelated to this change -- a close-button
+     focus check on hidden panels), 0 failed.
+   - `node test/measure-wordlist-load.js`: ran end to end, reported a slow
+     (>3s) simulated-3G wordlist load time and recommended a loading
+     indicator -- pre-existing finding from this script's own design, not
+     something this ticket's fix should act on (out of scope; noting it
+     exists in case Jaxon wants it ticketed separately later).
+3. `npm test`: 16/16 clean. Not strictly mandated by GOALS.md's own rule
+   (this task touched only test/*.js scripts, not game.js/wordbound.html/
+   rendering CSS) but ran it anyway as a sanity check since it's cheap and
+   confirms nothing broke incidentally.
+
+**What's NOT verified:** the actual local-checkout-without-sandbox-chromium
+fallback path (`chromium.launch()` with no `executablePath`, letting
+Playwright's own default resolution take over) -- same as every prior fix
+in this family, this sandbox always has the sandbox chromium present, so
+the fallback branch's logic is verified by code inspection and by the
+identical, already-proven pattern in the other four scripts using it, not
+by actually exercising a chromium-less environment here. Jaxon's own local
+Mac (which is what originally surfaced this whole ticket) is the real test
+of that branch.
+
+**Checked off in GOALS.md.**
+
+**Version:** not bumped -- test-infra only, no player-facing change.
+
+**Current state:** v0.10. `npm test` 16/16. GOALS.md's queue is now fully
+empty (verified via grep for `^- \[ \]`, zero matches). Re-checked
+ROADMAP.md's "Current known gaps" section per the routine's own guardrail
+before concluding there's nothing to do: as of this run it explicitly says
+everything remaining is either something only Jaxon can do from a real
+device/browser (a physical-phone touch test, a feel/fun playtest, the
+actual itch.io upload) or a product-scope decision only he can make
+(whether to pursue meta-progression beyond achievements, which was
+deliberately left undefined rather than small-scoped). None of that is
+sandbox-actionable busywork to invent.
+
+**Idle: nothing left in GOALS.md's queue or ROADMAP.md's known-gaps list
+for an hourly sandbox run to pick up.** Future runs: re-read both files
+fresh rather than trusting this summary -- Jaxon may have added new items,
+or come back from a physical-device test with new findings to ticket.
