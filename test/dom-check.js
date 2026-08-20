@@ -147,6 +147,38 @@ async function main() {
     }
   }
 
+  // Multi-phase boss traits (GOALS.md "FUN OVERHAUL 3/8"): every boss should
+  // have exactly 2 phases, both drawn from the SIMPLE (bonus-on-match, 1x
+  // baseline) trait pool -- never the four 0.3x-floor resistance traits
+  // (vowelless/palindromic/shortFuse/alphabetic), which were deliberately
+  // removed from bosses in the 2026-08-19/20 balance pass and must not
+  // silently come back via this ticket. Isolated math check against
+  // Traits.activeTraitForHpRatio directly, same synthetic style as the
+  // blocks above -- the live-DOM confirmation that the rendered weakness
+  // text actually updates mid-fight is further down, once a run exists.
+  {
+    const Monsters = window.Wordbound.Monsters;
+    const Traits = window.Wordbound.Traits;
+    const RESISTANCE_TRAITS = ['vowelless', 'palindromic', 'shortFuse', 'alphabetic'];
+    const bossIds = Object.keys(Monsters.BOSS_DEFS);
+    check('boss phases: all 3 boss defs present', bossIds.length === 3);
+    bossIds.forEach((id) => {
+      const def = Monsters.BOSS_DEFS[id];
+      const phases = def.traitPhases || [];
+      check('boss phases: ' + id + ' has exactly 2 phases', phases.length === 2);
+      if (phases.length === 2) {
+        check('boss phases: ' + id + ' phase order is descending hpThreshold', phases[0].hpThreshold > phases[1].hpThreshold);
+        phases.forEach((p, i) => {
+          check('boss phases: ' + id + ' phase ' + i + ' (' + p.traitId + ') is not a resistance trait', RESISTANCE_TRAITS.indexOf(p.traitId) === -1);
+        });
+        const atFull = Traits.activeTraitForHpRatio(phases, 1.0);
+        const atLow = Traits.activeTraitForHpRatio(phases, 0.3);
+        check('boss phases: ' + id + ' at full HP uses phase 0 (' + phases[0].traitId + ')', atFull === phases[0].traitId);
+        check('boss phases: ' + id + ' below the threshold switches to phase 1 (' + phases[1].traitId + ')', atLow === phases[1].traitId);
+      }
+    });
+  }
+
   // Monster intents (GOALS.md "FUN OVERHAUL 2/8"): isolated, deterministic
   // checks of the Intents module's own logic -- same synthetic-setup style
   // as the Foreword/combo blocks above, independent of any run in progress.
@@ -366,6 +398,46 @@ async function main() {
       window.Wordbound.Game.openDeckViewer();
       window.Wordbound.Game.closeDeckViewer();
     }
+  }
+
+  // Multi-phase boss traits (GOALS.md "FUN OVERHAUL 3/8"), live-DOM check:
+  // force the in-progress fight's monster onto the Vowelmaw boss's 2-phase
+  // traitPhases and confirm the rendered ".monster-weakness" text actually
+  // flips when HP crosses the phase threshold. renderCombat recomputes the
+  // active trait from hp ratio on every render (confirmed by reading the
+  // code, not assumed) -- this proves that end to end in a real DOM rather
+  // than only against Traits.activeTraitForHpRatio in isolation (see the
+  // isolated boss-phase math check above). Restores the monster's real
+  // traitPhases/hp afterward so it doesn't affect the checks below.
+  {
+    const Monsters = window.Wordbound.Monsters;
+    const bossPhases = Monsters.BOSS_DEFS['boss_vowelmaw'].traitPhases;
+    const originalTraitPhases = state.monster.traitPhases;
+    const originalHp = state.monster.hp;
+    const originalMaxHp = state.monster.maxHp;
+
+    state.monster.traitPhases = bossPhases;
+    state.monster.maxHp = 100;
+    state.monster.hp = 100; // full HP -> phase 0
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    let weaknessEl = document.querySelector('.monster-weakness');
+    const phase0Hint = Traits.TRAITS[bossPhases[0].traitId].hint;
+    const phase1Hint = Traits.TRAITS[bossPhases[1].traitId].hint;
+    check('boss phases (live): full HP shows phase 0 weakness text', !!weaknessEl && weaknessEl.textContent.indexOf(phase0Hint) !== -1);
+
+    state.monster.hp = 30; // 0.3 ratio, below the 0.5 threshold -> phase 1
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    weaknessEl = document.querySelector('.monster-weakness');
+    check('boss phases (live): below-threshold HP switches to phase 1 weakness text', !!weaknessEl && weaknessEl.textContent.indexOf(phase1Hint) !== -1);
+    check('boss phases (live): the two phase hints are actually different text', phase0Hint !== phase1Hint);
+
+    state.monster.traitPhases = originalTraitPhases;
+    state.monster.hp = originalHp;
+    state.monster.maxHp = originalMaxHp;
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
   }
 
   let word = null;

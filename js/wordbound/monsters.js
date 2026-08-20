@@ -2,7 +2,11 @@
 // Monster + boss definitions. Each has traitPhases: [{hpThreshold, traitId}]
 // (descending hpThreshold, same phase-selection pattern as the old game's
 // bosses -- see traits.js#activeTraitForHpRatio). Regular monsters have a
-// single phase; bosses have 2-3, so the puzzle changes as you wear them down.
+// single phase; bosses have 2, so the puzzle changes as you wear them down
+// (GOALS.md "FUN OVERHAUL 3/8", 2026-08-20 -- both phases are always simple
+// bonus-on-match traits, 1x baseline, never the four 0.3x-floor resistance
+// traits (vowelless/palindromic/shortFuse/alphabetic), which were removed
+// from bosses deliberately in the 2026-08-19/20 balance pass).
 //
 // PUBLIC API (window.Wordbound.Monsters):
 //   MONSTER_DEFS[id] = { id, name, maxHp, attack, traitPhases, tier, goldDrop:[min,max], intents? }
@@ -86,15 +90,26 @@
     // game pre-retune (see the attack-tuning comment above); Hex/Devour/
     // Enrage stack extra pressure on top of a fight that's already tight.
     intents: ['mend'],
+    // Two-phase trait arc (FUN OVERHAUL 3/8, 2026-08-20): vowel-hungry above
+    // half HP, then switches to doubled-letter-hungry below it -- flavor
+    // pick is this ticket's own call (a "vowelmaw" first gorging on vowels,
+    // then latching onto anything it can repeat-bite as it weakens). Both
+    // simple 1x-baseline traits, no resistance floor.
     traitPhases: [
-      { hpThreshold: 1.0, traitId: 'vowelHungry' }
+      { hpThreshold: 1.0, traitId: 'vowelHungry' },
+      { hpThreshold: 0.5, traitId: 'doubled' }
     ]
   });
   bdef({
     id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 80, attack: 6, floor: 2, goldDrop: [25, 40],
     intents: ['hex', 'devour'],
+    // lengthy -> rareSeeker: starts savoring long words, then (as suggested
+    // directly by the ticket) gets pickier and starts collecting rare
+    // letters once wounded, mirroring warden/sentinel's rareSeeker theme
+    // for the floor's other strong-tier defs.
     traitPhases: [
-      { hpThreshold: 1.0, traitId: 'lengthy' }
+      { hpThreshold: 1.0, traitId: 'lengthy' },
+      { hpThreshold: 0.5, traitId: 'rareSeeker' }
     ]
   });
   bdef({
@@ -103,8 +118,13 @@
     // out gets meaningfully harder over time -- the escalating-stakes finale
     // this ticket's design note asks for.
     intents: ['enrage', 'hex'],
+    // silentE -> lengthy (ticket's own suggested pairing): opens on its
+    // named weakness, then broadens to rewarding long words in general once
+    // wounded, mirroring its floor-2 predecessor's escalating "harder to
+    // pin down" arc.
     traitPhases: [
-      { hpThreshold: 1.0, traitId: 'silentE' }
+      { hpThreshold: 1.0, traitId: 'silentE' },
+      { hpThreshold: 0.5, traitId: 'lengthy' }
     ]
   });
 

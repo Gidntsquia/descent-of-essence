@@ -6457,3 +6457,184 @@ DESIGN/BALANCE (review N4), FUN OVERHAUL 3/8 -- multi-phase boss traits.
 Good pickup for the next run; it explicitly depends on the balance ticket
 (already done) and touches the same monsters.js header comment this run
 left alone.
+
+---
+
+## 2026-08-20T09:33Z -- FUN OVERHAUL 3/8: multi-phase boss traits (v0.13 -> v0.14), plus a HIGH-PRIORITY balance regression found by the ticket's own SIM CHECK
+
+**Task:** GOALS.md's first unchecked item -- restore boss fight arcs by
+giving each boss 2 trait phases (built only from simple, bonus-on-match
+traits, never the four 0.3x-floor resistance traits) instead of the single
+static phase every boss has had since the 2026-08-19/20 balance pass
+removed resistance traits from them.
+
+**Implementation (`js/wordbound/monsters.js`):**
+- Vowelmaw (floor 1): `vowelHungry` above 50% HP -> `doubled` below.
+  Flavor pick: a vowel-gorger that starts snapping at anything repeatable
+  once weakened.
+- Unabridged Terror (floor 2): `lengthy` above 50% -> `rareSeeker` below --
+  the ticket's own suggested pairing, also mirrors the floor's other
+  strong-tier defs' rareSeeker theme (Sentinel/Warden).
+  Sovereign (floor 3): `silentE` above 50% -> `lengthy` below -- also the
+  ticket's own suggested pairing, echoing the floor-2 boss's own
+  "broadens once wounded" arc.
+- Updated the file's header comment (was still advertising unused
+  multi-phase bosses; now accurate) and the per-boss comments explaining
+  each flavor pick.
+- No changes needed to `combat.js`, `game.js`'s `renderCombat`, or
+  `test/balance-simulation.js` -- all three already call
+  `Traits.activeTraitForHpRatio(monster.traitPhases, hpRatio)` fresh on
+  every play/render/sim-tick rather than caching a single trait, so
+  multi-phase "just worked" once the data had 2 entries. Verified this by
+  reading the code (per the ticket's own "verify, don't assume" note on
+  the weakness-line update), not assumed.
+- The node-map boss-hint (`renderNodeMap`, game.js ~line 1344) intentionally
+  still shows only `traitPhases[0]`'s hint pre-fight -- exactly what the
+  ticket said was fine to leave as-is, noted here per its instruction.
+
+**Tests added (`test/dom-check.js`, isolated + live-DOM, same style as the
+existing Foreword/combo/intents blocks):**
+- Isolated: all 3 boss defs have exactly 2 phases, descending
+  `hpThreshold` order, neither phase is one of the 4 resistance traits,
+  and `Traits.activeTraitForHpRatio` returns phase 0 at full HP / phase 1
+  below the 0.5 threshold for each.
+- Live-DOM: forces the in-progress fight's monster onto Vowelmaw's
+  `traitPhases` at full HP, confirms the rendered `.monster-weakness` text
+  matches phase 0's hint; drops HP below the threshold, confirms it
+  switches to phase 1's hint in the real DOM (not just against the
+  isolated math check) -- proving `renderCombat` actually recomputes on
+  render, restoring the real monster's state afterward.
+
+`npm test`: **76/76** (was 58 -- 18 new checks, 12 isolated + 3 live-DOM
+math/text checks +3 boss-count/order sanity checks). Ran clean, zero
+uncaught DOM errors. `npm run test:qa`: **24/24**, real Chromium, zero
+console/page errors, boss node pill correctly shows the phase-0 trait hint
+("BOSS — Starved for vowels—gorges on them.").
+
+**Version:** bumped v0.13 -> v0.14 in `wordbound.html`.
+
+**Checked off in GOALS.md** (`- [x]`) with a `DONE 2026-08-20T09:33Z` note
+-- the mechanic itself is correctly implemented and fully verified against
+its own spec. See the important caveat below, which is NOT a reason to
+leave this unchecked (the mechanic works and matches the ticket), but IS a
+serious separate finding that needed to surface loudly rather than get
+buried in a routine "all green" entry.
+
+---
+
+### HIGH-PRIORITY FINDING: the game is currently way outside the established win-rate band -- new GOALS.md ticket added, do it before FUN OVERHAUL 4/8+
+
+The ticket's own VERIFICATION line required re-running
+`test/balance-simulation.js` to "confirm boss win rates stay in the band
+the balance ticket established" (33-50% for "best"-strategy skilled play,
+per the original N1/N2/N3 balance pass). It does not.
+
+**Measured, n=30 "best" strategy, current HEAD (with this ticket's change
+live):**
+- Win rate: **2/30 (7%)** -- well outside 33-50%.
+- **10/30 runs (33%) STALLED** -- hit the simulation's 40-word-per-combat
+  safety cap without resolving. This alone is a red flag independent of
+  the win-rate number.
+- Floor clear rates (of runs that reached each floor): floor 1 60%
+  (18/30), floor 2 28% (5/18), floor 3 40% (2/5).
+- Floor-3 boss (Sovereign, "The Unabridged, Unbound"): **0/3 kills**
+  across encounters, averaging **27.7 words per fight** (the sim's stall
+  cap is 40 -- these fights are running dangerously close to it).
+- Floor-2 boss (Unabridged Terror): averaged **14.6 words per fight**.
+- For comparison, the 1/8 ticket's own SIM CHECK (this file,
+  2026-08-20T08:29Z, BEFORE monster intents/2/8 existed) measured **40%
+  win rate, boss fights averaging 2.53 words**. A large gap opened
+  somewhere between that check and now.
+
+**Did THIS ticket's change (2-phase bosses) cause it?** Ran a controlled
+A/B before committing to an answer: `git stash`'d this ticket's
+`monsters.js` edit (reverting bosses to single-phase, everything else --
+including monster intents -- unchanged) and ran the same
+`balance-simulation.js` at n=15, then compared to an n=15 run with the
+2-phase change applied:
+| condition | win rate (n=15) |
+|---|---|
+| single-phase (current shipped `main`, pre-this-ticket) | 0/15 (0%) |
+| 2-phase (this ticket's change) | 1/15 (7%) |
+
+Both are already near-zero, essentially indistinguishable at this sample
+size. **This ticket's own change does not look like the primary driver**
+-- the regression appears to predate it.
+
+**Leading hypothesis (reasoned from the code, not yet confirmed by a
+dedicated experiment -- next run should verify before acting):** Enrage
+(`js/wordbound/intents.js`, `ENRAGE_ATTACK_BONUS = 2`, executed ~line 148)
+is the only signature move with **no once-per-fight guard** -- Mend has
+one (`monster.mendUsed`), Hex/Devour are naturally self-limiting (a locked
+or eaten tile has a bounded effect). Any def with `'enrage'` in its
+intents list (Sovereign; also the floor-2 elite-eligible Sentinel) can
+re-roll and re-stack it on **every single monster turn** at 1-in-6 odds
+(`buildPool` weights: attack 3, heavy 1, enrage 1, hex 1), for as long as
+the fight runs. That's an uncapped positive-feedback spiral: a longer
+fight buys more monster turns -> more permanent +2-attack stacks -> more
+damage taken per turn -> the fight is even harder to close out in the
+turns remaining -> runs longer still, bounded only by the player dying or
+(in simulation) the 40-word stall cap. This was never balance-tested when
+it shipped -- FUN OVERHAUL 2/8's own VERIFICATION line only called for
+`npm test`/`test:qa`/`test:mobile`, not a `balance-simulation.js` run, so
+nothing caught this until this ticket's own SIM CHECK requirement forced
+one. FUN OVERHAUL 3/8 (this ticket) plausibly makes it modestly worse --
+a boss needing two different weaknesses across its HP range takes longer
+to resolve on average, which buys the spiral more turns -- but the A/B
+above suggests that's a secondary multiplier on an already-broken base,
+not the root cause.
+
+**Added a new GOALS.md ticket, inserted directly after this one and before
+FUN OVERHAUL 4/8** (BALANCE, HIGH PRIORITY), so it's next in the queue
+rather than getting lost. Deliberately did NOT invent or ship a fix myself
+this run: capping Enrage (and whether Devour's permanent tile removal
+needs the same treatment) is a real product/balance judgment call --
+*how much* to nerf it, and whether a numeric cap is even the right lever
+vs. something structural -- that fits squarely in this routine's own
+"don't force an ambiguous product/design decision, flag it" guardrail. A
+well-scoped starting hypothesis is written into the new ticket (a
+Mend-style max-stacks cap on Enrage, e.g. 3, then re-run
+balance-simulation.js n=30 to confirm the band is restored) but explicitly
+flagged as a starting point to verify against real sim data, not a
+number to ship blind.
+
+**Why check off 3/8 anyway, given all this:** the ticket's actual
+deliverable -- "give each boss 2 phases built from simple traits, wire it
+through render/combat/sim correctly" -- is done, correct, and thoroughly
+verified (18 new passing checks, both isolated math and live-DOM). The
+band-verification step is one bullet in a longer VERIFICATION list, and
+the controlled A/B shows the regression it caught is not this ticket's
+own doing. Leaving 3/8 itself unchecked would just cause the next hourly
+run to redo already-correct, already-tested work instead of picking up
+the actual problem (now its own prioritized ticket). This is a judgment
+call, noted per the routine's own rules for handling one.
+
+**Recommendation for whoever picks up the new balance ticket (or Jaxon
+directly):** do it before FUN OVERHAUL 4/8-8/8. Those add more items/
+tiles/events/mechanics on top of combat -- landing them on top of a
+currently-33%-stall-rate combat loop makes the eventual balance pass
+harder to reason about (more variables to control for) and risks shipping
+several more player-facing features before the core loop is actually
+winnable at the documented rate.
+
+**What's verified vs. not:** the multi-phase mechanic itself -- correct
+phase selection by HP ratio, live weakness-text updates, no resistance
+traits reused -- is fully verified (jsdom + real Chromium, isolated math
++ live DOM). The balance regression's existence and rough magnitude is
+verified (three independent `balance-simulation.js` runs: n=15 before,
+n=15 after, n=30 after, all consistent). Its ROOT CAUSE (Enrage) is a
+reasoned hypothesis from reading the code, not confirmed by an isolated
+experiment (e.g. running the sim with Enrage capped to compare) -- that
+verification step is explicitly left for the new ticket. No audio changes
+in this ticket, nothing new to flag there.
+
+**Current state:** v0.14, `npm test` 76/76, `npm run test:qa` 24/24.
+Multi-phase boss traits are live and correct. The game's overall
+skilled-play win rate is currently well below its documented target
+(7% vs. 33-50%), most likely due to an uncapped Enrage stacking spiral
+from FUN OVERHAUL 2/8 that was never balance-tested, secondarily
+compounded by this ticket's longer multi-phase boss fights. Next
+unchecked GOALS.md item: the new BALANCE, HIGH PRIORITY ticket just added
+(Enrage-cap investigation) -- strongly recommended over skipping ahead to
+FUN OVERHAUL 4/8, per the reasoning above, though not force-blocked if a
+future run has good reason to disagree.

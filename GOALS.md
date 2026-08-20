@@ -266,7 +266,7 @@ Rules for the routine:
       real-Chromium stress runs (15 boss fights + 10 elite fights across
       all 6 defs, zero errors). Bumped v0.12 -> v0.13.
 
-- [ ] DESIGN/BALANCE (review N4), FUN OVERHAUL 3/8 -- do AFTER the balance
+- [x] DESIGN/BALANCE (review N4), FUN OVERHAUL 3/8 -- do AFTER the balance
       ticket above lands: restore boss fight arcs via multi-phase traits.
       The phase system (traits.js activeTraitForHpRatio, monsters.js
       traitPhases) is built, tested, and documented but unused -- all three
@@ -289,6 +289,73 @@ Rules for the routine:
       changes when a boss crosses its threshold. Re-run
       balance-simulation.js to confirm boss win rates stay in the band the
       balance ticket established. Version bump -- player-facing feature.
+      DONE 2026-08-20T09:33Z: implemented exactly as specified (see
+      PROGRESS.md for the flavor-pick reasoning and full verification).
+      `npm test` 76/76, `npm run test:qa` 24/24. The mechanic itself is
+      correct and fully verified. IMPORTANT CAVEAT, see the new ticket
+      immediately below: the mandated balance-simulation.js re-run found
+      the game is currently WAY outside the established win-rate band (7%
+      vs. the documented 33-50%, plus a 33% stall rate) -- but a controlled
+      before/after A/B (single-phase vs. this ticket's 2-phase change,
+      otherwise identical code, n=15 each) showed both conditions already
+      near-zero, so this ticket's own change does not appear to be the
+      primary cause. Checked off because the mechanic itself meets spec;
+      the regression is real but looks pre-existing and is tracked
+      separately below rather than guessed at or silently ignored here.
+
+- [ ] BALANCE, HIGH PRIORITY (found during FUN OVERHAUL 3/8's mandated SIM
+      CHECK, 2026-08-20): the game is significantly outside the win-rate
+      band the original N1/N2/N3 balance ticket established (33-50% for
+      "best"-strategy skilled play) -- do this BEFORE continuing FUN
+      OVERHAUL 4/8-8/8, which would stack more mechanics on top of an
+      already out-of-band difficulty curve and make diagnosis harder.
+      MEASURED (test/balance-simulation.js, n=30 "best" strategy, current
+      HEAD): win rate 2/30 (7%); 10/30 runs (33%) STALLED (hit the sim's
+      40-word-per-combat safety cap without resolving); floor clear rates
+      60%/28%/40% (floor 1/2/3, of runs that reached each); floor-3 boss
+      (Sovereign, "The Unabridged, Unbound") went 0/3 across encounters,
+      averaging 27.7 words per fight; floor-2 boss (Unabridged Terror)
+      averaged 14.6 words. Compare to the 1/8 ticket's own SIM CHECK
+      (PROGRESS.md 2026-08-20T08:29Z, before monster intents existed):
+      40% win rate, boss fights averaging 2.53 words -- a large gap opened
+      somewhere after that.
+      LEADING HYPOTHESIS (reasoned from the code, not confirmed by a
+      dedicated experiment -- verify before acting): Enrage
+      (js/wordbound/intents.js, ENRAGE_ATTACK_BONUS=2, executed at line
+      ~148) is the only signature move with NO once-per-fight guard (Mend
+      has one via `monster.mendUsed`; Hex/Devour are naturally self-
+      limiting). Any def with 'enrage' in its intents list (Sovereign,
+      and the floor-2 elite-eligible Sentinel) can re-roll and re-stack it
+      every single monster turn at 1-in-6 odds (buildPool weights:
+      attack 3, heavy 1, enrage 1, hex 1) for as long as the fight runs --
+      a longer fight buys more turns, which buys more permanent +2-attack
+      stacks, which increases damage taken per turn and can make the fight
+      run even longer: an uncapped positive-feedback spiral with no ceiling
+      except the player dying or the sim's 40-word stall cap. This was
+      never balance-tested when it shipped (FUN OVERHAUL 2/8's own
+      VERIFICATION line didn't call for a balance-simulation.js run).
+      FUN OVERHAUL 3/8's 2-phase bosses plausibly make this worse
+      secondarily (a fight needing two different weaknesses takes longer to
+      resolve, buying the spiral more turns) but the 3/8 ticket's own A/B
+      check (see its DONE note above) suggests it isn't the primary driver
+      -- Enrage's lack of a cap looks like the bigger lever.
+      This needs Jaxon's steer on the actual fix, not a guessed one: how
+      hard should Enrage be capped (a Mend-style once-per-fight guard? a
+      max-stacks limit? a smaller per-stack bonus?), and whether Devour's
+      permanent tile removal (also uncapped, also compounds a long fight)
+      needs the same treatment. A well-scoped starting hypothesis for
+      whoever picks this up: give Enrage a max-stacks cap (e.g. 3, like a
+      soft version of Mend's hard 1) and re-run balance-simulation.js n=30
+      before/after to confirm it actually returns win rate to the
+      33-50% band -- but this is a judgment call on how much to nerf it,
+      not a mechanical fix, so don't invent the exact number without
+      checking the sim data, and flag back to Jaxon if the numbers suggest
+      something structural (not just numeric) is wrong.
+      VERIFICATION: whatever fix is chosen, `npm test`, `npm run test:qa`,
+      and a fresh `test/balance-simulation.js` n=30 (or larger) run showing
+      the win rate back in band, reported in PROGRESS.md same as the
+      original balance ticket did. Version bump if the fix changes
+      player-facing numbers.
 
 - [ ] FUN OVERHAUL 4/8 -- build-defining items (rule-changers, not stat
       sticks). Current items are mostly passive stat bumps, so no two runs
