@@ -22,15 +22,20 @@
 //   removeTiles(rack, tilesUsed) -> mutates rack, removing each tile in
 //          tilesUsed by matching `.id` (removes the exact instance played,
 //          not just any tile sharing its letter).
-//   scoreWord(word, tilesUsed)
+//   scoreWord(word, tilesUsed, rackCapacity)
 //       -> { base, lengthBonus, bingoBonus, bonusFlat, bonusMult, total }
 //          base = sum of LETTER_VALUES for tilesUsed (blanks contribute 0).
-//          lengthBonus = 3 points per letter beyond the 4th. bingoBonus =
-//          +15 if tilesUsed.length === 7 (whole rack in one word). bonusFlat/
-//          bonusMult roll up each played tile's on-play bonus (see
-//          tiles.js); total = round((base+lengthBonus+bingoBonus+bonusFlat)
-//          * bonusMult). MULT_ON_HOLD bonuses are NOT included here -- those
-//          depend on tiles left in the rack, which combat.js resolves.
+//          lengthBonus = 2 points per letter beyond the 4th (trimmed from 3
+//          on 2026-08-20, review N1/N2/N3 balance pass -- see PROGRESS.md).
+//          bingoBonus = +15 if tilesUsed.length === rackCapacity (using the
+//          WHOLE rack in one word, not a hardcoded 7 -- callers pass the
+//          player's actual capacity from Items.getRackCapacity; rackCapacity
+//          defaults to 7 when omitted, e.g. from callers with no player
+//          reference). bonusFlat/bonusMult roll up each played tile's
+//          on-play bonus (see tiles.js); total =
+//          round((base+lengthBonus+bingoBonus+bonusFlat) * bonusMult).
+//          MULT_ON_HOLD bonuses are NOT included here -- those depend on
+//          tiles left in the rack, which combat.js resolves.
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -97,7 +102,7 @@
   // tilesUsed: array of tiles.js Tile objects, in the order they spell the
   // word. Rolls up each tile's on-play bonus (see tiles.js BONUS_TYPES);
   // on-hold bonuses depend on tiles NOT played, so combat.js resolves those.
-  Lexicon.scoreWord = function (word, tilesUsed) {
+  Lexicon.scoreWord = function (word, tilesUsed, rackCapacity) {
     var Tiles = window.Wordbound.Tiles;
     var base = 0;
     var bonusFlat = 0;
@@ -110,8 +115,9 @@
         else if (tile.bonus.type === Tiles.BONUS_TYPES.MULT_ON_PLAY) bonusMult *= tile.bonus.amount;
       }
     }
-    var lengthBonus = word.length > 4 ? (word.length - 4) * 3 : 0;
-    var bingoBonus = tilesUsed.length === 7 ? 15 : 0;
+    var lengthBonus = word.length > 4 ? (word.length - 4) * 2 : 0;
+    var capacity = rackCapacity || 7;
+    var bingoBonus = tilesUsed.length === capacity ? 15 : 0;
     var total = Math.round((base + lengthBonus + bingoBonus + bonusFlat) * bonusMult);
     return {
       base: base,

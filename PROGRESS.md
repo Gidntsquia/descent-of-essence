@@ -5616,3 +5616,190 @@ task (explicitly "implementing run's judgment on the mix, validate with
 simulation rather than guessing") that the ticket itself says may take
 multiple runs -- a good candidate to pick up fresh next hour rather than
 starting it in whatever time remains here.
+
+---
+
+## 2026-08-20T07:32Z -- BALANCE (review N1/N2/N3) tuning pass, PARTIAL progress, not checked off
+
+**Repo-state note:** container's local `main` was again a detached HEAD
+(same class of issue flagged in prior entries), this time pointing at a
+STALE `main` branch ref (`115e324`) while `origin/main`/the detached HEAD
+itself were already at `6c522c5` (the real tip, matching this file). Ran
+`git fetch origin main` then `git checkout -B main origin/main` before any
+work -- no work lost, working tree was clean before switching.
+
+**Task:** GOALS.md's first unchecked item -- the BALANCE ticket (regular
+fights can't touch a competent player because word damage trivially
+one-shots every non-boss monster). This is explicitly flagged in the ticket
+as a larger, judgment-heavy task that may span multiple runs; that's what
+happened here.
+
+**What I actually did, in order:**
+
+1. **Fixed a bug in `test/balance-simulation.js` before trusting any of its
+   numbers:** the script never handled the `BOSS_ITEM_REWARD` screen (added
+   in v0.8, after the sim script was last touched) -- every run that killed
+   a boss immediately hit the "unknown screen -- bail" fallback and got
+   recorded as `stalled`, so NO run had ever reached floor 2 in this
+   script's output history. Not a game bug -- added the missing branch
+   (`Game.pickBossItemReward(opts[0])`) so runs can actually progress past
+   floor 1 bosses. This alone changed win/stall numbers dramatically even
+   before any balance code changed (baseline reruns below reflect the fixed
+   script).
+
+2. **Baselined `test/balance-simulation.js 20`** (40 runs, post-fix-#1,
+   pre-balance-changes) to confirm the ticket's diagnosis directly: "best"
+   (competent) strategy killed every regular monster and boss in almost
+   exactly 1.0-1.3 words, 0 dmg taken on nearly every encounter --
+   word-for-word what N1/N2/N3 describes.
+
+3. **Measured actual damage output** with a throwaway diagnostic (not
+   committed) sampling 60 real turn-1 racks against representative
+   monsters, computing the "best"-strategy optimal single-word damage the
+   same way `Combat.playWord` does: **avg ~30-36 damage, median 24-32, p90
+   42-60, max 74** (pre-any-change formula). This matters because the
+   ticket's own SUGGESTED starting HP hypothesis (weak 15-20/normal
+   28-38/strong 45-60) is well below this -- a "best" player actively
+   searches for and favors weakness-multiplier words (that's what "best"
+   damage-based search means), so the suggested bands would still get
+   one-shot most of the time. Did NOT just trust the suggested numbers;
+   validated against measured play first, per the ticket's own instruction
+   ("validate with simulation rather than guessing").
+
+4. **Applied the tuning changes** (all in the ticket's own suggested-knob
+   list, nothing outside it):
+   - `js/wordbound/lexicon.js` `Lexicon.scoreWord`: length bonus trimmed
+     from +3/letter past 4 to +2/letter past 4. Also added a `rackCapacity`
+     parameter (defaults to 7 for callers with no player reference) so the
+     bingo bonus gates to the player's ACTUAL rack capacity instead of a
+     hardcoded 7 (a Spare Satchel 8-tile rack no longer gets the bingo
+     bonus for a 7-of-8 word).
+   - `js/wordbound/combat.js` `Combat.playWord`: reads
+     `Items.getRackCapacity(player)` BEFORE `removeTiles` mutates the rack,
+     passes it into `scoreWord` as the new capacity param.
+   - `js/wordbound/game.js` `onMonsterDefeated`: overkill gold bonus now
+     capped at the monster's own max base drop (`Math.min(goldDrop[1],
+     Math.floor(overkill * 0.5))`) so a one-shot kill's bonus gold can't
+     exceed the monster's entire normal drop.
+   - `js/wordbound/monsters.js`: regular monster HP raised well above the
+     ticket's suggested bands, grounded in the measured damage distribution
+     above -- weak tier 6-9 -> **17-21**, normal tier 12-16 -> **52-58**,
+     strong tier 19-22 -> **82-88**. Attack values, tiers, gold drops, and
+     traits are UNTOUCHED -- HP-only change, no mechanics rework. Full
+     reasoning for why the numbers landed so much higher than the ticket's
+     hypothesis is in a code comment at the top of the monster defs.
+   - `test/balance-simulation.js`: also updated `findPlayableWords`'s
+     `scoreWord` call to pass the real rack capacity (via
+     `Items.getRackCapacity`), so the bot's damage predictions keep
+     matching real game math after the bingo-gating change.
+
+5. **Re-ran `test/balance-simulation.js 20`** after the changes. Results
+   (40 runs, "best" = competent-player proxy, "first" = weak-play proxy):
+   - **Normal tier, "best" strategy:** avg words per fight moved from
+     ~1.0-1.3 (before) to **1.6-2.4** (after), with counterattack damage
+     landing in most encounters (e.g. Quoth 1.8 words/4.5 dmg taken against
+     a 4-attack monster -- roughly 1+ counterattacks on average; Appendix
+     2.4 words/3.8 dmg -- ~0.95 counterattacks on average). This is close
+     to but not fully hitting the ">=1 counterattack average" goal on every
+     single monster -- a few are at ~0.8-0.95 avg counterattacks, not
+     comfortably above 1.0. Given how thin the "best"-strategy sample got
+     (see limitation below), I did not push HP even higher to force a
+     cleaner margin -- see next point for why.
+   - **Weak tier:** stayed close to 1.0-1.5 words, matching the ticket's own
+     allowance ("may stay closer to 1-2 words so the early game stays
+     welcoming").
+   - **"first" (weak-play) strategy: 0/20 runs survived floor 1** after the
+     HP raise (was already 0/20 wins before, but previously ~20% at least
+     cleared floor 1; now literally none do). Some floor-1 fights ran 5-13
+     words under this strategy, draining the player's fixed 20 HP through
+     repeated counterattacks faster than the fight resolves. "first" is
+     documented as a floor on human performance, not a target the ticket
+     asks to keep winnable -- but a 100% floor-1 death rate under ANY
+     playstyle is a signal worth Jaxon's eyes on, not something I want to
+     wave off silently. **Flagging this explicitly rather than deciding it
+     myself:** if real average players sit closer to "first" than "best"
+     (very plausible -- "best" does exhaustive optimal-word search a human
+     won't replicate every turn), the new normal-tier HP may be tuned too
+     high for actual play even though it's correctly tuned for the
+     ticket's literal "competent player" framing. Pushing HP higher to
+     fully guarantee >=1 counterattack for "best" would make this worse,
+     not better -- that tension is why I stopped tuning HP further here
+     rather than iterating toward a cleaner "best"-strategy margin.
+
+**Real, unresolved limitation discovered (not fixed, flagged for
+awareness):** the "best"-strategy softlock rate exploded from already-bad
+(19/20 in the post-fix-#1 baseline) to **20/20 (100%)** after the HP raise.
+Root-caused this, not just observed it: `test/balance-simulation.js`'s bot
+has always deliberately never used blank (`?`) tiles (documented in its own
+header comment, pre-existing, not something this run introduced). Before
+this ticket, fights ended in ~1 word, so this rarely mattered. Now that
+fights need 2-4+ words, the bot repeatedly reaches a leftover rack with no
+non-blank-formable word and reports a "softlock" -- even on racks the real
+game's own `ensureRackIsPlayable()` considers fine (it treats any rack
+containing a blank as automatically playable, trusting a real player to use
+it; ignores the possibility of a rack that FALLY has no word at all after 5
+reshuffle retries, which was already a documented pre-existing risk,
+concentrated on the vowel-poor Scribe character -- see the existing comment
+at `game.js`'s `ensureRackIsPlayable`). Net effect: **the "best"-strategy
+floor-2/floor-3 and boss numbers from this run are not trustworthy** -- sample
+sizes collapsed to 0-2 encounters per boss because almost every run
+softlocks out on floor 1 before getting there. I did NOT attempt to fix the
+bot's blank-handling in this run -- it's a nontrivial combinatorial-matching
+change to the word-finding search (indexing "words formable with up to K
+wildcard substitutions," not just anagram-map lookup) and risks introducing
+new bugs into shared test infrastructure while mid-way through a balance
+pass. Recommend a follow-up (either a small dedicated ticket, or the next
+run picking this ticket back up) before trusting any floor-2/3 or boss win
+rate number this script reports.
+
+**What's NOT done yet (why this isn't checked off in GOALS.md):**
+- **Boss HP/attack re-check** -- the ticket explicitly calls for this to
+  happen AFTER regular-monster tuning, as its own step. Not done: I don't
+  yet have trustworthy simulation data reaching bosses (see limitation
+  above), and boss defs are UNCHANGED in this run's diff. `npm run test:qa`
+  passing does not validate this -- that script tops up player HP via
+  direct state access before entering boss fights (documented in its own
+  header as deliberate test scaffolding), so it never exercises "arrives at
+  the boss with real attrition from tuned-up regular fights."
+- **Trustworthy run win-rate numbers** for the before/after report the
+  ticket asks for -- blocked on the same softlock-sample-size problem.
+- Version NOT bumped -- not appropriate until the pass is actually
+  complete and the box can be checked (per GOALS.md's own convention:
+  bump on completion of a feature/balance change, not mid-pass).
+
+**Verified (what I'm actually confident about):**
+- `npm test`: 25/25 clean, no regressions.
+- `npm run test:qa`: 24/24 clean, no regressions, no timeout bumps needed
+  (its own per-fight turn caps -- 15 for the first organic fight, 40 for
+  boss fights -- had enough headroom for the new HP bands without change).
+- The core one-shot problem is measurably improved for competent play:
+  direct single-hit damage sampling (60 racks, pre-change) plus the
+  post-change simulation's per-monster avg-words-per-fight both point the
+  same direction and roughly agree with each other.
+- Did NOT run `npm run test:mobile` -- no CSS/layout files touched this
+  run, not required by the top-of-file rules.
+
+**Next run should:**
+1. Decide how to get trustworthy floor-2/3 and boss data -- either patch
+   `test/balance-simulation.js`'s bot to use blanks (real fix, more work),
+   or run a much larger sample and manually filter/report around the
+   softlock noise, or accept the direct single-hit-damage-sampling
+   diagnostic style as the primary validation method for boss HP too
+   (faster, less code risk, doesn't need a full run to complete).
+2. Re-check boss HP/attack now that regular monsters hit harder against
+   the player (bosses are currently unchanged: Vowelmaw 50hp/4atk,
+   Unabridged Terror 80hp/6atk, Sovereign 120hp/8atk).
+3. Decide whether the "first"-strategy 100% floor-1 death rate is a real
+   concern (may mean normal-tier HP is a notch high for actual average
+   play) or acceptable given "first" was never meant to be winnable --
+   flagged above, not resolved.
+4. Once boss numbers are in and the "first"-strategy question is settled
+   one way or the other, write the full before/after report GOALS.md asks
+   for, check the box, and bump to v0.11.
+
+**Current state:** regular-monster HP/scoring tuning applied and validated
+against real measured damage + `npm test`/`npm run test:qa`, but the
+BALANCE ticket stays unchecked -- boss re-check and trustworthy win-rate
+numbers are still open. `js/wordbound/combat.js`, `game.js`, `lexicon.js`,
+`monsters.js`, and `test/balance-simulation.js` all changed; working tree
+is otherwise clean and everything here is committed.

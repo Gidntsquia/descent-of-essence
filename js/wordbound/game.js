@@ -576,7 +576,11 @@
 
     var baseGold = state.rng.randInt(goldDrop[0], goldDrop[1]);
     var overkill = Math.max(0, damageDealt - monsterHpBefore);
-    var bonusGold = Math.floor(overkill * 0.5);
+    // Capped at the monster's own max drop (review N1/N2/N3, 2026-08-20):
+    // uncapped, a one-shot kill's overkill bonus could exceed the monster's
+    // entire base drop, rewarding the very play pattern (one-shotting) the
+    // rest of this balance pass exists to discourage.
+    var bonusGold = Math.min(goldDrop[1], Math.floor(overkill * 0.5));
     var totalGold = baseGold + bonusGold;
     state.player.gold += totalGold;
 

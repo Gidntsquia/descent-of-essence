@@ -30,12 +30,17 @@
     var Lexicon = window.Wordbound.Lexicon;
     var Traits = window.Wordbound.Traits;
     var Tiles = window.Wordbound.Tiles;
+    var Items = window.Wordbound.Items;
 
     if (!Lexicon.isValidWord(word)) return null;
     var formed = Lexicon.canFormFromRack(word, player.rack);
     if (!formed.possible) return null;
 
-    var score = Lexicon.scoreWord(word.toUpperCase(), formed.tilesUsed);
+    // Capacity read BEFORE removeTiles below mutates the rack -- the bingo
+    // bonus is "used your whole rack in one word," gated to the player's
+    // actual capacity (e.g. 8 with Spare Satchel), not a hardcoded 7.
+    var rackCapacity = Items ? Items.getRackCapacity(player) : 7;
+    var score = Lexicon.scoreWord(word.toUpperCase(), formed.tilesUsed, rackCapacity);
 
     Lexicon.removeTiles(player.rack, formed.tilesUsed);
 

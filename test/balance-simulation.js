@@ -65,6 +65,7 @@ function findPlayableWords(win, anagramMap, rack, monster, opts) {
   const usable = rack.filter((t) => t.letter !== '?');
   const n = usable.length;
   if (n < 2) return [];
+  const rackCapacity = (opts && opts.rackCapacity) || 7;
 
   const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
   const trait = Traits.TRAITS[Traits.activeTraitForHpRatio(monster.traitPhases, hpRatio)];
@@ -89,7 +90,7 @@ function findPlayableWords(win, anagramMap, rack, monster, opts) {
       const formed = Lexicon.canFormFromRack(word, rack);
       if (!formed.possible) continue;
 
-      const score = Lexicon.scoreWord(word, formed.tilesUsed);
+      const score = Lexicon.scoreWord(word, formed.tilesUsed, rackCapacity);
       const usedIds = new Set(formed.tilesUsed.map((t) => t.id));
       let holdMult = 1;
       for (const tile of rack) {
@@ -172,6 +173,17 @@ async function playRun(win, anagramMap, strategy, runIndex) {
       continue;
     }
 
+    if (state.screen === 'BOSS_ITEM_REWARD') {
+      // Not handling this screen means the whole run "stalls" immediately
+      // after every boss kill (hits the "unknown screen" bailout below) --
+      // found while baselining this script; it wasn't a game bug, the
+      // script just never grew this branch when BOSS_ITEM_REWARD shipped.
+      const opts = state.bossRewardOptions;
+      if (opts && opts.length) Game.pickBossItemReward(opts[0]);
+      else Game.skipBossItemReward();
+      continue;
+    }
+
     if (state.screen === 'SHOP') {
       // Buy anything affordable, once each. Game.buyItem does NOT reject an
       // already-owned permanent item (a real bug -- see PROGRESS.md), so
@@ -221,6 +233,7 @@ async function playRun(win, anagramMap, strategy, runIndex) {
       while (state.combatActive && encounter.words < MAX_WORDS_PER_COMBAT) {
         const candidates = findPlayableWords(win, anagramMap, state.player.rack, state.monster, {
           stopAtFirstDamaging: strategy === 'first',
+          rackCapacity: win.Wordbound.Items.getRackCapacity(state.player),
         });
         const word = chooseWord(candidates, strategy);
         if (!word) {
