@@ -764,6 +764,15 @@ h2 {
 .treasure-choice.variant-vampiric { border-left: 3px solid #d06a7a; }
 .treasure-choice.variant-volatile { border-left: 3px solid #e08a4a; }
 
+/* The Shredder (GOALS.md "FUN OVERHAUL 7/8"): a picked tile reads as doomed
+   -- red edge + faint tint so the selection is obvious in the deck list. */
+.treasure-choice.shredder-picked {
+  border-color: #c0433a;
+  box-shadow: inset 0 0 0 1px #c0433a, 0 0 8px rgba(192, 67, 58, 0.4);
+  background: linear-gradient(to bottom, #3a2018 0%, #331a15 100%);
+}
+.treasure-choice.shredder-picked strong { color: #e88b82; }
+
 .character-select-panel { max-width: 500px; }
 
 .character-choices {

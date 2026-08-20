@@ -6,13 +6,35 @@
 //
 // PUBLIC API (window.Wordbound.Events):
 //   EVENT_DEFS = {
-//     eventId: { name, text, choices: [{ text, effect(state) }] }
+//     eventId: { name, text, choices: [{ text, disabledReason?, effect(state) }] }
 //   }
 //   pickRandomEvent(rng) -> eventId
+//
+// A choice's optional `disabledReason(state)` returns a short string when the
+// choice can't be taken right now (not enough gold, deck too thin, nothing
+// left to give) or null when it can -- renderEvent greys the button out and
+// shows the reason, so a gamble the player can't afford reads as unavailable
+// instead of silently doing nothing when clicked.
+//
+// `effect(state)` returns either a log message string (the common case) or
+// { message, hold } -- `hold` names a sub-screen that takes over instead of
+// the node resolving immediately (currently only 'SHREDDER'). game.js's
+// chooseEventOption interprets it; only that file may touch screens/DOM.
 
 (function () {
   window.Wordbound = window.Wordbound || {};
   var Events = (window.Wordbound.Events = {});
+
+  // GOALS.md "FUN OVERHAUL 7/8" gamble-event tuning knobs.
+  Events.FORBIDDEN_TOME_HP_RATIO = 0.2;
+  Events.FORBIDDEN_TOME_MIN_DAMAGE = 5;
+  Events.SHREDDER_MAX_TILES = 2;
+  // Never let the Shredder thin a deck below a full rack plus headroom: rack
+  // capacity is 7, or 8 with Spare Satchel (items.js), and a deck that can't
+  // fill the rack would quietly starve every fight after this one.
+  Events.SHREDDER_MIN_DECK_SIZE = 10;
+  Events.WAGER_STAKE = 30;
+  Events.WAGER_PAYOUT = 90;
 
   Events.EVENT_DEFS = {
     blood_bargain: {
@@ -132,6 +154,101 @@
           text: 'Move on: The silence makes you uneasy',
           effect: function (state) {
             return 'You hurry past. Empty shelves shouldn\'t exist in the Archive.';
+          }
+        }
+      ]
+    },
+
+    // ---- gamble events (GOALS.md "FUN OVERHAUL 7/8") --------------------
+    // Each is a real "do I dare" with a stated cost, and each keeps a
+    // walk-away choice so the node is never a forced loss.
+
+    forbidden_tome: {
+      name: 'The Forbidden Tome',
+      text: 'A tome sits chained to a lectern, bristling with rules it plainly intends to break. The chain, on closer inspection, is decorative.',
+      choices: [
+        {
+          text: 'Read it anyway: gain a rule-changer, lose 20% of your max HP (it can\'t kill you)',
+          disabledReason: function (state) {
+            var Items = window.Wordbound && window.Wordbound.Items;
+            if (!Items || !Items.RULE_CHANGER_IDS) return 'the tome is illegible today';
+            var unowned = Items.RULE_CHANGER_IDS.filter(function (id) {
+              return state.player.items.indexOf(id) === -1;
+            });
+            return unowned.length === 0 ? 'you have already read every forbidden page' : null;
+          },
+          effect: function (state) {
+            var Items = window.Wordbound.Items;
+            var unowned = Items.RULE_CHANGER_IDS.filter(function (id) {
+              return state.player.items.indexOf(id) === -1;
+            });
+            var granted = state.rng.choice(unowned);
+            state.player.items.push(granted);
+            var damage = Math.max(
+              Events.FORBIDDEN_TOME_MIN_DAMAGE,
+              Math.round(state.player.maxHp * Events.FORBIDDEN_TOME_HP_RATIO)
+            );
+            // Floored at 1, not 0: the ticket is explicit that this gamble
+            // costs you dearly but never ends the run outright.
+            state.player.hp = Math.max(1, state.player.hp - damage);
+            return 'The rules rearrange themselves painfully around you (−' + damage +
+              ' HP). You now own ' + Items.ITEM_DEFS[granted].name + '.';
+          }
+        },
+        {
+          text: 'Leave it chained: some rules are load-bearing',
+          effect: function (state) {
+            return 'You leave the tome to its lectern. It rattles, disappointed.';
+          }
+        }
+      ]
+    },
+
+    the_shredder: {
+      name: 'The Shredder',
+      text: 'A brass contraption crouches in the corner, all teeth and enthusiasm. A hand-lettered sign reads: "FEED ME THE BAD ONES."',
+      choices: [
+        {
+          text: 'Feed it: destroy up to 2 tiles from your deck, permanently',
+          disabledReason: function (state) {
+            return (state.deck || []).length <= Events.SHREDDER_MIN_DECK_SIZE
+              ? 'your deck is already too thin to feed it'
+              : null;
+          },
+          effect: function (state) {
+            return { message: 'The Shredder whirs expectantly.', hold: 'SHREDDER' };
+          }
+        },
+        {
+          text: 'Keep your letters: every tile has its day',
+          effect: function (state) {
+            return 'You pocket your tiles. The Shredder\'s teeth click, unfed.';
+          }
+        }
+      ]
+    },
+
+    wager_with_the_stacks: {
+      name: 'A Wager with the Stacks',
+      text: 'A bookmark-thin voice drifts from between the shelves: "Thirty gold says you can\'t clear your next foe without repeating yourself."',
+      choices: [
+        {
+          text: 'Take the wager: stake 30 gold, win the next fight with no repeated word for 90 🪙',
+          disabledReason: function (state) {
+            return state.player.gold < Events.WAGER_STAKE
+              ? 'you don\'t have ' + Events.WAGER_STAKE + ' gold'
+              : null;
+          },
+          effect: function (state) {
+            state.player.gold -= Events.WAGER_STAKE;
+            state.activeWager = { stake: Events.WAGER_STAKE, payout: Events.WAGER_PAYOUT };
+            return 'You stake ' + Events.WAGER_STAKE + ' gold. The Stacks are listening -- don\'t repeat yourself.';
+          }
+        },
+        {
+          text: 'Decline: the Stacks always know something you don\'t',
+          effect: function (state) {
+            return 'You keep your coin. The voice tuts and returns to its shelf.';
           }
         }
       ]

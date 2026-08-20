@@ -1239,6 +1239,170 @@ async function main() {
     }
   }
 
+  // FUN OVERHAUL 7/8 (GOALS.md, 2026-08-20): gamble events. Drives each of
+  // the three new events through the real Game.chooseEventOption flow after
+  // splicing an event node onto the current floor, then checks the exact
+  // state change (Forbidden Tome's grant + capped, non-lethal damage; the
+  // Shredder's pick cap, deck floor, and permanent removal; the Wager's
+  // stake/payout/forfeit both ways).
+  {
+    const Events = window.Wordbound.Events;
+    const Items = window.Wordbound.Items;
+    const Tiles = window.Wordbound.Tiles;
+
+    // The three new events exist and are in the random pool.
+    check('gamble: forbidden_tome / the_shredder / wager_with_the_stacks all defined',
+      !!Events.EVENT_DEFS.forbidden_tome && !!Events.EVENT_DEFS.the_shredder && !!Events.EVENT_DEFS.wager_with_the_stacks);
+
+    // Helper: reset to a clean RUN state and splice a single event node as the
+    // current node so enterCurrentNode(startEvent) drives the real flow.
+    function primeEvent(defId) {
+      state.combatActive = false;
+      state.screen = 'RUN';
+      state.pendingEventSkipNextCombat = false;
+      const node = { id: 'node-event-test-' + defId, type: 'event', defId: defId, cleared: false };
+      state.floor.nodes.push(node);
+      state.currentNodeIndex = state.floor.nodes.length - 1;
+      window.Wordbound.Game.enterCurrentNode();
+    }
+
+    // -- Forbidden Tome --------------------------------------------------
+    // Full-HP case: grants an unowned rule-changer, deals exactly 20% max HP.
+    state.player.items = state.player.items.filter((id) => Items.RULE_CHANGER_IDS.indexOf(id) === -1);
+    state.player.maxHp = 40;
+    state.player.hp = 40;
+    const itemsBeforeTome = state.player.items.length;
+    primeEvent('forbidden_tome');
+    check('gamble/tome: entering routes to the EVENT screen', state.screen === 'EVENT' && state.currentEvent && state.currentEvent.id === 'forbidden_tome');
+    window.Wordbound.Game.chooseEventOption(0);
+    check('gamble/tome: granted exactly one unowned rule-changer', state.player.items.length === itemsBeforeTome + 1 && Items.RULE_CHANGER_IDS.indexOf(state.player.items[state.player.items.length - 1]) !== -1);
+    check('gamble/tome: dealt exactly 20% of max HP (40 -> 32)', state.player.hp === 32);
+    check('gamble/tome: node cleared, back on RUN', state.screen === 'RUN' && state.currentEvent === null);
+
+    // Cannot-kill floor: at 3 HP with a 40 maxHp (8 damage), it floors at 1.
+    state.player.items = state.player.items.filter((id) => Items.RULE_CHANGER_IDS.indexOf(id) === -1);
+    state.player.hp = 3;
+    primeEvent('forbidden_tome');
+    window.Wordbound.Game.chooseEventOption(0);
+    check('gamble/tome: cannot kill -- HP floors at 1, never 0 or below', state.player.hp === 1);
+
+    // Disabled when every rule-changer is already owned.
+    Items.RULE_CHANGER_IDS.forEach((id) => { if (state.player.items.indexOf(id) === -1) state.player.items.push(id); });
+    primeEvent('forbidden_tome');
+    check('gamble/tome: read-choice is disabled once all rule-changers owned', !!state.currentEvent.choices[0].disabledReason(state));
+    window.Wordbound.Game.chooseEventOption(0);
+    check('gamble/tome: taking the disabled choice is a no-op (still on EVENT)', state.screen === 'EVENT');
+    window.Wordbound.Game.chooseEventOption(1); // walk away to clear it
+    state.player.items = state.player.items.filter((id) => Items.RULE_CHANGER_IDS.indexOf(id) === -1);
+
+    // -- The Shredder ----------------------------------------------------
+    // Give a comfortably-large deck so the pick budget is capped by MAX, not
+    // the deck floor.
+    state.deck = 'ABCDEFGHIJKLMN'.split('').map((l) => Tiles.createTile(l, null));
+    const deckSizeBefore = state.deck.length;
+    primeEvent('the_shredder');
+    window.Wordbound.Game.chooseEventOption(0);
+    check('gamble/shredder: feeding routes to the SHREDDER sub-screen', state.screen === 'SHREDDER');
+    check('gamble/shredder: starts with an empty selection', state.shredderSelection.length === 0);
+    const t0 = state.deck[0].id, t1 = state.deck[1].id, t2 = state.deck[2].id;
+    window.Wordbound.Game.toggleShredderTile(t0);
+    window.Wordbound.Game.toggleShredderTile(t1);
+    check('gamble/shredder: can pick two tiles', state.shredderSelection.length === 2);
+    window.Wordbound.Game.toggleShredderTile(t2);
+    check('gamble/shredder: cannot pick a third (MAX_TILES = 2)', state.shredderSelection.length === 2 && state.shredderSelection.indexOf(t2) === -1);
+    window.Wordbound.Game.toggleShredderTile(t0);
+    check('gamble/shredder: a picked tile can be unpicked', state.shredderSelection.length === 1 && state.shredderSelection.indexOf(t0) === -1);
+    window.Wordbound.Game.confirmShredder();
+    check('gamble/shredder: confirming removes exactly the picked tiles from the deck permanently', state.deck.length === deckSizeBefore - 1 && !state.deck.some((t) => t.id === t1));
+    check('gamble/shredder: node resolves back to RUN after confirm', state.screen === 'RUN' && state.currentEvent === null);
+
+    // Deck-floor guard: at exactly the minimum deck size, the feed choice is
+    // disabled (deck too thin), and the pick budget is 0 just above it.
+    state.deck = 'ABCDEFGHIJ'.split('').map((l) => Tiles.createTile(l, null)); // 10 == SHREDDER_MIN_DECK_SIZE
+    primeEvent('the_shredder');
+    check('gamble/shredder: feed choice disabled when deck at the minimum size', !!state.currentEvent.choices[0].disabledReason(state));
+    window.Wordbound.Game.chooseEventOption(1); // walk away
+
+    state.deck = 'ABCDEFGHIJK'.split('').map((l) => Tiles.createTile(l, null)); // 11 == floor + 1
+    primeEvent('the_shredder');
+    window.Wordbound.Game.chooseEventOption(0);
+    check('gamble/shredder: only one pick allowed one tile above the deck floor', window.Wordbound.Game._shredderRemainingPicks() === 1);
+    window.Wordbound.Game.confirmShredder();
+
+    // -- Wager with the Stacks ------------------------------------------
+    // Stake deducted on accept; payout on a clean (no-repeat) win.
+    state.player.gold = 100;
+    primeEvent('wager_with_the_stacks');
+    window.Wordbound.Game.chooseEventOption(0);
+    check('gamble/wager: staking deducts the stake up front (100 -> 70)', state.player.gold === 70);
+    check('gamble/wager: an active wager is now tracked', !!state.activeWager && state.activeWager.payout === Events.WAGER_PAYOUT);
+    window.Wordbound.Game.chooseEventOption(1); // dismiss the still-open (already-accepted) event node cleanly
+
+    // Disabled when the player can't afford the stake.
+    state.activeWager = null;
+    state.player.gold = 10;
+    primeEvent('wager_with_the_stacks');
+    check('gamble/wager: accept disabled when the player cannot afford the stake', !!state.currentEvent.choices[0].disabledReason(state));
+    window.Wordbound.Game.chooseEventOption(1); // decline
+    check('gamble/wager: declining leaves gold untouched and no wager active', state.player.gold === 10 && state.activeWager === null);
+  }
+
+  // FUN OVERHAUL 7/8 wager resolution through a real kill: accept a wager,
+  // then win a spliced 1-HP fight without repeating a word and confirm the
+  // payout lands; separately, a repeated word forfeits the stake. Kept apart
+  // from the block above so the death-beat timeouts don't interleave with its
+  // synchronous checks.
+  {
+    const Tiles = window.Wordbound.Tiles;
+    const Monsters = window.Wordbound.Monsters;
+    const Events = window.Wordbound.Events;
+
+    async function killWith(word, setup) {
+      state.combatActive = false;
+      state.screen = 'RUN';
+      state.pendingEventSkipNextCombat = false;
+      const node = { id: 'node-wager-combat', type: 'combat', defId: 'slime', cleared: false };
+      state.floor.nodes.push(node);
+      state.currentNodeIndex = state.floor.nodes.length - 1;
+      window.Wordbound.Game.enterCurrentNode();
+      await new Promise((r) => setTimeout(r, 60));
+      // Force a trivially-killable, plain monster and a known rack.
+      state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+      state.monster.hp = 1;
+      state.monster.maxHp = 1;
+      state.monster.intent = { type: 'attack', value: 0 };
+      state.hexedTileId = null;
+      state.player.hp = state.player.maxHp;
+      state.player.rack = word.split('').map((l) => Tiles.createTile(l, null));
+      if (setup) setup();
+      window.Wordbound.Game.submitWord(word);
+      await new Promise((r) => setTimeout(r, 800));
+    }
+
+    // Clean win pays out.
+    state.player.gold = 0;
+    state.activeWager = { stake: Events.WAGER_STAKE, payout: Events.WAGER_PAYOUT };
+    state.repeatedWordThisFight = false;
+    await killWith('CAT');
+    check('gamble/wager: a clean (no-repeat) win pays out the full payout', state.player.gold >= Events.WAGER_PAYOUT);
+    check('gamble/wager: the wager clears after resolving', state.activeWager === null);
+    check('gamble/wager: payout win produced zero errors', errors.length === 0);
+    if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+
+    // A repeated word forfeits the stake (no payout). startCombat resets
+    // repeatedWordThisFight, so set it in the setup callback (after the fight
+    // starts, before the word is submitted) to simulate a repeat having
+    // happened earlier this fight.
+    state.player.gold = 0;
+    state.activeWager = { stake: Events.WAGER_STAKE, payout: Events.WAGER_PAYOUT };
+    await killWith('DOG', () => { state.repeatedWordThisFight = true; });
+    // The kill still drops its own loot gold, but the 90 payout must NOT be
+    // added -- so total gold stays well under the payout.
+    check('gamble/wager: a repeated word forfeits -- no payout added', state.player.gold < Events.WAGER_PAYOUT);
+    check('gamble/wager: the forfeited wager still clears', state.activeWager === null);
+    check('gamble/wager: forfeit is announced in the log', state.messages.some((m) => /stays with the Stacks/.test(m)));
+  }
+
   // FUN OVERHAUL 6/8 (GOALS.md, 2026-08-20): elites as opt-in risk/reward.
   // Runs last (it replaces the floor/monster). Isolated floor-generation
   // checks + a live elite fight driven to a kill to prove the resistance

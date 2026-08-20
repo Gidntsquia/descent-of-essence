@@ -89,6 +89,9 @@
     pendingAfterTileReward: null, // 'bossItemReward' | 'nextNode'
     currentEvent: null, // { id, def: EventDef, name, text, choices }
     pendingEventSkipNextCombat: false, // if true, skip next combat node
+    shredderSelection: [], // GOALS.md "FUN OVERHAUL 7/8": tile ids picked for destruction on the Shredder sub-screen, cleared when it resolves
+    activeWager: null, // GOALS.md "FUN OVERHAUL 7/8": { stake, payout } while a Wager with the Stacks is live, resolved on the next monster kill
+    repeatedWordThisFight: false, // true once any word is replayed this fight -- what loses the wager, reset in startCombat
     deckViewerOpen: false,
     itemInspectorOpen: false,
     itemInspectorId: null,
@@ -170,6 +173,10 @@
     state.currentNodeIndex = 0;
     state.messages = [];
     state.screen = 'RUN';
+    state.activeWager = null;
+    state.repeatedWordThisFight = false;
+    state.shredderSelection = [];
+    state.pendingEventSkipNextCombat = false;
     state.runStats = {
       wordsPlayed: 0, bestWord: null, bestWordDamage: 0, totalDamage: 0,
       monstersDefeated: 0, floorsCleared: 0, goldEarned: 0
@@ -390,14 +397,75 @@
   Game.chooseEventOption = function (choiceIndex) {
     if (!state.currentEvent || !state.currentEvent.choices || choiceIndex < 0 || choiceIndex >= state.currentEvent.choices.length) return;
     var choice = state.currentEvent.choices[choiceIndex];
+    // A choice the player can't afford (or that has nothing left to give) is
+    // rendered disabled -- re-check here too so a stale click or a scripted
+    // call can't bypass the cost.
+    if (choice.disabledReason && choice.disabledReason(state)) return;
     var result = choice.effect(state);
-    if (result) log(result);
+    // A choice returns either a plain log message or { message, hold } --
+    // 'hold' means a sub-screen takes over and the node resolves later.
+    var message = typeof result === 'string' ? result : (result && result.message);
+    if (message) log(message);
 
+    if (result && result.hold === 'SHREDDER') {
+      state.shredderSelection = [];
+      state.screen = 'SHREDDER';
+      render();
+      return;
+    }
+
+    finishEvent();
+  };
+
+  // Clears the event node and walks on. Split out of chooseEventOption so a
+  // held sub-screen (the Shredder) can resolve the same node once it's done.
+  function finishEvent() {
     currentNode().cleared = true;
     state.currentNodeIndex += 1;
     state.currentEvent = null;
     state.screen = 'RUN';
     render();
+  }
+
+  // ---- the Shredder (GOALS.md "FUN OVERHAUL 7/8") -------------------------
+
+  // How many more tiles the player may still feed in: the event's own cap,
+  // further limited so the deck never drops below SHREDDER_MIN_DECK_SIZE.
+  function shredderRemainingPicks() {
+    var Events = window.Wordbound.Events;
+    var byCap = Events.SHREDDER_MAX_TILES - state.shredderSelection.length;
+    var byDeckFloor = state.deck.length - Events.SHREDDER_MIN_DECK_SIZE - state.shredderSelection.length;
+    return Math.max(0, Math.min(byCap, byDeckFloor));
+  }
+  Game._shredderRemainingPicks = shredderRemainingPicks; // exposed for headless test inspection only
+
+  Game.toggleShredderTile = function (tileId) {
+    if (state.screen !== 'SHREDDER') return;
+    var at = state.shredderSelection.indexOf(tileId);
+    if (at !== -1) {
+      state.shredderSelection.splice(at, 1);
+    } else {
+      if (shredderRemainingPicks() <= 0) return;
+      if (!state.deck.some(function (t) { return t.id === tileId; })) return;
+      state.shredderSelection.push(tileId);
+    }
+    render();
+  };
+
+  Game.confirmShredder = function () {
+    if (state.screen !== 'SHREDDER') return;
+    var doomed = state.shredderSelection.slice();
+    if (doomed.length === 0) {
+      log('You feed it nothing. The Shredder idles, visibly let down.');
+    } else {
+      var letters = state.deck
+        .filter(function (t) { return doomed.indexOf(t.id) !== -1; })
+        .map(function (t) { return t.letter === '?' ? '★' : t.letter; });
+      state.deck = state.deck.filter(function (t) { return doomed.indexOf(t.id) === -1; });
+      log('The Shredder devours ' + letters.join(' and ') + '. Gone for good, and it seems happy about it.');
+    }
+    state.shredderSelection = [];
+    finishEvent();
   };
 
   // ---- combat ---------------------------------------------------------
@@ -431,6 +499,7 @@
     state.comboState = { combo: 0, usedWords: new Set() };
     state.previousWordThisFight = null;
     state.wordsPlayedThisFightCount = 0;
+    state.repeatedWordThisFight = false;
     state.hexedTileId = null;
     Items.runHook('onRunStart', { player: state.player, pileState: state.pile }, state.player);
     refillRack();
@@ -645,6 +714,11 @@
       // above) and resets the combo -- flag it in the log so the damage dip
       // reads as a choice's consequence, not a bug.
       log('The Archive has heard that one before.');
+      // A repeat also loses a live Wager with the Stacks (FUN OVERHAUL 7/8).
+      // Recorded here rather than resolved: the wager only pays out (or
+      // doesn't) once the fight is actually won.
+      state.repeatedWordThisFight = true;
+      if (state.activeWager) log('The Stacks heard that. The wager is lost.');
     } else if (result.comboAtPlay > 0) {
       log('Combo x' + result.comboAtPlay + '! +' + Math.round(result.comboAtPlay * 12) + '% damage.');
     }
@@ -799,6 +873,23 @@
     if (isElite) goldMsg += ' (elite 1.5x)';
     goldMsg += '.';
     log(goldMsg);
+
+    // A Wager with the Stacks (GOALS.md "FUN OVERHAUL 7/8") rides on the
+    // NEXT fight after the event: winning it without ever repeating a word
+    // pays out, a repeat forfeits the already-deducted stake. Resolved on the
+    // kill (win condition met) and cleared either way, so it can't ride on to
+    // a later fight. Losing the fight instead ends the run, which forfeits it
+    // by simply never reaching here.
+    if (state.activeWager) {
+      if (state.repeatedWordThisFight) {
+        log('The wager is settled: you repeated yourself. Your ' + state.activeWager.stake + ' gold stays with the Stacks.');
+      } else {
+        state.player.gold += state.activeWager.payout;
+        if (state.runStats) state.runStats.goldEarned += state.activeWager.payout;
+        log('Not one word twice -- the Stacks pay out ' + state.activeWager.payout + ' gold!');
+      }
+      state.activeWager = null;
+    }
 
     // FUN OVERHAUL 6/8: an elite guarantees a rule-changer item (the 4/8
     // pool). Granted directly rather than as a choice screen -- "a guaranteed
@@ -1502,13 +1593,15 @@
       return;
     }
 
-    $('node-map').classList.toggle('hidden', state.combatActive || state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD' || state.screen === 'EVENT');
+    var overlayScreen = state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD' || state.screen === 'EVENT' || state.screen === 'SHREDDER';
+    $('node-map').classList.toggle('hidden', state.combatActive || overlayScreen);
     $('combat-panel').classList.toggle('hidden', !state.combatActive);
     $('combat-panel').classList.toggle('boss-combat', state.combatActive && state.monster && state.monster.isBoss);
     $('treasure-panel').classList.toggle('hidden', state.screen !== 'TREASURE' && state.screen !== 'SHOP');
     $('tile-reward-panel').classList.toggle('hidden', state.screen !== 'TILE_REWARD');
     $('boss-reward-panel').classList.toggle('hidden', state.screen !== 'BOSS_ITEM_REWARD');
     $('event-panel').classList.toggle('hidden', state.screen !== 'EVENT');
+    $('shredder-panel').classList.toggle('hidden', state.screen !== 'SHREDDER');
 
     if (state.screen === 'TREASURE') {
       renderTreasure();
@@ -1528,6 +1621,10 @@
     }
     if (state.screen === 'EVENT') {
       renderEvent();
+      return;
+    }
+    if (state.screen === 'SHREDDER') {
+      renderShredder();
       return;
     }
     if (state.combatActive) {
@@ -1768,8 +1865,52 @@
     state.currentEvent.choices.forEach(function (choice, index) {
       var btn = document.createElement('button');
       btn.className = 'treasure-choice';
-      btn.textContent = choice.text;
-      btn.addEventListener('click', function () { Game.chooseEventOption(index); });
+      var reason = choice.disabledReason ? choice.disabledReason(state) : null;
+      if (reason) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+        btn.innerHTML = escapeHtml(choice.text) + '<br><em style="color:#b8ac8a;">(' + escapeHtml(reason) + ')</em>';
+      } else {
+        btn.textContent = choice.text;
+        btn.addEventListener('click', function () { Game.chooseEventOption(index); });
+      }
+      el.appendChild(btn);
+    });
+  }
+
+  // The Shredder sub-screen (GOALS.md "FUN OVERHAUL 7/8"): the deck-viewer
+  // list made pickable so the player chooses which tiles to destroy.
+  function renderShredder() {
+    var Events = window.Wordbound.Events;
+    var remaining = shredderRemainingPicks();
+    var picked = state.shredderSelection.length;
+    $('shredder-status').textContent = picked > 0
+      ? 'Feeding ' + picked + ' tile' + (picked > 1 ? 's' : '') + ' to the Shredder. ' +
+        (remaining > 0 ? 'You may pick ' + remaining + ' more, or confirm.' : 'Confirm to destroy them.')
+      : 'Pick up to ' + Events.SHREDDER_MAX_TILES + ' tiles to destroy (or confirm to feed it nothing).';
+
+    var el = $('shredder-tiles-list');
+    el.innerHTML = '';
+    var sorted = state.deck.slice().sort(function (a, b) { return a.letter.localeCompare(b.letter); });
+    sorted.forEach(function (tile) {
+      var btn = document.createElement('button');
+      var isPicked = state.shredderSelection.indexOf(tile.id) !== -1;
+      var variantClass = tile.variant ? ' variant-' + tile.variant : '';
+      btn.className = 'treasure-choice' + variantClass + (isPicked ? ' shredder-picked' : '');
+      var bonusDesc = Tiles.describeVariant(tile.variant) || Tiles.describeBonus(tile.bonus);
+      btn.innerHTML = '<strong>' + escapeHtml(tile.letter === '?' ? '★' : tile.letter) + '</strong>' +
+        (bonusDesc ? '<br>' + escapeHtml(bonusDesc) : '') + (isPicked ? '<br><em>— for the teeth</em>' : '');
+      // A tile not yet picked while the pick budget is spent is unpickable --
+      // grey it so the cap reads visually, but keep already-picked tiles
+      // clickable so a pick is always reversible.
+      if (!isPicked && remaining <= 0) {
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+        btn.style.cursor = 'not-allowed';
+      } else {
+        btn.addEventListener('click', function () { Game.toggleShredderTile(tile.id); });
+      }
       el.appendChild(btn);
     });
   }
@@ -1957,6 +2098,7 @@
     $('btn-close-item-inspector').addEventListener('click', Game.closeItemInspector);
     $('btn-view-consumables').addEventListener('click', Game.openConsumablesPanel);
     $('btn-close-consumables').addEventListener('click', Game.closeConsumablesPanel);
+    $('btn-confirm-shredder').addEventListener('click', Game.confirmShredder);
     $('btn-back-to-menu').addEventListener('click', Game.returnToMainMenu);
     $('btn-how-to-play').addEventListener('click', Game.openHowToPlay);
     $('btn-close-howto').addEventListener('click', Game.closeHowToPlay);
