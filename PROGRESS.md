@@ -8040,3 +8040,166 @@ overnight, or provided new steer; if not, the honest state is that the
 routine is close to idle on new work until that ticket gets a human
 decision, per the routine's own guardrails (don't invent busywork, don't
 guess further on a flagged judgment call).
+
+---
+
+### 2026-08-20T12:54Z -- QA pass on fb8fbeb: real-browser verification of F3 transitions/N6/F4.5/boss-HP changes, clean, zero tickets
+
+Fresh QA pass (worker role), zero memory of prior sessions. `git pull`
+fast-forwarded 4a9ca2e -> **fb8fbeb** (6 commits: balance-ticket flag
+f9a99cf, Mend display-bug fix a63df82, boss-HP iteration #1 f08a844,
+POLISH batch F4 92915e8, F4.5 tile-reward restyle 86720e2, N6 end-of-run
+stats screen fb8fbeb). Pinned this pass to **fb8fbeb**. Origin moved again
+mid-pass (B6 cleanup landed as fb8bfdc); merged cleanly at the very end
+(fast-forward, zero conflicts) but NOT independently re-verified per "note
+mid-pass movement, don't chase" -- B6's own PROGRESS.md entry already
+reports `npm test` 129/129 and `npm run test:qa` 26/26 clean, taken on
+trust.
+
+**Baselines at fb8fbeb, all clean:** `npm test` 127/127 ALL CHECKS PASSED;
+`npm run test:qa` 26/26 real Chromium, zero console/page errors; `npm run
+test:mobile` clean at 375px/414px across all 4 screens it now covers (main
+menu, combat, tile-reward, game-over).
+
+**Corrected one thing from this pass's own briefing:** FUN OVERHAUL 4/8
+("possibly landed") did NOT land -- it's explicitly gated behind the
+top-of-queue BALANCE ticket, still unchecked (gate #2: win 30%/stall 13%,
+both just outside the 33-50%/<10% band, but bosses are demonstrably no
+longer the bottleneck -- 82% of deaths are regular/strong-tier monsters,
+out of that ticket's scope -- flagged for Jaxon, not re-litigated here).
+What DID land beyond the briefing's list: POLISH F4 (4 CSS fixes), F4.5
+(tile-reward restyled as letter tiles), and N6 (end-of-run stats screen) --
+all cosmetic/additive, no balance-affecting code. Directly confirmed
+current values against PROGRESS.md's own numbers rather than trusting the
+prose: monsters.js boss HP is exactly Vowelmaw 38 / Unabridged Terror 35 /
+Sovereign 45; intents.js constants are exactly MEND_HEAL_RATIO=0.10,
+ENRAGE_ATTACK_BONUS=1 / ENRAGE_MAX_STACKS=3, DEVOUR_DAMAGE_THRESHOLD=12
+with a `devourUsed` once-per-fight guard.
+
+**F3 screen transitions (this pass's HIGH RISK item) -- verified clean,
+but only after finding and fixing three bugs in my OWN new scratch
+script**, exactly the "triple-check your own scripts" pattern flagged in
+this pass's brief (three prior QA-pass "bugs" were script bugs). Wrote
+`verify-f3-transitions-realbrowser.js` (new, kept in the scratch dir):
+rapid map<->combat<->reward navigation (near-zero waits, well under the
+200ms `screenFadeIn` duration) plus rapid open/close of the two side
+panels that ALSO share `.treasure-panel`'s animation class -- deck viewer
+and consumables, confirmed via grep on wordbound.html rather than assumed
+-- under both normal motion and `prefers-reduced-motion: reduce`
+emulation. First runs reported "no-damage-word-found" on the very first
+fight, every time. Root-caused via direct diagnostic dumps (rack/monster/
+word-search counts at the exact failure point) to my own loop missing the
+documented ~720ms post-kill death-beat guard that the existing
+`qa-playthrough-v2-combo-aware.js`'s `runOneFight` already has and comments
+explicitly (combatActive stays true ~720ms after monster.hp hits 0; my
+loop was re-searching for a word against the transient, nearly-empty
+post-kill rack -- one failure literally showed a 1-tile rack against a
+0-HP monster). Ported the same guard over. Two more self-inflicted gaps
+surfaced and got fixed the same way: a fight counter that never
+incremented (combatActive doesn't reliably flip false within the
+word-submit helper's own 350ms wait -- switched to counting on reaching
+TILE_REWARD instead), and a structural hidden-state checker that didn't
+account for GAME_OVER/VICTORY never calling `renderRun()` (so node-map/
+combat-panel's stale hidden-class sits correctly-but-irrelevantly
+underneath a hidden `#screen-run`, not a real bug -- confirmed by reading
+`render()`/`show()` in game.js directly). Final clean run: 2 full fights
+under normal motion (including 25 rapid deck/consumables toggle cycles,
+~4ms between clicks) + 3 full fights under reduced-motion, zero structural
+hidden-state mismatches, zero stuck-invisible screens, zero animation
+double-fire (checked via `getAnimations()` post-settle), reduced-motion
+confirmed to swap screens correctly with literally zero animation
+instances created (not just instantly-finished ones).
+
+**N6 (end-of-run stats) + F4.5 (tile-reward-as-tiles), verified in organic
+real play** -- both were previously verified only via jsdom's forced-state
+re-render trick or mobile-layout computed-style checks per their own
+PROGRESS.md entries, never actually watched through a real, non-forced
+playthrough. Wrote `verify-n6-f45-organic-realbrowser.js` (new, kept in
+scratch dir): played 2 full real runs to completion (one GAME_OVER, one
+VICTORY reaching floor 3), cross-checking the RENDERED stats-block DOM
+against live `state.runStats` (that the actual damage/gold/best-word
+numbers shown match what's tracked, not just "a block with 6 rows
+exists"), and the tile-reward panel's `.treasure-choice-tile`/
+`.tile-reward-letter` structure each time it was reached. Zero issues
+both runs (run 1: GAME_OVER, 18 words/341 dmg/6 kills/74 gold; run 2:
+VICTORY, 16 words/1001 dmg/11 kills/301 gold, floors 3/3). Screenshots
+(/tmp only, not committed) confirm both visually. One false alarm caught
+and cleared before it became a ticket: an initial full-page screenshot
+made the third tile-reward tile LOOK borderless next to the other two; a
+tight zoomed re-screenshot plus a computed-style dump showed all three
+have the identical `1px solid rgb(74, 65, 48)` border -- a screenshot-
+compression illusion, not a rendering bug.
+
+**Boss fights post-HP-changes** -- `verify-boss-phase-damage-realbrowser.js`
+(existing script, reads `bossDef.maxHp` live from the page rather than
+hardcoding it, so not stale): 21/21 checks clean across all three bosses'
+phase-transition weakness text and trait-multiplier math. Combined with
+`test:qa`'s boss-fight+reward flow (26/26) and the N6/F4.5 script's
+organic VICTORY run actually clearing floor 3, boss fights resolve
+correctly at the current HP values (38/35/45).
+
+**Intents (Mend/Enrage/Devour/Hex)** -- ran the existing
+`verify-intents-full-realbrowser.js` and got 5 failures, ALL FIVE traced to
+the script being stale (last touched before the 065b633 balance retune),
+not a game bug:
+- 2 failures hardcode the pre-retune constants (expected `MEND_HEAL_RATIO
+  * 0.15`, expected `ENRAGE_ATTACK_BONUS` +2/stack) -- current values are
+  0.10 and +1/stack; confirmed via direct source read of intents.js.
+- 1 failure ("Mend message wrong near HP cap") cascaded from the script's
+  own word-damage prediction not accounting for the actually-applied combo
+  multiplier at submission time -- a documented class of gap
+  `qa-playthrough-v2-combo-aware.js`'s own comments already called out as a
+  pre-existing limitation of the older word-finder this script also uses.
+  Re-verified airtight with a minimal direct call to the exposed
+  `Intents.executeIntent({type:'mend'}, ...)`, bypassing word-prediction
+  entirely: message, `result.healed`, and actual HP gain all agree exactly
+  (10/10/10 clamping a monster 10 HP below a 300 cap) -- the a63df82
+  display-bug fix is solid, not regressed.
+- 2 failures ("organic turn 0" telegraph mismatch) traced to that one
+  section of the script skipping its own `forceIntentAndRender` helper
+  (used correctly 8 other places in the same file) when manually injecting
+  a synthetic monster/intent, leaving `#monster-intent` showing stale DOM
+  from the prior test section for exactly turn 0 -- self-corrects on every
+  subsequent turn once a real word submission triggers the game's own
+  render(). Confirmed via direct code comparison (grep for the helper's
+  call sites), not just inferred.
+Did not patch this script (out of scope for this pass) -- flagging the
+staleness here so a future run doesn't re-trip on the same 5 false
+positives.
+
+**General regression:** 4 full real runs to completion this pass (2 via
+`qa-playthrough-v2-combo-aware.js`, 2 via the new N6/F4.5 script), all node
+types visited (combat, treasure, event, shop, boss, boss-item-reward,
+rest, elite), consumable buy+use confirmed via
+`qa-consumable-real-clicks.js` (bought an Errata Slip, used it, HP
+2->10, count 2->1). Zero page errors, zero console errors across every
+single script run this pass (10+ separate real-Chromium launches).
+
+**Verdict: clean. Zero tickets filed.** Every apparent issue this pass
+traced back to either a stale/incomplete scratch script (fixed the 2 kept
+ones, flagged the 1 not touched) or a screenshot-compression false alarm,
+each confirmed via direct source reads and/or an airtight isolated
+re-check before being ruled out -- not a single one taken on faith either
+way.
+
+**Scratch dir additions (kept, hardened, reusable for future passes):**
+`verify-f3-transitions-realbrowser.js` (rapid-nav + reduced-motion stress,
+a reusable structural hidden-state checker for any future screen-swap
+work), `verify-n6-f45-organic-realbrowser.js` (organic end-to-end stats/
+tile-reward cross-check against live state, not forced state).
+
+**Not done / left for others:** did not re-verify B6 (landed mid-pass,
+after this pass's pin -- see above). Did not run `verify-balance-retune.js`
+or `verify-combo-novelty-realbrowser.js` (both predate the current balance
+constants and/or weren't touched by anything in this pass's scope; the
+PROGRESS.md sim-gate data plus direct source-value confirmation already
+gave high confidence without needing to debug two more possibly-stale
+scripts). Did not re-run a fresh `balance-simulation.js` n=30 -- the
+33%-band gate-miss is already thoroughly documented and flagged as
+Jaxon's/the orchestrator's judgment call, not a QA regression to
+re-litigate.
+
+**Current state:** v0.15, HEAD fb8bfdc (this pass's pin fb8fbeb + B6 merged
+in afterward, untested by this pass). Queue is effectively idle: only the
+flagged BALANCE ticket and the FUN OVERHAUL 4/8-8/8 items gated behind it
+remain unchecked.
