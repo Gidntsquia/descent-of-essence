@@ -44,6 +44,230 @@ Rules for the routine:
 
 ## Queue
 
+- [ ] BUG, high priority: tapping a rack tile on a touchscreen does not play the
+      letter at all. Reported 2026-08-20 by Jaxon ("make sure clicking on letters
+      actually plays them"), verified by reading the event-listener wiring (real
+      device/touch emulation not available in this environment, but the mechanism
+      is unambiguous from the code).
+      ROOT CAUSE: js/wordbound/game.js's rack-tile rendering (in the loop that
+      builds each `.letter-tile` button, ~line 1275) attaches THREE separate
+      listeners to every tile: a `click` handler (~line 1275) that does the actual
+      "play this letter" work (`state.selectedTileIds.push(tile.id);
+      $('word-input').value += tile.letter; render();`), and a `touchstart`
+      handler (~line 1299) added for the touch-drag-reorder feature that calls
+      `e.preventDefault()` UNCONDITIONALLY on every touch, before any drag motion
+      has happened:
+      ```
+      btn.addEventListener('touchstart', function (e) {
+        startTouchReorder(tile.id, index);
+        e.preventDefault(); // prevent scrolling while dragging
+      });
+      ```
+      Per the DOM spec, calling `preventDefault()` on `touchstart` suppresses the
+      browser's synthesized `mousedown`/`click` events that would normally fire
+      after `touchend` on a tap. `endTouchReorder()` (~line 932) only calls
+      `reorderRackOnDrop()` if the touch actually moved to a different tile index
+      (`touchCurrentIndex !== touchStartIndex`) -- a plain tap never satisfies
+      that, so it does nothing either. Net effect on any touchscreen device: a tap
+      on a rack tile fires `touchstart` (suppresses the click), then `touchend`
+      (no-op, since nothing moved) -- the tile is never staged, `#word-input`
+      never updates, nothing happens. Reordering-by-drag still works fine; only
+      the far more common tap-to-play interaction is broken, and only on touch
+      input (mouse clicks are a separate, unaffected event path, which is why
+      this wasn't caught by the existing mouse-only `test/dom-check.js` or by a
+      Playwright `.click()`, which simulates a mouse click, not a touch tap).
+      FIX: only engage drag-reorder mode (and only `preventDefault()`) once an
+      actual drag threshold is crossed, not on every touchstart. Suggested
+      approach: in `touchstart`, just record the start position/tile
+      (`startTouchReorder`) WITHOUT calling `preventDefault()` yet. In
+      `touchmove`, once movement exceeds a small threshold (e.g. 8-10px), THEN
+      call `preventDefault()` and begin actual reorder tracking. In `touchend`,
+      if no drag threshold was ever crossed, treat it as a tap: run the same
+      "play this letter" logic the click handler runs (`state.selectedTileIds
+      .push(...)`, append to `#word-input`, `render()`) -- consider factoring
+      that block out of the click handler into a small named function
+      (e.g. `selectTileForWord(tile)`) so both the click handler and the
+      touchend-as-tap path call the same code instead of duplicating it.
+      VERIFICATION: `npm test` (16/16, mouse-click path must stay working).
+      Since jsdom cannot dispatch real touch events, verify the touch path with
+      Playwright's touch emulation (`browser.newContext({ hasTouch: true })`,
+      then `locator.tap()` instead of `.click()`) -- confirm a `.tap()` on a rack
+      tile appends its letter to `#word-input` and marks it `.selected`, AND that
+      dragging one tile onto another's position via simulated touch (`touchstart`
+      + several `touchmove` + `touchend` at a different position) still reorders
+      correctly and does NOT also append a letter (the two interactions must stay
+      mutually exclusive). Say plainly in PROGRESS.md that a real physical device
+      test is still the strongest confirmation and wasn't possible in this
+      environment.
+
+- [ ] BALANCE/DESIGN: several regular (non-boss) monsters currently carry a
+      HARSHER version of the trait mechanic than any boss does, which is
+      backwards. Reported 2026-08-20 by Jaxon ("normal enemies should have much
+      simpler modifiers than the boss ones"), verified by reading traits.js and
+      monsters.js together.
+      ROOT CAUSE: js/wordbound/traits.js has two categories of trait, by design
+      (see the file's own comments on `vowelless`/`palindromic`/`alphabetic`):
+      four "resistance" traits with a 0.3x-floor penalty on off-type words
+      (`vowelless`, `palindromic`, `shortFuse`, `alphabetic`) and five "simple"
+      traits that are pure bonus-on-match with a 1x baseline otherwise
+      (`vowelHungry`, `lengthy`, `doubled`, `rareSeeker`, `silentE`, plus trivial
+      `plain`). An earlier balance pass (2026-08-19, documented later in this
+      file) deliberately moved ALL THREE bosses off resistance-type traits and
+      onto simple ones specifically because "a hard-to-form-word requirement
+      with a punishing floor made the fight feel unwinnable on an unlucky rack" --
+      that reasoning applies at least as much to regular monsters, which are
+      fought far more often and by less-experienced players early in a run,
+      but nobody went back and checked them. Currently in js/wordbound/monsters.js:
+      `gremlin` (tier: weak, line 25) uses `shortFuse`, `serpent` (tier: normal,
+      line 27) uses `vowelless`, `sentinel` (tier: strong, line 30) uses
+      `alphabetic`, `bindingstrap` (tier: normal, line 33) uses `alphabetic`.
+      All four carry the same 0.3x-floor penalty that was judged too punishing
+      for a BOSS fight -- `gremlin` in particular is a weak-tier monster, likely
+      one of the first few fights of a run, meaning a brand-new player can hit
+      this exact problem before they've learned the game at all.
+      FIX: reassign these four monsters' `traitPhases` to one of the five
+      "simple" trait ids instead (`vowelHungry`, `lengthy`, `doubled`,
+      `rareSeeker`, `silentE`, or `plain`) -- pick whichever fits each monster's
+      flavor/name reasonably (e.g. `gremlin`/"The Fidget" could suit `doubled` or
+      `shortFuse`'s energy without the resistance penalty -- there's no simple
+      trait that's a perfect flavor match for "short fuse," so use judgment and
+      note the choice in PROGRESS.md). This leaves all four "resistance" traits
+      (`vowelless`, `palindromic`, `shortFuse`, `alphabetic`) completely unused
+      by any monster or boss after this fix -- that's fine and intentional (the
+      earlier boss-balance ticket already established these are too punishing
+      for this game's short racks); don't feel obligated to find a new home for
+      them. If Jaxon wants a genuinely harder trait tier back later (e.g. for a
+      new "elite" difficulty), that's a separate, bigger design decision, not
+      part of this ticket.
+      VERIFICATION: `npm test` (16/16). Also run (or write, if it doesn't exist)
+      a quick check confirming no `MONSTER_DEFS` entry references
+      `vowelless`/`palindromic`/`shortFuse`/`alphabetic` after the fix (only
+      `BOSS_DEFS` should reference simple traits already, and now `MONSTER_DEFS`
+      should too, universally). Note in PROGRESS.md the specific old->new trait
+      mapping chosen for each of the four monsters.
+
+- [ ] BUG/UX: the visual-polish pass (completed 2026-08-20T00:xxZ, "add visual
+      depth and polish to overall game style") appears to have made an
+      already-known mobile-width overflow issue worse. Reported 2026-08-20 by
+      Jaxon ("improve the mobile experience"), verified 2026-08-20 by running
+      test/verify-mobile-layout.js locally (after working around its hardcoded
+      cloud-only browser path -- see the separate test-infra ticket below).
+      FINDINGS (375px and 414px viewports, both common phone widths):
+        - Main menu, 375px: 31px of horizontal overflow (viewport
+          scrollWidth exceeds clientWidth).
+        - Combat screen, 375px: 58px of horizontal overflow -- UP from the
+          39px measured before the visual-polish pass (see this file's
+          "Spot-check responsive/mobile layout" entry, completed
+          2026-08-19T19:21Z, which called it "low-risk" and deferred it).
+          The run-header button row (Deck/Consumables/Items, ~wordbound.html
+          line 42-44), the mute-icon volume control, and `#word-input` all get
+          clipped off the right edge of the viewport at this width.
+        - Combat screen, 414px: 19px of horizontal overflow, same three
+          elements clipped by smaller amounts.
+      ROOT CAUSE (likely, not yet pinned to an exact CSS rule -- worth a real
+      look before assuming): the visual-polish pass added border/shadow/
+      padding treatments to panels and buttons (css/wordbound.css) without
+      re-checking narrow-viewport totals; the run-header's button row in
+      particular was already tight at 375px pre-polish and any added
+      horizontal padding on `.btn`/`.run-header` children would push it over.
+      FIX: audit css/wordbound.css's `.run-header` and its button children,
+      `.combat-panel`/`#word-input`, and the volume/mute control for hardcoded
+      widths or padding that don't shrink/wrap below ~420px; add a media query
+      (or extend an existing one, check whether the visual-polish pass added
+      any) that reduces padding, lets the button row wrap to a second line, or
+      shrinks font/icon sizing specifically under ~420px. Don't touch anything
+      at desktop widths.
+      VERIFICATION: re-run test/verify-mobile-layout.js (or its hardened
+      replacement, see the test-infra ticket below) at 375px and 414px for
+      both main menu and combat screens; confirm zero horizontal overflow and
+      zero clipped elements at both widths. `npm test` 16/16.
+
+- [ ] TEST-INFRA: harden test/verify-mobile-layout.js into an actual regression
+      guard instead of a one-off spot-check. Reported 2026-08-20 by Jaxon
+      ("make tests for things not looking right on mobile for the future").
+      Two real bugs found in the script itself while investigating the ticket
+      above:
+        1. `chromium.launch({ executablePath: '/opt/pw-browsers/chromium', ... })`
+           (~line 164) hardcodes a path that only exists in the cloud sandbox
+           this project's routine runs in -- it doesn't exist on Jaxon's local
+           Mac (confirmed 2026-08-20: `ls /opt/pw-browsers/chromium` ->
+           "No such file or directory"), so the script can't run locally at
+           all as currently written. Use the default `chromium.launch()` (no
+           `executablePath` override) so Playwright resolves whichever browser
+           it finds via its own normal lookup, which works in both
+           environments -- don't hardcode an environment-specific path.
+        2. The button-size check (~line 106-121) queries
+           `document.querySelectorAll('button:not(.hidden)')`, which only
+           excludes a button that ITSELF has the `.hidden` class -- it doesn't
+           check whether an ANCESTOR container (e.g. a whole `.screen` div with
+           `.hidden`) is hidden. Result: buttons on screens that aren't
+           currently showing (e.g. "Back to Menu" on the character-select
+           screen while the main menu is showing) get measured at 0x0 and
+           counted as "too small to tap," which is a false positive -- they're
+           not actually visible/tappable at all, so their size doesn't matter.
+           Fix by filtering to `getComputedStyle(btn).display !== 'none' &&
+           btn.offsetParent !== null` (or equivalent) before measuring.
+      Beyond fixing those two bugs, wire this into the routine's regular
+      verification path so it actually acts as a regression check going
+      forward, not a script someone has to remember to run manually: add an
+      `npm run test:mobile` script entry in package.json pointing at it, and
+      add a line to this file's rules-at-the-top section (near the existing
+      `npm test` mandate) saying any task that touches CSS layout/panels
+      should also run `npm run test:mobile` and get a clean (or
+      documented-acceptable) result before being checked off -- mirroring how
+      the `npm test` mandate is already worded above. Keep it as a separate
+      script from `npm test` (don't fold it into dom-check.js) since it needs
+      a real browser and is slower.
+      VERIFICATION: `node test/verify-mobile-layout.js` (or `npm run
+      test:mobile`) runs successfully end to end on a fresh clone in THIS
+      (cloud sandbox) environment without any manual path editing, correctly
+      reports zero false-positive "too small" buttons on the main menu (only
+      truly-visible undersized buttons, if any, should be flagged), and this
+      file's top-of-file rules mention it alongside the `npm test` mandate.
+
+- [ ] FEATURE: defeating a boss should grant an extra, more powerful item
+      choice on top of the normal tile reward, to make boss kills feel more
+      distinctly rewarding. Requested 2026-08-20 by Jaxon ("beating a boss
+      should also give you an extra powerful item choice").
+      CONTEXT: currently `onMonsterDefeated()` (js/wordbound/game.js ~line 479)
+      treats a boss kill identically to any regular kill for reward purposes --
+      same `Tiles.rollRewardOptions(state.rng, 3)` tile-choice screen, same
+      `state.pendingAfterTileReward` flow (see ~line 520-524), nothing
+      boss-specific. (Note: floor advancement itself is NOT part of this
+      ticket -- `state.pendingAfterTileReward = wasBoss ? 'advanceFloor' :
+      'nextNode'` combined with `resolveTileReward()` at ~line 544 already
+      advances to the next floor immediately after the reward is picked, with
+      no extra clicks or leftover nodes; verified working correctly via a real
+      Playwright playthrough 2026-08-20, so there's nothing to fix there.)
+      FIX: after a boss kill specifically (`wasBoss` is already computed at
+      ~line 511), in addition to the existing tile-reward screen, also present
+      a permanent-item choice screen offering 2-3 higher-value items -- reuse
+      the existing `rollTreasureOptions()`/`Game.pickTreasureItem` machinery
+      (~line 197-212) rather than inventing a parallel system. "More powerful"
+      needs a concrete definition: js/wordbound/items.js's `ITEM_DEFS` doesn't
+      currently have an explicit rarity/tier field (check before assuming) --
+      if truly none exists, either (a) add a lightweight `rare: true` flag to
+      a handful of the strongest existing items (the run-defining ones singled
+      out in earlier item-adding tickets, e.g. ones with synergy/build-altering
+      effects rather than flat stat bumps) and filter the boss-reward roll to
+      only offer those, or (b) if that's too big a change for this ticket,
+      simply offer a fully separate treasure roll from the WHOLE item pool
+      (still excluding already-owned items) as the boss bonus and leave a true
+      rarity system as a follow-up -- pick whichever is cleanly scoped and say
+      which you chose and why in PROGRESS.md. Decide and document the exact
+      sequencing (item choice before or after the tile-reward choice; probably
+      after, so the flow is "kill boss -> tile reward -> bonus item choice ->
+      next floor") -- don't let the two choice screens show simultaneously or
+      stack (see this project's history of panel-stacking bugs; this is a
+      full-screen sequential flow like tile-reward already is, not a
+      side-panel, so it's lower-risk, but still verify only one is visible at
+      a time).
+      VERIFICATION: `npm test` (16/16), plus a real-browser Playwright check
+      that defeating a boss shows the normal tile-reward choice, THEN a
+      separate item-choice screen, and picking an item there actually adds it
+      to `state.player.items` before advancing to the next floor -- confirm
+      this does NOT happen after a regular (non-boss) kill.
+
 - [x] BUG, high priority: common regular plurals (and any word ending in a bare "S"
       suffix) are missing from the dictionary, making the game reject completely
       ordinary words. Reported 2026-08-19: "Words that end with 's' aren't allowed.

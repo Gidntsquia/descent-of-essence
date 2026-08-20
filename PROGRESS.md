@@ -3364,3 +3364,86 @@ ear/eye. Documented limitations in PROGRESS.md entries for both tasks.
 
 **Routine entering idle state.** No new tasks in queue. Awaiting additions to GOALS.md to resume.
 
+---
+
+## 2026-08-20T00:41Z -- ORCHESTRATOR: real-browser QA pass + 5 new tickets from Jaxon's feedback
+
+**Context:** pulled 11 commits (all 6 previously-queued tickets landed: plurals,
+panel-stacking, boss single-trait+map hint, shop/consumable availability, boss
+music pitch, tile-staging animation, more items, bonus-tile CSS, suffix
+expansion, boss intensity, visual polish, voice pass). Queue was fully empty
+(48/48). Ran a real Playwright (headless Chromium, not jsdom) QA pass before
+handling new feedback, per standing QA-cron practice.
+
+**QA pass (test/ scratch scripts, not committed -- lived in the job's tmp dir):**
+- `npm test`: 16/16 clean.
+- 4-run then 2-run full playthrough using a "pick the best-scoring playable
+  word" strategy (greedy-first-word strategy was dying too fast on floor 1 to
+  ever reach a shop with gold, treasure, event, or boss -- switched strategies
+  mid-pass). Real clicks throughout: node-map pills, shop buy/leave, treasure/
+  event choices, tile-reward picks, alternating typed vs. tile-click word
+  submission. Hit every node type (combat, elite, boss, shop, treasure, event,
+  rest) across the runs, including a full floor-3 boss kill (VICTORY) and a
+  floor-3 boss loss (GAME_OVER) -- both ended cleanly with zero uncaught page
+  errors and zero console errors. All three bonus-tile CSS classes
+  (bonus-flat, bonus-mult-play, bonus-mult-hold) observed rendering correctly
+  on real tiles.
+- A first draft of the panel-stacking regression check used wrong button ids
+  (`#btn-deck-viewer`/`#btn-consumables` -- the real ids are `#btn-view-deck`/
+  `#btn-view-consumables`) and silently no-op'd every time without me
+  noticing at first (the `if (!hasDeckBtn...) return;` guard bailed
+  immediately). Fixed the selectors and reran -- panel-stacking still confirmed
+  fixed (only one of deck/consumables panel visible at a time), but flagging
+  the near-miss: a test with a bad selector that fails "clean" by never
+  actually running its assertion is worse than one that errors loudly. Worth
+  remembering for any future ad hoc QA script here.
+- Targeted follow-up: bought a consumable via a real shop-button click and
+  used it via a real Consumables-panel click (not direct state mutation) --
+  confirmed the full click-driven purchase+use path works (consumable count
+  decremented, Page Turn's rack-size effect visible: rack grew to 8 tiles).
+- **No bugs found in this pass** -- all the recently-landed features (items,
+  tile-bonus CSS, suffix words, boss intensity, visual polish, voice text)
+  held up under real play with zero errors.
+
+**New feedback from Jaxon (2026-08-20T00:4xZ), 6 items -- 5 ticketed at the top
+of the queue, 1 already confirmed working (not ticketed):**
+1. TICKETED (top of queue): tapping a rack tile on touch doesn't play the
+   letter -- `touchstart`'s unconditional `e.preventDefault()` (game.js
+   ~line 1301) suppresses the synthetic click a tap would otherwise fire,
+   and the touch-reorder path only acts on an actual drag, so a plain tap
+   does nothing. Root-caused by reading the event wiring; couldn't confirm
+   on a real device in this environment, said so in the ticket.
+2. TICKETED: four regular monsters (gremlin/weak, serpent/normal,
+   sentinel/strong, bindingstrap/normal) use one of the four "resistance"
+   (0.3x-floor) traits that were deliberately removed from ALL bosses on
+   2026-08-19 for being too punishing on an unlucky rack -- backwards from
+   "normal enemies simpler than bosses." Ticketed reassigning those four to
+   simple (bonus-only) traits instead.
+3. TICKETED: mobile layout overflow got WORSE after the visual-polish pass --
+   measured 375px combat overflow at 58px now vs. 39px before (previously
+   deferred as "low-risk" in the 2026-08-19T19:21Z entry). Ran
+   test/verify-mobile-layout.js locally to get these numbers (see next item
+   for why that wasn't trivial).
+4. TICKETED: test/verify-mobile-layout.js itself has two bugs -- a hardcoded
+   `/opt/pw-browsers/chromium` executablePath that only exists in the cloud
+   sandbox (confirmed missing on this local Mac), and a button-visibility
+   check that doesn't account for hidden ANCESTOR containers, so buttons on
+   off-screen panels report false-positive 0x0 "too small" results. Ticketed
+   fixing both plus wiring it in as an actual `npm run test:mobile` regression
+   gate (it currently exists but nothing ever runs it automatically).
+5. TICKETED: boss kills should grant an extra powerful item choice beyond the
+   normal tile reward -- currently `onMonsterDefeated()` treats boss and
+   regular kills identically for rewards.
+6. NOT TICKETED (verified already correct, told Jaxon directly instead of
+   queuing a no-op task): "beating a boss should immediately go to the next
+   area" -- read `onMonsterDefeated()`/`resolveTileReward()`/`advanceFloor()`
+   and confirmed floor advancement already happens immediately after the
+   tile-reward pick, no extra clicks, no lingering nodes. Also directly
+   observed in this pass's own playthrough logs (floor-1 and floor-2 boss
+   kills both transitioned straight into the next floor's first node right
+   after the reward pick).
+
+Tickets written in the established root-cause/file-line/fix/verification
+format. Not implemented directly, per standing orchestrator rule -- queued
+for the hourly routine.
+
