@@ -6963,3 +6963,98 @@ stop after a boss kill) and F3 (hard-cut screen transitions), followed by
 the F4/F4.5 polish batches, the N6 end-of-run stats feature, and the tiny
 B6 cleanup batch -- any of those are fair game for the next run to pick
 up without touching the blocked balance/overhaul chain.
+
+---
+
+### 2026-08-20T10:28Z -- FEEL review F2 (boss music never stops after the kill), DONE
+
+**Why this task:** the BALANCE (Enrage-cap/win-rate) ticket is still the
+first unchecked GOALS.md item but remains explicitly blocked on Jaxon's
+steer (two prior runs already investigated it with real sim data and both
+concluded further nerfing shouldn't be guessed at further -- see the two
+entries above). Following the established precedent, picked the next
+non-blocked queue item in order: FEEL review F2.
+
+**What was wrong (confirmed by reading, matches the ticket exactly):**
+`startBackgroundMusic` was only ever called from `startCombat` (fight
+start), `Game.startRun`, and `endRun` -- nothing called it when a boss
+died, so the tense boss square-wave loop kept playing straight through
+the tile reward screen, the boss hoard/item screen, and the ENTIRE next
+floor's map until the next fight's `startCombat` finally swapped it back.
+Separately, `startBackgroundMusic` unconditionally called
+`stopBackgroundMusic()` and restarted the loop from the top on every
+single fight, even a normal-tier fight following another normal-tier
+fight where the mode wasn't actually changing.
+
+**Fix** (js/wordbound/game.js):
+1. `onMonsterDefeated`: right after computing `wasBoss` (before the tile-
+   reward screen renders), `if (wasBoss) startBackgroundMusic(false);` --
+   switches back to the normal/map loop immediately, per the ticket's own
+   stated preference ("switching to normal is probably right since the
+   map music IS the normal loop").
+2. `startBackgroundMusic(isBoss)`: added an early return --
+   `if (isPlayingMusic && currentMusicMode === requestedMode) return;` --
+   before the `stopBackgroundMusic()`/`initAudioContext()` work, so a
+   same-mode call (including the boss-fight-2-in-a-row case, and the
+   now-redundant call `startCombat` still makes on every fight) is a true
+   no-op instead of restarting the loop from the top.
+3. Exposed `Game._getMusicMode()` (returns the closure-private
+   `currentMusicMode` variable) alongside the existing `Game._state` test
+   hook, specifically so this could be verified end-to-end rather than
+   just "no errors."
+
+**Why the real verification had to happen in test:qa, not npm test:**
+jsdom has no Web Audio API at all (documented at the top of
+test/dom-check.js) -- `initAudioContext()`'s `new (window.AudioContext ||
+window.webkitAudioContext)()` throws inside jsdom, which is caught by
+`startBackgroundMusic`'s own try/catch, so `currentMusicMode` never
+actually gets assigned there; a jsdom assertion on `_getMusicMode()`
+would just always read `null` before and after, proving nothing. Real
+(headless) Chromium, on the other hand, really does construct a working
+AudioContext (autoplay-policy restrictions affect whether it produces
+audible sound, not whether the context/variable-tracking code runs), so
+I added two assertions to test/orchestrator-qa-boss-reward.js -- which
+already drives a full real boss fight via real clicks -- right where they
+belong: `_getMusicMode() === 'boss'` immediately after the boss fight
+starts, and `_getMusicMode() === 'normal'` immediately after the boss
+dies (before the tile-reward panel even appears). Both are genuine
+end-to-end proof the fix works, not a rewording of "verify no crash."
+
+**What is still NOT verified (audio can't be heard by any automated
+tool):** whether the transition actually SOUNDS right when Jaxon plays it
+-- i.e., no audible click/pop at the mode switch, correct perceived
+volume, etc. The existing `stopBackgroundMusic` fade-out (already in the
+code, unrelated to this fix) should prevent a hard pop, but that's
+reasoning from reading the code, not something confirmed by ear. Flagging
+per the ticket's own instruction ("actual audio behavior needs a real-
+browser ear check by Jaxon") rather than claiming confidence I don't
+have.
+
+**Tests:**
+- `npm test`: **98/98** (unchanged count -- this task didn't add jsdom
+  checks, for the reason above; all existing checks stayed clean, so the
+  early-return optimization and the boss-kill call didn't introduce any
+  regression in the many `startCombat`/`onMonsterDefeated` calls jsdom
+  already exercises elsewhere in the file).
+- `npm run test:qa` (real Chromium, `test/orchestrator-qa-boss-reward.js`,
+  drives two full boss fights): **26/26** (was 24 -- the 2 new music-mode
+  checks above), zero console/page errors across the whole run.
+- `npm run test:mobile` not run -- this task touches only
+  js/wordbound/game.js (a JS timing/state fix) and a Playwright test
+  script; no CSS/layout changes, so the CSS-layout mandatory gate doesn't
+  apply.
+
+**Version:** left at v0.14, no bump -- same precedent as B4/B5 (a
+correctness/bug fix with no new player-facing mechanic or content, per
+this repo's established convention for this class of fix).
+
+**Current state:** v0.14. `npm test` 98/98, `npm run test:qa` 26/26.
+Working tree clean after this commit, pushed to `main`.
+
+**What's next:** the BALANCE (Enrage-cap/win-rate) ticket is still first
+in GOALS.md, still blocked pending Jaxon's steer -- FUN OVERHAUL 4/8
+onward stay correctly un-started until then. The next non-blocked queue
+items in order are FEEL review F3 (hard-cut screen transitions -- note:
+this one IS a CSS-layout task, `npm run test:mobile` is mandatory for
+it), the F4/F4.5 polish batches, the N6 end-of-run stats feature, and the
+tiny B6 cleanup batch.

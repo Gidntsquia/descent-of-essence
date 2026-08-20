@@ -510,7 +510,7 @@ Rules for the routine:
       `npm test` 98/98, `npm run test:qa` 24/24 (real Chromium),
       `test/verify-touch-tap-fix.js` still clean (8/8).
 
-- [ ] FEEL (review F2): boss music never stops after the boss dies -- music
+- [x] FEEL (review F2): boss music never stops after the boss dies -- music
       mode only changes in startCombat/startRun/endRun (js/wordbound/game.js
       lines 167, 370, 183), so after a boss kill the tense square-wave loop
       keeps playing through the tile reward, the boss hoard screen, and the
@@ -528,6 +528,16 @@ Rules for the routine:
       assert the internal mode variable if exposed for tests, or at minimum
       assert no errors on the boss-kill path. Say plainly in PROGRESS.md
       that actual audio behavior needs a real-browser ear check by Jaxon.
+      FIXED 2026-08-20T10:28Z: both fixes exactly as specified (boss kill
+      switches music back to normal in `onMonsterDefeated`;
+      `startBackgroundMusic` early-returns when the requested mode is
+      already playing). Exposed a new `Game._getMusicMode()` test hook and
+      used it in `test/orchestrator-qa-boss-reward.js` (real Chromium,
+      which DOES have a working AudioContext unlike jsdom) to assert the
+      mode is `'boss'` right after the boss fight starts and `'normal'`
+      right after the kill -- an actual end-to-end verification, not just
+      "no errors." `npm test` 98/98, `npm run test:qa` 26/26 (2 new
+      checks). See PROGRESS.md for the audio-can't-be-heard caveat.
 
 - [ ] FEEL (review F3): every screen transition is a hard cut -- map ->
       combat -> reward -> map all swap instantly via `hidden` class toggles;

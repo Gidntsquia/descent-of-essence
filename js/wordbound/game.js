@@ -109,6 +109,7 @@
     hexedTileId: null // set by a Hex monster intent, cleared when the rack that held it cycles away (see monster-intents ticket)
   };
   Game._state = state; // exposed for headless/browser test inspection only
+  Game._getMusicMode = function () { return currentMusicMode; }; // exposed for headless/browser test inspection only (review F2)
 
   function $(id) { return document.getElementById(id); }
 
@@ -663,6 +664,11 @@
     state.combatActive = false;
     currentNode().cleared = true;
     var wasBoss = currentNode().type === 'boss';
+    // Review F2 (2026-08-20): boss music never stopped after the boss died
+    // -- switch back to the normal loop (the map's own music) right away
+    // rather than letting the tense boss theme bleed through the tile
+    // reward, the hoard screen, and the whole next floor's map.
+    if (wasBoss) startBackgroundMusic(false);
 
     // Track achievements
     if (Achievements) {
@@ -933,6 +939,12 @@
   }
 
   function startBackgroundMusic(isBoss) {
+    var requestedMode = isBoss ? 'boss' : 'normal';
+    // Review F2 (2026-08-20): startCombat used to unconditionally
+    // stop+restart music on every fight, even normal->normal, which
+    // restarted the loop from the top for no audible reason. Skip the
+    // work entirely when the requested mode is already playing.
+    if (isPlayingMusic && currentMusicMode === requestedMode) return;
     try {
       stopBackgroundMusic();
       var ctx = initAudioContext();

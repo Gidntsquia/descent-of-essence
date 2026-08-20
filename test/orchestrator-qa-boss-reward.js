@@ -226,10 +226,17 @@ async function main() {
 
   await page.click('.node-pill.node-current');
   check('boss combat starts via real click', await page.evaluate('window.Wordbound.Game._state.combatActive === true && window.Wordbound.Game._state.monster.isBoss === true'));
+  // Review F2 (2026-08-20): boss music never stopped after the boss died,
+  // bleeding through the tile reward/hoard screens and the next floor's
+  // map. Real Chromium (unlike jsdom, which has no Web Audio API) actually
+  // creates an AudioContext, so this is the one place that can verify the
+  // internal music-mode variable end to end.
+  check('boss music mode switches to boss on fight start', await page.evaluate('window.Wordbound.Game._getMusicMode() === "boss"'));
 
   const floorBefore = await page.evaluate('window.Wordbound.Game._state.floorNumber');
   const bossOutcome = await fightUntilOver(page, 40);
   check('boss fight ends at the tile-reward screen (outcome: ' + bossOutcome + ')', bossOutcome === 'TILE_REWARD');
+  check('boss music mode switches back to normal right after the kill', await page.evaluate('window.Wordbound.Game._getMusicMode() === "normal"'));
 
   check('tile-reward panel visible after boss kill', await page.isVisible('#tile-reward-panel'));
   check('boss-reward panel NOT visible yet (sequential, not stacked)', await page.isHidden('#boss-reward-panel'));
