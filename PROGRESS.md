@@ -3813,3 +3813,91 @@ Next: the boss-kill bonus-item-choice FEATURE ticket (extra permanent-item choic
 screen after defeating a boss, on top of the normal tile reward) -- the queue's
 last remaining unchecked item before ROADMAP.md's known-gaps section.
 
+---
+
+## 2026-08-20T02:36Z
+
+**QA pass (real-browser Playwright, not the routine -- separate QA worker).**
+Tested commit `e4d9120` ("Add bonus rare/legendary item choice after boss
+kills"), pulled fresh at the start of this pass (`git fetch && git pull`,
+fast-forward from `2172a63`). Two tickets added to the top of GOALS.md's
+Queue as a result; details below.
+
+**Baseline:**
+- `npm test`: 16/16 clean.
+- `npm run test:mobile`: exit code 1 -- main menu has 25px horizontal overflow
+  at 375px width (414px is clean; combat screen's pre-existing 3
+  small-button/8 small-text warnings, already known and out-of-scope, are
+  still the only combat-screen findings). See the new GOALS.md ticket for
+  full root cause (`.game-title`'s font-size/letter-spacing vs. an
+  unbreakable "WORDBOUND" string) and why this doesn't appear to be a
+  regression from e4d9120 specifically (that commit touched zero CSS; I
+  reproduced the identical overflow on the prior commit 7637929 too, in an
+  isolated worktree, which is the same commit whose own PROGRESS.md entry
+  claims the main menu was clean -- flagged as possibly font-environment-
+  dependent rather than assuming that entry was simply wrong).
+
+**Real-browser gameplay pass:** adapted the two reusable scratch QA scripts
+from the prior QA pass (`qa-playthrough.js`, `qa-consumable-real-clicks.js`,
+both under the QA scratch dir, not this repo) to the current tip -- both
+still matched current selectors/APIs with no changes needed except adding
+explicit handling for the new `BOSS_ITEM_REWARD` screen (neither script knew
+about it yet, since it didn't exist before this hour).
+
+- `qa-playthrough.js` (2 full runs, real word input via the existing
+  best-scoring-word strategy, real clicks throughout, 200-action safety cap
+  per run): Run 1 reached VICTORY cleanly after 3 floors, hitting every node
+  type including two boss-item-reward screens (floor 1 and floor 2 bosses) --
+  both picks correctly granted the item (`items.length` +1 each time),
+  cleared `bossRewardOptions`, and advanced the floor immediately
+  (`floorNumber` 1->2 and 2->3) with `currentNodeIndex` reset to 0, screen
+  back to `RUN`, no extra click needed, panel correctly hidden before/shown
+  during/not stacked with the node-map -- the new feature works exactly as
+  specced end to end, in a real browser, no console/page errors. Run 2 hit a
+  real bug (see below) and stopped with a `no-current-node-pill` softlock
+  after 3 fights + an event + a shop + a treasure pick, before reaching that
+  run's own boss.
+- `qa-consumable-real-clicks.js`: PASS -- bought an "Index Card Shard" via a
+  real shop click, opened the Consumables panel via real click, used it via
+  real click, confirmed `bonusDamageUntilEndOfTurn` 0 -> 15 and the
+  consumable count decremented. No page errors.
+
+**Bug found and ticketed (softlock, high priority):** Run 2's stall traced to
+a real bug, not a test-script issue -- the "Sit and breathe: skip the next
+fight" choice on the `empty_shelf` event sets
+`state.pendingEventSkipNextCombat = true` with no awareness of node position,
+and `Game.enterCurrentNode`'s skip branch (game.js ~173-183) just bumps
+`currentNodeIndex` with no floor-advance check. Since the boss node is always
+the floor's last node (floor.js line 86), if the skipped fight is the boss,
+`currentNodeIndex` walks one past the end of `floor.nodes`, leaving `screen:
+'RUN'`, no combat, and no `.node-pill.node-current` for the map to render --
+a permanent dead end. Confirmed this wasn't a fluke of the organic run by
+writing an isolated deterministic repro: set the pending-skip flag, jump
+`currentNodeIndex` to the floor's last node, trigger a real re-render, then
+do an actual Playwright click on the real pill -- reproduced the identical
+stuck state (`currentNodeIndex: 8` on an 8-node floor, no pill in the DOM)
+every time. No console/page errors accompany it, which is arguably worse for
+a real player (silent stall, nothing to report/screenshot as a crash). Full
+root cause, suggested fix (route the boss case through `advanceFloor()`
+instead of a bare index bump), and verification steps are in the new GOALS.md
+ticket at the top of the Queue.
+
+**Boss-item-reward feature (task 5 from this QA pass's brief): CONFIRMED
+WORKING end to end** in a real browser, across two separate boss kills in one
+run (floor 1 and floor 2), with no errors and correct state transitions each
+time -- see above. This was the routine's most recent, previously-unverified-
+in-a-real-browser change; it holds up.
+
+**Tickets added to GOALS.md (both `[ ]`, at the top of the Queue):**
+1. Boss-node combat-skip softlock (see above) -- high priority, game-breaking
+   for the affected run.
+2. `npm run test:mobile` currently failing (exit 1) on main-menu title
+   overflow at 375px -- not a crash/softlock, but it's the project's own
+   mandatory CSS-task gate currently in a failing state, worth fixing before
+   the next CSS-touching task trips over it.
+
+Nothing else found -- no uncaught page errors, no console errors, no other
+panel-stacking issues, bonus-tile CSS classes (`bonus-flat`, `bonus-mult-hold`
+observed this pass) present and correctly scoped, shop/treasure/event/rest
+nodes all functioned correctly via real clicks in both runs.
+
