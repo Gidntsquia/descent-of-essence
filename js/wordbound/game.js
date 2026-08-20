@@ -48,6 +48,26 @@
     }
   }
 
+  // How to Play panel: shown on demand from the main menu, and automatically
+  // (once ever) the first time a player starts combat.
+  var HOWTO_SEEN_KEY = 'wordbound_seen_howto';
+  function hasSeenHowToPlay() {
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      return localStorage.getItem(HOWTO_SEEN_KEY) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+  function markHowToPlaySeen() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.setItem(HOWTO_SEEN_KEY, '1');
+    } catch (e) {
+      // localStorage unavailable -- not fatal, just means it may auto-show again
+    }
+  }
+
   var state = {
     screen: 'MAIN_MENU',
     selectedCharacter: null,
@@ -72,6 +92,7 @@
     itemInspectorOpen: false,
     itemInspectorId: null,
     consumablesPanelOpen: false,
+    howToPlayOpen: false,
     lastRackTileIds: [], // track tile IDs from previous render to detect new tiles
     rackJustRefilled: false, // true right after a full discard+redraw -- animate the whole rack,
                               // not just tiles that happen to be a different instance than before
@@ -334,6 +355,9 @@
     startBackgroundMusic(isBoss);
     log('A ' + state.monster.name + ' appears!');
     render();
+    if (!hasSeenHowToPlay()) {
+      Game.openHowToPlay();
+    }
   }
 
   function refillRack() {
@@ -650,6 +674,19 @@
 
   Game.closeConsumablesPanel = function () {
     state.consumablesPanelOpen = false;
+    render();
+  };
+
+  // ---- how to play ---------------------------------------------------------
+
+  Game.openHowToPlay = function () {
+    state.howToPlayOpen = true;
+    render();
+  };
+
+  Game.closeHowToPlay = function () {
+    state.howToPlayOpen = false;
+    markHowToPlaySeen();
     render();
   };
 
@@ -1036,6 +1073,7 @@
   }
 
   function render() {
+    $('howto-overlay').classList.toggle('hidden', !state.howToPlayOpen);
     if (state.screen === 'MAIN_MENU') { show('screen-main-menu'); renderMainMenu(); return; }
     if (state.screen === 'CHARACTER_SELECT') { show('screen-character-select'); renderCharacterSelect(); return; }
     if (state.screen === 'GAME_OVER') { show('screen-game-over'); renderGameOver(); return; }
@@ -1489,6 +1527,8 @@
     $('btn-view-consumables').addEventListener('click', Game.openConsumablesPanel);
     $('btn-close-consumables').addEventListener('click', Game.closeConsumablesPanel);
     $('btn-back-to-menu').addEventListener('click', Game.returnToMainMenu);
+    $('btn-how-to-play').addEventListener('click', Game.openHowToPlay);
+    $('btn-close-howto').addEventListener('click', Game.closeHowToPlay);
 
     $('btn-submit-word').addEventListener('click', function () {
       var input = $('word-input');

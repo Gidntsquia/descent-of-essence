@@ -272,8 +272,12 @@ Rules for the routine:
       the sandbox: the actual upload and itch's iframe embed behavior -- say so in
       PROGRESS.md and leave the upload step to Jaxon.
 
-- [ ] UX/ONBOARDING, high priority: the first five minutes teach the player
-      nothing -- there is no how-to-play anywhere in the game (verified 2026-08-20:
+- [x] UX/ONBOARDING, high priority: the first five minutes teach the player
+      nothing -- there is no how-to-play anywhere in the game. COMPLETED
+      2026-08-20T03:48Z: see PROGRESS.md for full details -- a "How to Play"
+      overlay reachable from a main-menu button, plus a localStorage-gated
+      one-time auto-show on the very first combat entry ever.
+      (verified 2026-08-20:
       zero matches for tutorial/how-to-play across wordbound.html, js/, css/).
       ROADMAP.md ranks the in-game first five minutes as the highest-leverage
       presentation work left. A new player currently lands in combat with a rack

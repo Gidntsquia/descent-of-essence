@@ -4089,6 +4089,115 @@ Checked the box in GOALS.md. Committing and pushing to `main` now.
 UX/MOBILE ticket (Deck/Consumables button height + small text sizes on the
 combat screen at 375/414px) -- next hourly run should start there.
 
+---
+
+## 2026-08-20T03:48Z (hourly routine)
+
+Housekeeping first: this container's checkout was again in detached HEAD with
+a stale local `main` (pointing at the repo's 3rd commit, same class of issue
+noted in earlier entries). `git fetch origin main && git checkout -B main
+origin/main` fixed it; confirmed origin/main (99ac973, "Add packaged itch.io
+build for Wordbound") matched the detached HEAD exactly, so nothing was lost.
+
+**Task:** the top unchecked queue item, UX/ONBOARDING -- add a "How to Play"
+panel since the game currently teaches a new player nothing about the loop.
+
+**What was built:**
+- `wordbound.html`: a new `#howto-overlay` div, added as a sibling of the
+  screen divs (not nested inside `screen-run` or `screen-main-menu`) so it
+  can show over EITHER screen -- it's reachable from a main-menu button, but
+  also needs to auto-show mid-combat on a player's first-ever fight, and
+  combat only exists inside `screen-run`. It reuses the `.panel` visual
+  treatment (border/gradient/shadow) that every other panel in the game
+  already uses, styled as a `position: fixed` full-viewport modal with a
+  dimmed backdrop (new `.howto-overlay`/`.howto-panel`/`.howto-list` rules in
+  css/wordbound.css) rather than the in-flow `.treasure-panel` pattern the
+  ticket suggested verbatim -- treasure-panel is laid out to live inside
+  `screen-run` next to the node-map/combat-panel it replaces, which doesn't
+  work for a panel that must also render over the main menu. Kept the same
+  visual language (panel chrome, choice-list spacing) instead of the exact
+  class, which is what the ticket's own wording ("reusing the existing
+  visual pattern," not "the existing markup") asked for.
+- 5 lines of copy in THEME.md's voice (Rack/Loose Words/Weakness, the exact
+  term the combat screen itself already uses for a monster's trait hint):
+  play real words from your Rack; longer words/rarer letters (Q, X, Z) hit
+  harder; every Loose Word shows a Weakness, match it for bonus damage; the
+  whole Rack refreshes after every word so spend freely; tile rewards/items
+  pile up across a run. 5 lines, within the ticket's 4-6 range.
+- `js/wordbound/game.js`: new `state.howToPlayOpen` flag, `Game.openHowToPlay`/
+  `Game.closeHowToPlay`, and a `wordbound_seen_howto` localStorage key
+  (`hasSeenHowToPlay`/`markHowToPlaySeen`, same try/catch-guarded pattern as
+  the existing `AUDIO_SETTINGS_KEY`/achievements.js code so it degrades
+  quietly if localStorage is unavailable). The overlay's hidden class is
+  toggled unconditionally at the very top of `render()` so it always reflects
+  `state.howToPlayOpen` regardless of which screen is active, independent of
+  the screen-dispatch logic below it. `startCombat()` calls
+  `Game.openHowToPlay()` right after its own `render()` if
+  `hasSeenHowToPlay()` is false -- this fires on literally the first combat
+  node entered in a player's history, not just the first of a given run.
+  Wired `#btn-how-to-play` (main menu) and `#btn-close-howto` to
+  open/close it. Bumped v0.8 -> v0.9 per the minor-version convention (a
+  player-facing onboarding feature).
+
+**Verification:**
+- `npm test`: 16/16, no regressions.
+- New `test/verify-howto-panel.js` (19/19, not wired into `npm test` --
+  follows the project's existing convention of a standalone targeted script
+  for a specific flow, same as `verify-boss-item-reward.js`): opens from the
+  main-menu button and closes; auto-shows on a fresh (localStorage-unset)
+  first combat entry and does NOT set the flag merely by being visible;
+  dismissing it sets the flag; re-entering combat a second time with the flag
+  now set does NOT auto-show again; manual open/close via `Game.openHowToPlay`/
+  `closeHowToPlay` still works regardless of the flag. One non-obvious
+  finding worth flagging for future test-writing in this repo: jsdom's real
+  `localStorage` implementation throws `SecurityError: localStorage is not
+  available for opaque origins` for `file://`-loaded pages (which is what
+  `dom-check.js`'s own harness uses) -- game.js's existing try/catch guards
+  already handle that gracefully in production, but it means a `file://`
+  jsdom test can never actually verify localStorage PERSISTENCE, only that
+  the code doesn't crash. Worked around it for this one test by giving the
+  jsdom instance a fake `https://wordbound.local/...` origin plus a custom
+  `ResourceLoader` subclass that redirects fetches back to the local
+  checkout -- that gets jsdom's real, working localStorage while still
+  loading this repo's actual files with no server needed. Left as a
+  standalone script rather than folding the ResourceLoader trick into
+  dom-check.js itself, since dom-check.js doesn't currently need real
+  localStorage for anything it checks.
+- `npm run test:mobile`: clean at both 375px and 414px on the main menu; the
+  combat-screen run picked up the SAME pre-existing warnings as before this
+  change (3 buttons <36px, 8 text elements <12px -- the next queue item,
+  untouched here) and no new ones, meaning the new panel's own button/text
+  didn't add any. That run's combat-screen check happened to have the
+  overlay auto-shown on top of it (fresh browser profile, localStorage
+  unset) since `verify-mobile-layout.js` also clicks through to a fresh
+  first combat -- so this was already an implicit real-browser check of the
+  overlay layout, not just the combat screen underneath it. Confirmed that
+  explicitly with a one-off scratch Playwright script (not committed, ran
+  from a temp file and deleted after): at both 375px and 414px, the overlay
+  auto-shows, `document.documentElement.scrollWidth` never exceeds
+  `clientWidth` (zero overflow) with the panel open, and the panel's own box
+  sits comfortably inside the viewport (20px margin each side at 375px,
+  wider at 414px) rather than right at the edge.
+- Real-browser click-through (headless Chromium, same scratch-script
+  approach): clicked `#btn-how-to-play` from a fresh main menu, confirmed the
+  overlay actually becomes visible and its text renders (screenshotted, see
+  below), clicked `#btn-close-howto`, confirmed it hides again. Screenshot
+  matches the intended visual -- dark parchment-style panel, bulleted list,
+  centered "Got it" button, backdrop dims the menu behind it -- readable and
+  on-theme with the rest of the game's chrome.
+
+**What's NOT independently reverified here (inherited, not new to this
+change):** the pre-existing 30px-tall button / sub-12px-text mobile findings
+on the combat screen -- explicitly out of scope for this ticket, next in
+queue.
+
+Checked off in GOALS.md.
+
+**Current state:** v0.9, 4 unchecked tickets remain: (1) UX/MOBILE --
+Deck/Consumables button height + small text sizes at 375/414px [now top of
+queue], (2) gameplay GIF for README/itch, (3) seeded runs, (4) inline-SVG
+favicon. Next hourly run should start on the UX/MOBILE ticket.
+
 
 ---
 
