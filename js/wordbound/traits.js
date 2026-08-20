@@ -50,14 +50,14 @@
   def({
     id: 'vowelHungry',
     name: 'Vowel-Hungry',
-    hint: 'Takes bonus damage from words with 3+ vowels.',
+    hint: 'Starved for vowels—gorges on them.',
     multiplier: function (word) { return vowelCount(word) >= 3 ? 2 : 1; }
   });
 
   def({
     id: 'vowelless',
     name: 'The Consonant',
-    hint: 'Takes bonus damage from words with zero vowels, resists other words.',
+    hint: 'Silent strength—but vowels cut deep.',
     // Zero-vowel English words are genuinely rare (SKY, CRY, MYTH...) and a
     // player's rack won't always be able to form one -- a hard 0x here made
     // this fight literally unwinnable on an unlucky draw. Heavily discouraged
@@ -69,7 +69,7 @@
   def({
     id: 'palindromic',
     name: 'The Mirror',
-    hint: 'Takes bonus damage from palindromes (reads the same backwards), resists other words.',
+    hint: 'Reflects your words back at it—but only perfect symmetry pierces.',
     // Was a hard 0x for non-palindromes. Palindromes are nearly unformable from a
     // random 7-8 tile rack, so this made any fight where it's the active phase a
     // pure race against the monster's attack with no counterplay -- balance
@@ -82,49 +82,49 @@
   def({
     id: 'shortFuse',
     name: 'Short Fuse',
-    hint: 'Takes bonus damage from words 4 letters or shorter, resists longer words.',
+    hint: 'Volatile. Quick words ignite it—long ones bore it.',
     multiplier: function (word) { return word.length <= 4 ? 1.5 : 0.3; }
   });
 
   def({
     id: 'lengthy',
     name: 'The Unabridged',
-    hint: 'Takes bonus damage from words 6+ letters long.',
+    hint: 'Savors every syllable. Longer words hit harder.',
     multiplier: function (word) { return word.length >= 6 ? 2 : 1; }
   });
 
   def({
     id: 'doubled',
     name: 'The Echo',
-    hint: 'Takes bonus damage from words with a doubled letter (e.g. LETTER).',
+    hint: 'Resonates with repetition—doubled letters echo twice as loud.',
     multiplier: function (word) { return hasDoubleLetter(word) ? 2 : 1; }
   });
 
   def({
     id: 'rareSeeker',
     name: 'The Collector',
-    hint: 'Takes bonus damage from words containing a high-value letter (4+ points).',
+    hint: 'Drawn to rare letters like a magpie to gold.',
     multiplier: function (word) { return hasRareLetter(word) ? 2 : 1; }
   });
 
   def({
     id: 'alphabetic',
     name: 'The Sorted',
-    hint: 'Takes bonus damage from words with letters in alphabetical order (e.g. ABORT), resists other words.',
+    hint: 'Craves perfect order. Alphabetical words cut right through its defenses.',
     multiplier: function (word) { return isAlphabetical(word) ? 2 : 0.3; }
   });
 
   def({
     id: 'silentE',
     name: "Fool's Vowel",
-    hint: 'Takes bonus damage from words ending in E.',
+    hint: 'That final E? It\'s its undoing.',
     multiplier: function (word) { return word[word.length - 1] === 'E' ? 2 : 1; }
   });
 
   def({
     id: 'plain',
     name: 'Unremarkable',
-    hint: 'No weakness or resistance -- every word deals normal damage.',
+    hint: 'Mundane. Unarmored. Every word finds its mark.',
     multiplier: function () { return 1; }
   });
 

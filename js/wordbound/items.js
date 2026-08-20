@@ -49,7 +49,7 @@
   def({
     id: 'spare_satchel',
     name: 'Spare Satchel',
-    hint: 'Your rack holds 8 tiles instead of 7.',
+    hint: 'Extra pockets for your words—one more tile per hand.',
     rarity: 'common',
     shopPrice: 25,
     statMods: { rackCapacityBonus: 1 }
@@ -58,7 +58,7 @@
   def({
     id: 'lucky_vowel',
     name: 'Lucky Vowel',
-    hint: "Every draw is guaranteed at least one vowel.",
+    hint: "Fortune favors the vocal—never a draw without one.",
     rarity: 'common',
     shopPrice: 20,
     hooks: {
@@ -84,7 +84,7 @@
   def({
     id: 'wildcard_pouch',
     name: 'Wildcard Pouch',
-    hint: 'Adds 2 extra blank tiles to your draw pile at the start of every fight.',
+    hint: 'Unwritten possibilities—two blanks in every hand, waiting to become anything.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -98,7 +98,7 @@
   def({
     id: 'heavy_ink',
     name: 'Heavy Ink',
-    hint: "Your word's single highest-value tile counts double.",
+    hint: "That precious letter? It leaves its mark twice.",
     rarity: 'uncommon',
     shopPrice: 30,
     hooks: {
@@ -117,7 +117,7 @@
   def({
     id: 'rare_hunter',
     name: 'Rare Hunter',
-    hint: 'Deal +3 bonus damage when your word contains a 4+ point letter.',
+    hint: 'Spot a prize letter and strike while it gleams.',
     rarity: 'uncommon',
     shopPrice: 40,
     hooks: {
@@ -132,7 +132,7 @@
   def({
     id: 'vowel_leech',
     name: 'Vowel Leech',
-    hint: 'Heal 1 HP per vowel in each word you play.',
+    hint: 'Each A, E, I, O, U feeds your wounds. The more you speak, the more you mend.',
     rarity: 'rare',
     shopPrice: 35,
     hooks: {
@@ -147,7 +147,7 @@
   def({
     id: 'thick_skin',
     name: 'Thick Skin',
-    hint: 'Reduce all incoming damage by 2 (minimum 1).',
+    hint: 'Hardened. Weathered. Words bounce off you like rain.',
     rarity: 'common',
     shopPrice: 45,
     statMods: { damageReductionFlat: 2 },
@@ -161,7 +161,7 @@
   def({
     id: 'second_wind',
     name: 'Second Wind',
-    hint: 'The first time you would drop to 0 HP, survive with 1 HP instead. Once per run.',
+    hint: 'Not over yet. One last breath, when it matters most.',
     rarity: 'legendary',
     shopPrice: 60,
     hooks: {
@@ -177,7 +177,7 @@
   def({
     id: 'folio_mark',
     name: 'Folio Mark',
-    hint: 'Gain +2 bonus damage for each tile with a bonus that you play.',
+    hint: 'Those marked tiles sing louder when you play them.',
     rarity: 'uncommon',
     shopPrice: 40,
     hooks: {
@@ -194,7 +194,7 @@
   def({
     id: 'marginalia',
     name: 'Marginalia',
-    hint: 'Heal 2 HP whenever you play a word with 5+ letters.',
+    hint: 'Notes in the margins have a way of healing old wounds.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -209,7 +209,7 @@
   def({
     id: 'catalog_tab',
     name: 'Catalog Tab',
-    hint: 'Gain +2 bonus damage when you play an alphabetical word.',
+    hint: 'A perfect sequence—organized, precise, and devastating.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -226,7 +226,7 @@
   def({
     id: 'blank_slate',
     name: 'Blank Slate',
-    hint: '+2 bonus damage for each blank (?) tile in the word you play.',
+    hint: 'An unwritten tile becomes whatever the moment needs.',
     rarity: 'uncommon',
     shopPrice: 40,
     hooks: {
@@ -243,7 +243,7 @@
   def({
     id: 'dust_jacket',
     name: 'Dust Jacket',
-    hint: 'Reduce incoming damage by 1 for each bonused tile in your rack (minimum 1).',
+    hint: 'Every marked tile shelters you like a page held close.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -261,7 +261,7 @@
   def({
     id: 'rare_tome',
     name: 'Rare Tome',
-    hint: '+2 bonus damage when you play a word containing X, Q, or Z.',
+    hint: 'X, Q, Z—the alphabet\'s rarest treasures, and this book knows them all.',
     rarity: 'uncommon',
     shopPrice: 40,
     hooks: {
@@ -275,7 +275,7 @@
   def({
     id: 'foreword',
     name: 'Foreword',
-    hint: '+1 bonus damage for each unused tile in your rack after playing a word.',
+    hint: 'The words you don\'t say echo loudest. Unused tiles sharpen the blow.',
     rarity: 'rare',
     shopPrice: 45,
     hooks: {

@@ -380,7 +380,7 @@ Rules for the routine:
       see the image, but you can describe what CSS changed and where) -- this is
       ultimately a taste call for Jaxon to confirm on his own playtest, say so
       plainly rather than claiming certainty that it looks better.
-- [ ] DESIGN/VOICE: the game reads as AI-generated rather than hand-crafted.
+- [x] DESIGN/VOICE: the game reads as AI-generated rather than hand-crafted.
       Requested 2026-08-19 ("The game feels like an AI made it. Make it feel more
       human"). This is the vaguest item in this file -- there's no single bug to
       point at, it's a cumulative impression across a lot of text that was, in fact,

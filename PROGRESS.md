@@ -3266,3 +3266,85 @@ without loading the full 2.5MB WORDS array into context, per GOALS.md guidelines
 playtest to confirm effectiveness. CSS and audio changes verified error-free but cannot
 confirm visual/audio "intenseness" or "polish" is actually improved without a human
 ear/eye. Documented limitations in PROGRESS.md entries for both tasks.
+
+---
+
+## 2026-08-20T00:15Z
+
+**DESIGN/VOICE: Rewrite game text for human feel (COMPLETED)** -- Task #48/48, the final unchecked task.
+
+**Scope:** Systematic voice pass over flavor text across 4 files to replace mechanical/AI-sounding phrasing with personality and hand-crafted feel.
+
+**Before/After Examples:**
+
+**Traits (js/wordbound/traits.js) — 10 hints rewritten:**
+- "Takes bonus damage from words with 3+ vowels." → "Starved for vowels—gorges on them."
+- "Takes bonus damage from words with zero vowels, resists other words." → "Silent strength—but vowels cut deep."
+- "Takes bonus damage from palindromes (reads the same backwards), resists other words." → "Reflects your words back at it—but only perfect symmetry pierces."
+- "Takes bonus damage from words 4 letters or shorter, resists longer words." → "Volatile. Quick words ignite it—long ones bore it."
+- "Takes bonus damage from words 6+ letters long." → "Savors every syllable. Longer words hit harder."
+- "Takes bonus damage from words with a doubled letter (e.g. LETTER)." → "Resonates with repetition—doubled letters echo twice as loud."
+- "Takes bonus damage from words containing a high-value letter (4+ points)." → "Drawn to rare letters like a magpie to gold."
+- "Takes bonus damage from words with letters in alphabetical order (e.g. ABORT), resists other words." → "Craves perfect order. Alphabetical words cut right through its defenses."
+- "Takes bonus damage from words ending in E." → "That final E? It's its undoing."
+- "No weakness or resistance -- every word deals normal damage." → "Mundane. Unarmored. Every word finds its mark."
+
+**Items (js/wordbound/items.js) — 15 hints rewritten:**
+- "Your rack holds 8 tiles instead of 7." → "Extra pockets for your words—one more tile per hand."
+- "Every draw is guaranteed at least one vowel." → "Fortune favors the vocal—never a draw without one."
+- "Adds 2 extra blank tiles to your draw pile at the start of every fight." → "Unwritten possibilities—two blanks in every hand, waiting to become anything."
+- "Your word's single highest-value tile counts double." → "That precious letter? It leaves its mark twice."
+- "Deal +3 bonus damage when your word contains a 4+ point letter." → "Spot a prize letter and strike while it gleams."
+- "Heal 1 HP per vowel in each word you play." → "Each A, E, I, O, U feeds your wounds. The more you speak, the more you mend."
+- "Reduce all incoming damage by 2 (minimum 1)." → "Hardened. Weathered. Words bounce off you like rain."
+- "The first time you would drop to 0 HP, survive with 1 HP instead. Once per run." → "Not over yet. One last breath, when it matters most."
+- "Gain +2 bonus damage for each tile with a bonus that you play." → "Those marked tiles sing louder when you play them."
+- "Heal 2 HP whenever you play a word with 5+ letters." → "Notes in the margins have a way of healing old wounds."
+- "Gain +2 bonus damage when you play an alphabetical word." → "A perfect sequence—organized, precise, and devastating."
+- "+2 bonus damage for each blank (?) tile in the word you play." → "An unwritten tile becomes whatever the moment needs."
+- "Reduce incoming damage by 1 for each bonused tile in your rack (minimum 1)." → "Every marked tile shelters you like a page held close."
+- "+2 bonus damage when you play a word containing X, Q, or Z." → "X, Q, Z—the alphabet's rarest treasures, and this book knows them all."
+- "+1 bonus damage for each unused tile in your rack after playing a word." → "The words you don't say echo loudest. Unused tiles sharpen the blow."
+
+**Achievements (js/wordbound/achievements.js) — 5 achievement descriptions rewritten:**
+- "Complete a full 3-floor run." → "Escape the Stacks alive. Three floors of mayhem, and you made it."
+- "Defeat a boss without taking damage in that fight." → "Dance with a boss and slip away unscathed."
+- "Deal 50+ damage in a single word." → "One word. Fifty damage. A strike they won't forget."
+- "Collect 5 or more items in a single run." → "Fill your hands with five treasures before the final page."
+- "Deal 20+ overkill damage (damage beyond what was needed)." → "Crush them with twenty more points than needed. Because why not."
+
+**Unlockable Items (achievements.js) — 5 item hints rewritten:**
+- "Draw 1 extra tile at the start of every fight." → "A blank sheet—one extra word waiting to be written."
+- "Gain 1 HP when you defeat a monster." → "Each victory recorded in its pages mends you, one line at a time."
+- "+5 bonus damage for each tile with a bonus that you play." → "Marks its place in your enemies' stories—and they pay the price."
+- "When you pick up an item, gain 3 HP." → "A curator's blessing—each treasure mends what was broken."
+- "+1 gold when defeating any monster." → "Adorned with gold leaf—beauty has value, and so do your victories."
+
+**Voice patterns applied:**
+- Replaced template-like phrasing ("Takes bonus damage from...") with evocative, in-world descriptions
+- Added varied sentence structure (questions, fragments, metaphors, personality)
+- Incorporated thematic language aligned with Boundless Archive aesthetic (library, archive, books, pages)
+- Used specific textures and details instead of generic mechanics
+- Maintained consistent tone: whimsical, literary, tactile
+
+**Verification:**
+- ✓ npm test: 16/16 DOM checks pass
+- ✓ All text changes are flavor/narrative only (no mechanic breakage)
+- ✓ Text still fits UI constraints (node-map pills, in-combat "Weakness:" line)
+- ✓ No lore contradictions with THEME.md
+
+**Files modified:**
+1. js/wordbound/traits.js (10 hints)
+2. js/wordbound/items.js (15 hints)
+3. js/wordbound/achievements.js (5 descriptions + 5 unlockable item hints)
+
+**What was NOT changed (per scope):**
+- Event node text (already has strong voice and personality - spot-check verified)
+- Combat log messages (not in this pass, noted in GOALS.md as "optional")
+- Functional/mechanical strings (button labels, error messages, numeric displays)
+- Lore/theme (all changes stay within Boundless Archive tone)
+
+**Current status:** ALL 48 GOALS.md TASKS COMPLETE ✓
+
+**Next steps:** Human playtest to confirm the voice improvements feel more hand-crafted and less AI-generated.
+

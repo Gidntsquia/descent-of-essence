@@ -25,31 +25,31 @@
     clear_a_run: {
       id: 'clear_a_run',
       name: 'Victory',
-      description: 'Complete a full 3-floor run.',
+      description: 'Escape the Stacks alive. Three floors of mayhem, and you made it.',
       unlocksItem: 'unwritten_page'
     },
     boss_without_damage: {
       id: 'boss_without_damage',
       name: 'Untouched',
-      description: 'Defeat a boss without taking damage in that fight.',
+      description: 'Dance with a boss and slip away unscathed.',
       unlocksItem: 'inscribed_ledger'
     },
     high_damage_word: {
       id: 'high_damage_word',
       name: 'Devastating',
-      description: 'Deal 50+ damage in a single word.',
+      description: 'One word. Fifty damage. A strike they won\'t forget.',
       unlocksItem: 'bookmark_of_reckoning'
     },
     collect_many_items: {
       id: 'collect_many_items',
       name: 'Collector',
-      description: 'Collect 5 or more items in a single run.',
+      description: 'Fill your hands with five treasures before the final page.',
       unlocksItem: 'keepers_seal'
     },
     massive_overkill: {
       id: 'massive_overkill',
       name: 'Overkill',
-      description: 'Deal 20+ overkill damage (damage beyond what was needed).',
+      description: 'Crush them with twenty more points than needed. Because why not.',
       unlocksItem: 'gilded_margin'
     }
   };
@@ -59,7 +59,7 @@
     unwritten_page: {
       id: 'unwritten_page',
       name: 'Unwritten Page',
-      hint: 'Draw 1 extra tile at the start of every fight.',
+      hint: 'A blank sheet—one extra word waiting to be written.',
       rarity: 'rare',
       shopPrice: 0, // not purchasable, achievement-only
       isUnlockable: true,
@@ -72,7 +72,7 @@
     inscribed_ledger: {
       id: 'inscribed_ledger',
       name: 'Inscribed Ledger',
-      hint: 'Gain 1 HP when you defeat a monster.',
+      hint: 'Each victory recorded in its pages mends you, one line at a time.',
       rarity: 'rare',
       shopPrice: 0,
       isUnlockable: true,
@@ -85,7 +85,7 @@
     bookmark_of_reckoning: {
       id: 'bookmark_of_reckoning',
       name: 'Bookmark of Reckoning',
-      hint: '+5 bonus damage for each tile with a bonus that you play.',
+      hint: 'Marks its place in your enemies\' stories—and they pay the price.',
       rarity: 'rare',
       shopPrice: 0,
       isUnlockable: true,
@@ -101,7 +101,7 @@
     keepers_seal: {
       id: 'keepers_seal',
       name: "Keeper's Seal",
-      hint: 'When you pick up an item, gain 3 HP.',
+      hint: 'A curator\'s blessing—each treasure mends what was broken.',
       rarity: 'rare',
       shopPrice: 0,
       isUnlockable: true
@@ -109,7 +109,7 @@
     gilded_margin: {
       id: 'gilded_margin',
       name: 'Gilded Margin',
-      hint: '+1 gold when defeating any monster.',
+      hint: 'Adorned with gold leaf—beauty has value, and so do your victories.',
       rarity: 'rare',
       shopPrice: 0,
       isUnlockable: true
