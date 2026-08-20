@@ -147,12 +147,15 @@ Rules for the routine:
       should too, universally). Note in PROGRESS.md the specific old->new trait
       mapping chosen for each of the four monsters.
 
-- [ ] BUG/UX: the visual-polish pass (completed 2026-08-20T00:xxZ, "add visual
+- [x] BUG/UX: the visual-polish pass (completed 2026-08-20T00:xxZ, "add visual
       depth and polish to overall game style") appears to have made an
       already-known mobile-width overflow issue worse. Reported 2026-08-20 by
       Jaxon ("improve the mobile experience"), verified 2026-08-20 by running
       test/verify-mobile-layout.js locally (after working around its hardcoded
       cloud-only browser path -- see the separate test-infra ticket below).
+      COMPLETED 2026-08-20T01:43Z: see PROGRESS.md for the fix and verification
+      (run-header now wraps, #word-input can shrink, all clipping gone at
+      320-480px on the combat screen).
       FINDINGS (375px and 414px viewports, both common phone widths):
         - Main menu, 375px: 31px of horizontal overflow (viewport
           scrollWidth exceeds clientWidth).

@@ -3560,3 +3560,98 @@ Reassigned four monsters to appropriate "simple" traits (bonus-only, 1x baseline
 **Current status:** 2 of 5 unchecked tasks from 2026-08-20 queue complete.
 Next: Fix mobile-width overflow (CSS layout issue).
 
+
+---
+
+## 2026-08-20T01:43Z
+
+**Fix mobile-width overflow on the combat screen (Task 3 from 2026-08-20 queue)** -- COMPLETED and pushed.
+
+**Baseline measurement (before fixing anything):** ran `node test/verify-mobile-layout.js`
+directly -- it already works unmodified in this cloud sandbox since
+`/opt/pw-browsers/chromium` exists here (the hardcoded-path bug it has is a
+separate, still-open ticket for whoever runs it on Jaxon's Mac; not touched
+in this run, stayed scoped to the layout fix only). Had to run `npm install`
+first since `node_modules` wasn't present.
+- Main menu, 375px and 414px: **0px overflow, nothing clipped**, on a fresh
+  page load with no achievements unlocked. The ticket's claim of 31px overflow
+  here didn't reproduce -- most likely stale from a session with
+  `#achievements-display` populated (unlocked-achievement text), which this
+  fresh run doesn't have. Text in that element wraps normally (no
+  `white-space: nowrap` in its markup/CSS), so it isn't expected to cause
+  horizontal overflow even when populated, but flagging the discrepancy
+  rather than silently ignoring it.
+- Combat screen, 375px: confirmed **39px of horizontal overflow**, with the
+  run-header actions div (Deck/Consumables/mute/volume-slider), the
+  mute/volume control, and `#word-input` all clipped off the right edge --
+  matches the ticket's description exactly (the specific 58px number in the
+  ticket didn't reproduce either -- got 39px, same as the ticket's own
+  "before polish" baseline -- but the underlying bug and the three clipped
+  elements are exactly as described, so fixed it regardless of which exact
+  pixel count is currently accurate).
+- Combat screen, 414px: 0px overflow / nothing clipped in this baseline run
+  (ticket says 19px here; didn't reproduce, but again the 375px case alone
+  was reason enough to fix this properly).
+
+**Root cause:** two separate CSS issues, both in css/wordbound.css:
+1. `.run-header` is `display:flex; justify-content:space-between` with no
+   `flex-wrap`, so its four children (HP, gold, floor, and the
+   Deck/Consumables/mute/volume actions group) are forced onto one line no
+   matter how narrow the viewport gets.
+2. `#word-input` is `flex:1; max-width:220px` inside `.word-input-row`, but
+   never had `min-width` set. Flex items default to `min-width:auto`, which
+   for a text `<input>` resolves to the browser's intrinsic content-based
+   minimum (well over 100px) -- `flex:1` alone can't shrink it past that
+   floor, so on a narrow row it pushes the input (and the Play
+   Word/Clear buttons packed in beside it) past the viewport edge.
+
+**Fix (css/wordbound.css + wordbound.html, both scoped to phone widths only):**
+- Added `class="run-header-actions"` to the previously-unclassed actions
+  `<div>` in wordbound.html (Deck/Consumables/mute/volume) so it's targetable
+  in CSS without relying on `:last-child`/inline-style specificity games.
+- `#word-input`: added `min-width: 0;` unconditionally (safe at every
+  viewport width -- it only changes shrink behavior when the row is
+  genuinely too narrow to fit everything, which never happens on desktop).
+- New `@media (max-width: 480px)` block (first media query in this file --
+  there were none before):
+  - `#wb-root` side padding 16px -> 10px (reclaims 12px of usable width).
+  - `.run-header` gets `flex-wrap: wrap` so HP/gold/floor and the actions
+    group can drop to a second line instead of forcing single-line width.
+  - `.run-header-actions` gets `flex: 1 1 100%` (forces it onto its own row
+    once wrapped) plus its own `flex-wrap: wrap` as a second-level safety net
+    for the very narrowest phones.
+  - `#music-volume` (the volume slider) shrinks from 80px to 60px.
+  - `.word-input-row` gets `flex-wrap: wrap`, and `#word-input` gets
+    `flex: 1 1 100%; max-width: none` so it takes the full row width on its
+    own line, with Play Word/Clear wrapping below it if needed.
+  Nothing outside this media query changed, so desktop/tablet layout (>480px)
+  is pixel-identical to before.
+
+**Verification:**
+- `node test/verify-mobile-layout.js`: **0px overflow, zero clipped
+  elements**, main menu and combat screen, both 375px and 414px, after the
+  fix (down from 39px/3-clipped-elements on combat @375px before). The
+  script's "12/11 buttons < 36px" and "8 text elements < 12px" warnings are
+  still present before and after -- confirmed these are pre-existing false
+  positives from the script itself (measuring 0x0 buttons on screens that
+  aren't currently displayed, e.g. "Back to Menu" while the main menu is
+  showing) exactly as already documented in the still-open TEST-INFRA ticket
+  below this one; not something this task touched or needs to fix.
+- Extra manual sweep (ad hoc Playwright script, not committed) at 320/360/
+  375/414/480px on the combat screen: **0px overflow at every width**,
+  including 320px (iPhone SE 1st-gen, narrower than either width the
+  standing script checks) for extra margin.
+- `npm test`: 16/16 checks pass, no regressions.
+- Did not visually screenshot (no way for me to view an image), but the fix
+  is two small, well-understood flexbox changes gated behind a max-width
+  media query that doesn't touch anything above 480px -- low risk to desktop.
+  A real-device/visual look is still worth Jaxon's time to confirm it *feels*
+  right (button wrapping order, whether the second-row action buttons read
+  cleanly), same caveat this project always gives for anything not
+  numerically verifiable.
+
+**Current status:** 3 of 5 unchecked tasks from 2026-08-20 queue complete.
+Next: TEST-INFRA task (harden test/verify-mobile-layout.js -- fix its
+hardcoded browser path and its hidden-button false-positive, wire it into
+`npm run test:mobile`), then the boss-kill bonus-item-choice feature.
+
