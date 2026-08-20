@@ -10077,3 +10077,52 @@ un-blocked, automatable task.
 **Idle: no unblocked, well-scoped work remains for this run.** Next run
 should re-check both files fresh (Jaxon may have queued new tickets or
 provided the balance steer overnight) before assuming idle again.
+
+## 2026-08-20T22:14Z -- fresh check, still idle, no new work found
+
+**Task:** per the routine's standing instructions, re-checked GOALS.md and
+ROADMAP.md fresh from zero memory before assuming the prior run's idle
+conclusion still held (rather than trusting a stale note).
+
+**Housekeeping note (not a code change):** this run started on a detached
+HEAD one commit behind a stale local `main` ref (`115e324`, three commits
+in from repo init) while `origin/main` was actually at `775ebb1` (the same
+commit the last PROGRESS.md entry describes, v0.32 BORKS). A plain
+`git fetch` resolved it (`main` had simply gone stale locally, nothing was
+actually diverged/lost) -- reset local `main` to track `origin/main` and
+confirmed a clean working tree before doing anything else. No repo content
+was affected.
+
+**Findings:**
+- `grep -c '^- \[ \]' GOALS.md` → 0. `grep -c '^- \[x\]' GOALS.md` → 96.
+  Queue is still fully checked off, unchanged from the last run.
+- Re-read ROADMAP.md's "known gaps" section in full: every entry is either
+  marked RESOLVED, or explicitly not automatable (physical-device touch
+  test, feel/fun ear-and-hands playtest, the itch.io upload itself -- all
+  Jaxon's), or the same standing balance-regression flag noted below.
+- HEAD is unchanged since the last run's entry (`775ebb1`, "Add BORK family
+  + modern-word dictionary supplement") -- confirmed nothing landed on
+  `origin/main` between that run and this one, so there is no new context
+  to react to.
+- Standing flag, unresolved and unchanged: a fresh `balance-simulation.js`
+  run at v0.31 showed win rate had drifted to ~13-17% (down from 60% at
+  v0.16) driven by floor-2 strong/elite monster damage stacked on top of
+  numbers tuned before several of the FUN OVERHAUL tickets landed. This is
+  a real, actionable regression, but every prior run (including this one)
+  has correctly declined to pick a fix direction without Jaxon's steer --
+  the open question (raise player HP/healing? cut floor-2 damage? make
+  elites skippable again?) is a product/balance judgment call, not a bug
+  with one obviously-correct fix, and guessing at it would repeat the exact
+  mistake ROADMAP.md's history warns against (numbers changed without a
+  human sanity-check on direction). Did not re-run the simulation this run
+  since nothing changed that would move the numbers and doing so wouldn't
+  add new information -- the last measurement stands.
+
+**No code, test, or content changes made this run** -- nothing to verify,
+nothing to check off. Confirmed the working tree is clean and HEAD matches
+`origin/main` before stopping.
+
+**State:** idle, same as the prior entry. Next run should still re-check
+GOALS.md/ROADMAP.md fresh (Jaxon may add new tickets or a balance steer
+overnight) before assuming idle again -- don't skip that check just because
+this entry and the last one both came up empty.
