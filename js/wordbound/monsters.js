@@ -50,9 +50,20 @@
   mdef({ id: 'slime', name: 'The Vowel Slurper', maxHp: 20, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
   mdef({ id: 'gremlin', name: 'The Fidget', maxHp: 18, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
   mdef({ id: 'wisp', name: 'Filler Word', maxHp: 17, attack: 2, tier: 'weak', goldDrop: [1, 2], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] });
-  mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 56, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }] });
+  // attack 4 -> 3 on serpent/raven/bindingstrap/appendix (2026-08-20
+  // Jaxon-authorized difficulty rebalance, GOALS.md "BALANCE, high
+  // priority"): these four normal-tier defs, together with golempup
+  // (already attack 3), are the ONLY monsters floor 1 can roll (floor.js
+  // getAllowedTiers caps floor 1 at weak+normal) -- so a slow fight against
+  // any of them is effectively "the opening game," and balance-simulation.js
+  // showed floor-1 regular (non-elite, non-boss) deaths at ~38% of all
+  // deaths, well past the ticket's <=10% target. HP is untouched (still
+  // needs 2+ decent words, per the "regular monsters survive one hit" hard
+  // constraint) -- this only lowers the per-turn cost of a fight running
+  // long on a bad rack, which is what was compounding into deaths.
+  mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 56, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }] });
   mdef({ id: 'golempup', name: 'Echo Pup', maxHp: 58, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
-  mdef({ id: 'raven', name: 'Quoth', maxHp: 52, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
+  mdef({ id: 'raven', name: 'Quoth', maxHp: 52, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
   // `intents` (GOALS.md "FUN OVERHAUL 2/8"): signature moves this monster
   // can roll on TOP of Attack/Heavy Blow, but ONLY when it's fighting as an
   // elite (node.type === 'elite') -- these are the same defs the floor also
@@ -71,18 +82,33 @@
   // strong defs warden/spinesplinter and found equally weighted, not
   // disproportionately signature-heavy, so no pool-weight shift applied --
   // HP-only per the orchestrator's own conditional.
-  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 70, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
-  mdef({ id: 'warden', name: 'The Hoarder', maxHp: 82, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
+  // maxHp/attack cut on the three 'strong'-tier defs (2026-08-20
+  // Jaxon-authorized difficulty rebalance, GOALS.md "BALANCE, high
+  // priority"): sentinel/warden/spinesplinter are the floor-2 wall
+  // balance-simulation.js flagged -- they're used BOTH as floor-2's regular
+  // 'strong' encounters AND as the base stats for the floor 2/3 elite node
+  // (floor.js pickEliteDefId only draws from 'strong'), so a single fix here
+  // eases both. Card Catalog (sentinel) and The Hoarder (warden) were the
+  // single deadliest defs in the pre-rebalance sim (43-50% kill rate each on
+  // floor 2), accounting for the bulk of floor 2's 54% death share.
+  // ~13-15% HP cut plus a 1-point attack cut on each; still needs 2+ decent
+  // words to fell (the ~30-36 avg single-word damage measured in this same
+  // ticket's own HP-band comment above), so the "regular monsters survive
+  // one hit" hard constraint holds.
+  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 60, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
+  mdef({ id: 'warden', name: 'The Hoarder', maxHp: 70, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
   mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
-  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
-  mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
+  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
+  mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
   // maxHp 85 -> 68 (2026-08-20 orchestrator gate-#2 outlier pass): this def
   // alone accounted for 3/14 regular deaths PLUS all 3/3 regular-tier
   // stalls at the OLD number -- the single worst outlier in the gate-#2
   // data (PROGRESS.md). Same intent-pool check as Card Catalog above
   // (hex/devour, weight 1 each vs. attack's 3, matches sibling strong
   // defs) -- not disproportionately signature-heavy, HP-only fix.
-  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 68, attack: 5, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], intents: ['hex', 'devour'] });
+  // maxHp 68 -> 58, attack 5 -> 4 (2026-08-20 Jaxon-authorized difficulty
+  // rebalance): same floor-2 strong-tier pass as sentinel/warden above.
+  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 58, attack: 4, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], intents: ['hex', 'devour'] });
 
   // Boss attack values tuned down from their original 6/8/10 on 2026-08-19 after
   // playtesting showed the player's fixed 20 max HP only survives 3-4 hits, which

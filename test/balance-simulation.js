@@ -273,6 +273,24 @@ async function playRun(win, anagramMap, strategy, runIndex) {
       continue;
     }
 
+    if (state.screen === 'SHREDDER') {
+      // The Shredder gamble event (FUN OVERHAUL 7/8) routes here when
+      // EVENT option 0 happens to be "feed the shredder" -- a sub-screen
+      // this script never handled, so the run fell through to the
+      // catch-all "Unknown screen" bailout below and got misreported as a
+      // STALL despite the player being alive and mid-run. Found while
+      // validating the 2026-08-20 Jaxon-authorized difficulty rebalance:
+      // ~40% of "best"-strategy runs were stalling with only 1-4 words
+      // played (nowhere near MAX_WORDS_PER_COMBAT), which pointed at a
+      // harness gap rather than a real softlock. Confirming with zero
+      // tiles picked (Game.confirmShredder() is valid with an empty
+      // selection -- "feed it nothing") is the simplest resolution and
+      // matches this script's existing greedy/no-optimization posture
+      // elsewhere (e.g. always taking shop/treasure option 0).
+      Game.confirmShredder();
+      continue;
+    }
+
     if (state.combatActive) {
       const monster = state.monster;
       const node = state.floor.nodes[state.currentNodeIndex];

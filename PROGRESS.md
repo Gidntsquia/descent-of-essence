@@ -10126,3 +10126,140 @@ nothing to check off. Confirmed the working tree is clean and HEAD matches
 GOALS.md/ROADMAP.md fresh (Jaxon may add new tickets or a balance steer
 overnight) before assuming idle again -- don't skip that check just because
 this entry and the last one both came up empty.
+
+## 2026-08-20T22:40Z -- Jaxon-authorized difficulty rebalance, ROUND 1 (WIP, box NOT checked yet)
+
+**Task:** the queue's now-unchecked BALANCE ticket -- Jaxon's explicit "fix it"
+on the flagged win-rate collapse, added right after the last idle entry. Fixes
+BOTH the floor-2 wall and a possibly-too-low boss HP under one measurable
+framework (see GOALS.md for the full target/constraint list). This is a
+curve-shaping job with 4 measurable targets and 3 hard constraints; the ticket
+explicitly sanctions multiple runs, incremental knob changes, and leaving the
+box unchecked with a documented trail if targets conflict. This entry is
+ROUND 1 -- committing mid-pass because this run's time is limited and the
+validating sim (n=30/strategy) takes several minutes; leaving working,
+tested, but not-yet-fully-validated code rather than losing the round-1 data
+by cutting it off mid-run.
+
+**Baseline measured before any change** (n=25/strategy, `best` strategy is
+the one "win rate" refers to throughout this ticket's history -- confirmed by
+grepping PROGRESS.md's own prior usage):
+- win rate: **16%** (4/25) -- vs. 35-50% target band.
+- floor clear: floor1 44%, floor2 29% (4/14), floor3 80%.
+- **Death distribution** (13 deaths total): floor1 46% (6), floor2 54% (7),
+  floor3 0%. Floor2 was already at the ~50% ceiling on its own, but the more
+  striking miss was target 3: of the 13 deaths, **5 were to floor-1 regular
+  (non-elite, non-boss) monsters (38%)**, vs. the ticket's <=10% ceiling --
+  all normal-tier defs (Binding Strap, Appendix x2, Echo Pup), none on the
+  literal first encounter of a run but well past "the opening game stays
+  gentle." Zero deaths were on a run's literal first fight.
+- Bosses: trivial across all 3 floors -- avg 1.0-1.5 words/fight, 0/13 kills
+  in the sample, 0.8-1.5 dmg taken. Matches the standing "bosses may be
+  over-nerfed" flag already in PROGRESS.md history (three rounds of boss-HP
+  cuts chased a since-fixed hex-bug-inflated `words/fight` gate).
+- Floor2 killers: The Card Catalog (sentinel, 43% kill rate) and The Hoarder
+  (warden, 50% kill rate) -- consistent with every prior sim reading.
+
+**Root-cause reasoning:** player `maxHp` is a flat 20 for the entire run --
+grepped every item hook in items.js and found NONE grant a maxHp increase
+(only heal-to-cap effects), so the player's total damage buffer never grows
+while monster stats scale up by floor. Floor 1 only rolls weak+normal tier
+(floor.js `getAllowedTiers`), so normal-tier attack values ARE the floor-1
+difficulty ceiling regardless of which specific fight comes first. Floor 2's
+`strong`-tier defs (sentinel/warden/spinesplinter) are reused verbatim as the
+elite-node base stats (`floor.js pickEliteDefId` draws only from `strong`),
+so their numbers set BOTH floor2's regular-fight and elite-fight difficulty
+at once.
+
+**ROUND 1 changes (knob, old -> new, all monster-side or player-economy per
+the ticket's own allowed levers -- word-scoring/trait-multiplier formula
+UNTOUCHED):**
+| knob | old | new | rationale |
+|---|---|---|---|
+| player starting/max HP (game.js `newPlayer`) | 20 | 24 | +20% buffer across every floor uniformly; ticket explicitly allows "starting HP" as a lever |
+| serpent/raven/bindingstrap/appendix attack (floor-1 normal tier) | 4 | 3 | matches golempup's existing 3; floor1's ONLY monster pool is weak+normal, so this directly targets target-3's <=10% floor-1-regular-death ceiling without touching HP (regular monsters still need 2+ words) |
+| sentinel (Card Catalog) maxHp/attack | 70/6 | 60/5 | floor2's #2 killer, base stats for its elite incarnation too |
+| warden (The Hoarder) maxHp/attack | 82/6 | 70/5 | floor2's #1 killer, same elite-base reuse |
+| spinesplinter maxHp/attack | 68/5 | 58/4 | third floor2 strong-tier peer, same treatment for consistency |
+
+Weak-tier and bosses left untouched this round -- weak-tier was already
+flagged EASY (not a problem) in the outlier data, and boss numbers are
+deliberately deferred until round 1's regular/strong changes are measured
+(the ticket's target 4 requires bosses stay "a meaningful difficulty spike,"
+which is easier to judge once the regular-monster baseline they're compared
+against has actually moved).
+
+**Verified so far:** `npm test` **ALL CHECKS PASSED** against the round-1
+code (checked test/dom-check.js first for any hardcoded monster stat or
+player-HP-at-20 assertions -- found none; the file's `hp:20/maxHp:20`
+occurrences are all synthetic item-hook test fixtures independent of
+`Game.startRun`'s real constant, and the one `attack`-dependent assertion
+computes `round(serpent.attack * HEAVY_MULTIPLIER)` dynamically rather than
+hardcoding a number, so it tracks the new value automatically). No CSS/markup
+touched, so `npm run test:mobile`/`test:qa` are not required by this specific
+diff (will still run `test:qa` before checking the box, since the fuller
+verification bar in the ticket asks for it on the balance ticket
+specifically).
+
+**NOT yet verified / in progress:** a fresh n=30/strategy balance-simulation
+run to measure round 1 against all 4 measurable targets was still executing
+in the background when this entry was written (jsdom + a 548k-word anagram
+index takes a few minutes at this sample size) -- committing now rather than
+either blocking this run indefinitely on it or discarding the round-1 code.
+**Box intentionally left UNCHECKED.** The `test/balance-simulation-results.json`
+committed alongside this entry is still the PRE-round-1 baseline (n=25, the
+numbers quoted above) -- the in-flight n=30 run will overwrite it with
+round-1 results once it completes; treat this commit's json as "before,"
+not "after."
+
+**Next step (same run, continuing after this checkpoint, or the next hourly
+run if this one ends first):** read the completed n=30 sim, compare against
+the 4 measurable targets, and either (a) do a round-2 adjustment pass (likely
+candidates depending on what round 1 under/overshoots: further floor-2 cuts
+if still a wall, a boss HP increase now that bosses are being measured
+against eased regulars, or a floor-1 dial-back if round 1 overcorrected) or
+(b) if round 1 already lands in-band on all 4 targets, check the box, bump
+the minor version, update ROADMAP.md's known-gaps entry, and run
+`npm run test:qa` as the ticket's verification bar requires.
+
+**UPDATE, same session -- round 1's first n=30 sim came back, plus a
+sim-harness bug fix.** The round-1 n=30/strategy run above completed:
+**win rate 40% (12/30)** -- inside the 35-50% band already. Death
+distribution: 6 real deaths total (floor1 2, floor2 3, floor3 1) -- floor2's
+share of deaths is 50%, at the ceiling but not over it, and much closer to
+floor3 parity than before. Floor-1-regular-non-elite-non-boss deaths: 2/6
+(33% of deaths, but only 2 runs out of 30 total -- the ticket's <=10%
+wording is ambiguous between "share of all deaths" and "share of all runs";
+either reading is a huge improvement over the pre-round-1 baseline's 5/13
+(38%) deaths / 5/25 (20%) of runs). Bosses: still trivial (0/6 deaths, avg
+~1.2-1.5 words), unchanged from baseline since round 1 didn't touch boss
+stats.
+
+**BUT: stall rate was suspiciously high (12/30, 40%)**, all with very low
+per-fight word counts (1-4) and `deathFloor: null` -- inconsistent with
+hitting `MAX_WORDS_PER_COMBAT` (40) or the run-length cap (120), the two
+ways `run.stalled` is meant to trigger. Traced it: `test/balance-simulation.js`
+never handles the `SHREDDER` screen (`js/wordbound/game.js`'s Shredder
+gamble-event sub-screen, FUN OVERHAUL 7/8) -- when the bot's greedy
+`Game.chooseEventOption(0)` happens to pick the "feed the shredder" event,
+the game correctly routes to `state.screen = 'SHREDDER'`, which the sim's
+screen switch doesn't recognize, so it falls into the catch-all "Unknown
+screen -- bail" branch and misreports a healthy, ongoing run as a STALL.
+This is a **pre-existing test-infra gap, not something round 1 introduced**
+(the pre-round-1 n=25 baseline had the same ~32% stall rate for the same
+reason, just not yet diagnosed) -- but it was directly undermining THIS
+ticket's own win-rate measurement (throwing away ~40% of samples as
+neither-win-nor-loss), so fixing it felt in-scope by the same reasoning the
+BORKS ticket used for its own flaky-assertion side-fix: an untrustworthy
+sim gate defeats the purpose of gating on it.
+
+**FIX (test/balance-simulation.js only, zero game-code change):** added a
+`state.screen === 'SHREDDER'` branch that calls `Game.confirmShredder()`
+with an empty selection (a documented-valid "feed it nothing" resolution,
+per the screen's own status-text hint in game.js) and continues the loop --
+same greedy, no-optimization posture the script already uses for every
+other side-screen (shop/treasure/event all just take option 0). A fresh
+n=30 sim with this fix applied was kicked off in the background right
+after; its numbers are the ones that actually decide whether round 1 clears
+the gate (this paragraph's numbers above are from the PRE-fix run, kept for
+the record but superseded by the next entry once it lands).

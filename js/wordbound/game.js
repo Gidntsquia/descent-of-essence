@@ -135,9 +135,19 @@
 
   function $(id) { return document.getElementById(id); }
 
+  // Starting HP 20 -> 24 (2026-08-20 Jaxon-authorized difficulty rebalance,
+  // GOALS.md "BALANCE, high priority"): balance-simulation.js showed skilled
+  // ("best" strategy) win rate had collapsed to ~16% (from 60% at v0.16),
+  // with floor-2 strong/elite monster damage as the wall and player maxHp
+  // never growing across a run (no HP-granting items exist -- see PROGRESS.md
+  // for the audit). A flat +20% buffer eases attrition across ALL floors
+  // uniformly without touching any monster's own numbers or the word-scoring
+  // formula (both explicitly in-scope levers per the ticket: "player-economy
+  // side (heal amounts/costs, potion availability, starting HP)"). Paired
+  // with floor-1/floor-2 monster tuning in the same pass -- see monsters.js.
   function newPlayer(characterDef) {
     var player = {
-      hp: 20, maxHp: 20, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
+      hp: 24, maxHp: 24, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
       bonusDamageUntilEndOfTurn: 0, skipDiscardNextTurn: false, bonusTilesToDraw: 0
     };
     if (characterDef && characterDef.startingItems) {
