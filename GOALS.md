@@ -188,7 +188,7 @@ Rules for the routine:
       rate is pre-existing/unrelated to this pass, not a regression).
       `npm test` 25/25, `npm run test:qa` 24/24.
 
-- [ ] FUN OVERHAUL 1/8 -- word novelty + combo streaks (do AFTER the balance
+- [x] FUN OVERHAUL 1/8 -- word novelty + combo streaks (do AFTER the balance
       ticket above; with today's numbers fights end in 1 word and none of
       this can trigger). Direct order from Jaxon 2026-08-20: "The game is
       boring, make it more fun." Diagnosis this ticket addresses: once
@@ -219,6 +219,13 @@ Rules for the routine:
       combo resets); `npm run test:qa` (its word-finder may repeat words --
       update it to prefer unused words so it exercises the combo path).
       Version bump -- this is the core-loop feel change of the overhaul.
+      DONE 2026-08-20T08:29Z: see PROGRESS.md for the implementation (a
+      `comboState` object threaded through `Combat.playWord`, an optional
+      4th arg so old callers without a fight to track still work), the log
+      line, the combo chip, SFX pitch scaling, and the SIM CHECK result
+      (win rate stayed in-band, no HP nudge needed). `npm test` 34/34 (10
+      new targeted combo assertions), `npm run test:qa` 24/24. Bumped
+      v0.11 -> v0.12.
 
 - [ ] FUN OVERHAUL 2/8 -- monster intents (telegraphed next actions).
       Fights are reactive damage races with no reads or answers; Slay the

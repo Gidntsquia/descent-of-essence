@@ -61,6 +61,16 @@ function check(label, cond) {
 // Page-side: build (once) a sorted-letters -> word index for short words,
 // then find a playable word for the current rack by subset lookup. Returns
 // the word string or null. Blanks are skipped (they only add options).
+//
+// Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): prefers a word
+// NOT already played this fight (real per-fight state at
+// Game._state.comboState.usedWords, same Set combat.js checks) over the
+// otherwise-longest one, so this bot actually builds and exercises combo
+// streaks instead of happily eating the x0.4 repeat penalty every fight
+// (which it would, since "longest word for this rack shape" repeats often
+// once the deck cycles back to a similar draw). Falls back to the best word
+// overall (a repeat) only when every playable word this rack can form has
+// already been used this fight -- better than NO_WORD_FOUND.
 const FIND_WORD_FN = `
 (function findPlayableWord() {
   var W = window.Wordbound;
@@ -76,20 +86,24 @@ const FIND_WORD_FN = `
     window.__anagramIndex = idx;
   }
   var rack = W.Game._state.player.rack;
+  var usedWords = (W.Game._state.comboState && W.Game._state.comboState.usedWords) || new Set();
   var letters = [];
   for (var r = 0; r < rack.length; r++) {
     if (rack[r].letter !== '?') letters.push(rack[r].letter);
   }
   var n = letters.length;
-  var best = null;
+  var bestUnused = null;
+  var bestAny = null;
   for (var mask = 1; mask < (1 << n); mask++) {
     var subset = [];
     for (var b = 0; b < n; b++) if (mask & (1 << b)) subset.push(letters[b]);
     if (subset.length < 2) continue;
     var word = window.__anagramIndex.get(subset.slice().sort().join(''));
-    if (word && (!best || word.length > best.length)) best = word;
+    if (!word) continue;
+    if (!bestAny || word.length > bestAny.length) bestAny = word;
+    if (!usedWords.has(word) && (!bestUnused || word.length > bestUnused.length)) bestUnused = word;
   }
-  return best;
+  return bestUnused || bestAny;
 })()
 `;
 

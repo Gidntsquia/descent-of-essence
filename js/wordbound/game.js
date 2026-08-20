@@ -104,7 +104,8 @@
     touchCurrentIndex: null, // track position during touch drag
     touchStartX: null, // track initial touch X position for drag threshold detection
     touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
-    selectedTileIds: [] // tiles selected for staging (in click order)
+    selectedTileIds: [], // tiles selected for staging (in click order)
+    comboState: { combo: 0, usedWords: new Set() } // word novelty + combo streaks, reset in startCombat
   };
   Game._state = state; // exposed for headless/browser test inspection only
 
@@ -362,6 +363,7 @@
     state.monster = node.type === 'boss' ? Monsters.createBoss(node.defId) : Monsters.createMonster(node.defId);
     state.pile = { drawPile: Tiles.shuffleIntoDrawPile(state.deck, state.rng), discardPile: [] };
     state.player.rack = [];
+    state.comboState = { combo: 0, usedWords: new Set() };
     Items.runHook('onRunStart', { player: state.player, pileState: state.pile }, state.player);
     refillRack();
     ensureRackIsPlayable();
@@ -477,7 +479,7 @@
     if (!word) return;
 
     var monsterHpBefore = state.monster.hp;
-    var result = Combat.playWord(state.player, state.monster, word);
+    var result = Combat.playWord(state.player, state.monster, word, state.comboState);
     if (!result) {
       log('"' + word + '" is not playable -- not a word you know, or you don\'t have those tiles.');
       render();
@@ -498,6 +500,15 @@
 
     var tag = result.multiplier === 0 ? ' -- no effect!' : result.multiplier > 1 ? ' -- weak point!' : '';
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
+    if (result.isRepeat) {
+      // Word novelty (GOALS.md "FUN OVERHAUL 1/8"): repeating a word already
+      // played this fight is weak (x0.4, already folded into result.damage
+      // above) and resets the combo -- flag it in the log so the damage dip
+      // reads as a choice's consequence, not a bug.
+      log('The Archive has heard that one before.');
+    } else if (result.comboAtPlay > 0) {
+      log('Combo x' + result.comboAtPlay + '! +' + Math.round(result.comboAtPlay * 12) + '% damage.');
+    }
 
     if (Achievements) Achievements.trackDamage(result.damage);
 
@@ -525,7 +536,7 @@
         // blow doesn't hard-cut straight past the moment of the kill.
         render();
         animateDamage(result.damage);
-        if (result.damage > 0) playCombatSound(result.damage);
+        if (result.damage > 0) playCombatSound(result.damage, result.comboAtPlay);
         var monsterInfo = $('monster-info');
         if (monsterInfo) monsterInfo.classList.add('monster-defeated');
         setTimeout(function () {
@@ -556,7 +567,7 @@
       // render() means they act on the freshly-rendered elements and persist
       // until their own timeouts clean them up.
       animateDamage(result.damage);
-      if (result.damage > 0) playCombatSound(result.damage);
+      if (result.damage > 0) playCombatSound(result.damage, result.comboAtPlay);
       if (dmgCtx.damage > 0) {
         animatePlayerDamage();
         playCounterattackSound(dmgCtx.damage, state.monster.isBoss);
@@ -792,12 +803,16 @@
     return audioContext;
   }
 
-  function playCombatSound(damage) {
+  function playCombatSound(damage, comboLevel) {
     try {
       var ctx = initAudioContext();
       var now = ctx.currentTime;
       var intensity = Math.min(damage / 40, 1); // normalize damage to 0-1
       var duration = 0.15 + (intensity * 0.1);
+      // Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): pitch
+      // rises with the combo stack that boosted this hit (0-5 stacks -> up to
+      // +40% pitch), reusing this same synth rather than a separate sound.
+      var pitchMult = 1 + 0.08 * Math.max(0, Math.min(comboLevel || 0, 5));
 
       if (damage > 30) {
         // critical hit: high-pitched punchy tone
@@ -805,8 +820,8 @@
         var gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(600, now);
-        osc.frequency.exponentialRampToValueAtTime(200, now + duration);
+        osc.frequency.setValueAtTime(600 * pitchMult, now);
+        osc.frequency.exponentialRampToValueAtTime(200 * pitchMult, now + duration);
         gain.gain.setValueAtTime(0.3 * intensity, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
         osc.start(now);
@@ -817,8 +832,8 @@
         var gain2 = ctx.createGain();
         osc2.connect(gain2);
         gain2.connect(ctx.destination);
-        osc2.frequency.setValueAtTime(150, now);
-        osc2.frequency.linearRampToValueAtTime(100, now + duration);
+        osc2.frequency.setValueAtTime(150 * pitchMult, now);
+        osc2.frequency.linearRampToValueAtTime(100 * pitchMult, now + duration);
         gain2.gain.setValueAtTime(0.1, now);
         gain2.gain.linearRampToValueAtTime(0, now + duration);
         osc2.start(now);
@@ -829,8 +844,8 @@
         var gain3 = ctx.createGain();
         osc3.connect(gain3);
         gain3.connect(ctx.destination);
-        osc3.frequency.setValueAtTime(400, now);
-        osc3.frequency.exponentialRampToValueAtTime(250, now + duration);
+        osc3.frequency.setValueAtTime(400 * pitchMult, now);
+        osc3.frequency.exponentialRampToValueAtTime(250 * pitchMult, now + duration);
         gain3.gain.setValueAtTime(0.2 * intensity, now);
         gain3.gain.exponentialRampToValueAtTime(0.01, now + duration);
         osc3.start(now);
@@ -1437,11 +1452,20 @@
     info.classList.remove('monster-defeated');
     var tierClass = m.isBoss ? 'boss-tier' : (m.tier ? 'tier-' + m.tier : '');
     var tierGlyph = getTierGlyph(m.isBoss, m.tier);
+    // Combo chip (GOALS.md "FUN OVERHAUL 1/8"): shows the streak of
+    // consecutive distinct words played this fight and the damage bonus it
+    // grants the NEXT word. Hidden at combo 0 so a reset (repeat word) is
+    // visually obvious -- the chip just disappears.
+    var combo = (state.comboState && state.comboState.combo) || 0;
+    var comboChip = combo > 0
+      ? '<div class="combo-chip">Combo x' + combo + ' &middot; +' + Math.min(combo, 5) * 12 + '%</div>'
+      : '';
     info.innerHTML =
       '<div class="monster-name ' + tierClass + '">' + tierGlyph + ' ' + escapeHtml(m.name) + '</div>' +
       '<div class="monster-hp-bar"><div id="monster-hp-fill" class="monster-hp-fill" style="width:' + Math.max(0, hpRatio * 100) + '%"></div></div>' +
       '<div class="monster-hp-text">' + m.hp + ' / ' + m.maxHp + ' HP</div>' +
-      '<div class="monster-weakness">Weakness: ' + escapeHtml(trait.hint) + '</div>';
+      '<div class="monster-weakness">Weakness: ' + escapeHtml(trait.hint) + '</div>' +
+      comboChip;
 
     var rack = $('rack-display');
     rack.innerHTML = '';

@@ -62,10 +62,32 @@ function buildAnagramMap(wordlist, maxLen) {
   return map;
 }
 
+// Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): mirrors
+// Combat.playWord's comboMultiplier/repeat-penalty math exactly, so
+// findPlayableWords below predicts what a word would ACTUALLY deal against
+// the live comboState, not the pre-combo score. Without this, the "best"
+// bot would keep re-picking its single highest-scoring word every turn (as
+// it did before this ticket) and eat the x0.4 repeat penalty for real every
+// time via Game.submitWord, silently making "best" play worse than the
+// script's own predictions claimed -- exactly the kind of skew this
+// simulation exists to avoid.
+const COMBO_BONUS_PER_STACK = 0.12;
+const COMBO_MAX_STACKS = 5;
+const REPEAT_WORD_PENALTY = 0.4;
+function predictComboDamage(rawDamage, word, comboState) {
+  const combo = comboState ? Math.min(comboState.combo || 0, COMBO_MAX_STACKS) : 0;
+  const comboMult = 1 + COMBO_BONUS_PER_STACK * combo;
+  const boosted = Math.round(rawDamage * comboMult);
+  const isRepeat = !!(comboState && comboState.usedWords && comboState.usedWords.has(word));
+  return isRepeat ? Math.round(boosted * REPEAT_WORD_PENALTY) : boosted;
+}
+
 // Every word the current rack can spell, with the damage it would actually
-// deal -- predicted the same way Combat.playWord computes it, so the bot picks
-// on real damage rather than raw score (traits can zero a high-scoring word).
-function findPlayableWords(win, anagramMap, rack, monster, opts) {
+// deal -- predicted the same way Combat.playWord computes it (base score x
+// hold/trait multipliers x the live combo/repeat state), so the bot picks on
+// real damage rather than raw score (traits can zero a high-scoring word,
+// and a repeat can turn today's "best" word into today's worst choice).
+function findPlayableWords(win, anagramMap, rack, monster, opts, comboState) {
   const { Lexicon, Traits, Tiles } = win.Wordbound;
   const usable = rack.filter((t) => t.letter !== '?');
   // Real blank count, but the fallback below only ever substitutes ONE of
@@ -98,7 +120,8 @@ function findPlayableWords(win, anagramMap, rack, monster, opts) {
       if (tile.bonus && tile.bonus.type === Tiles.BONUS_TYPES.MULT_ON_HOLD) holdMult *= tile.bonus.amount;
     }
     const traitMult = trait ? trait.multiplier(word, formed.tilesUsed) : 1;
-    const damage = Math.round(score.total * holdMult * traitMult);
+    const rawDamage = Math.round(score.total * holdMult * traitMult);
+    const damage = predictComboDamage(rawDamage, word, comboState);
 
     results.push({ word, damage });
     if (stopAtFirst && damage > 0) return true;
@@ -274,7 +297,7 @@ async function playRun(win, anagramMap, strategy, runIndex) {
         const candidates = findPlayableWords(win, anagramMap, state.player.rack, state.monster, {
           stopAtFirstDamaging: strategy === 'first',
           rackCapacity: win.Wordbound.Items.getRackCapacity(state.player),
-        });
+        }, state.comboState);
         const word = chooseWord(candidates, strategy);
         if (!word) {
           // The rack can spell NO valid word at all. There is no discard or

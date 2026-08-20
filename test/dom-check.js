@@ -105,6 +105,48 @@ async function main() {
     }
   }
 
+  // Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): three
+  // distinct words should each get a bigger damage multiplier than the last
+  // (+12%/stack off the streak BEFORE that word), and replaying an
+  // already-used word this fight should both apply the x0.4 repeat penalty
+  // and reset the combo for whatever comes next. Isolated synthetic setup
+  // like the Foreword check above -- doesn't need a run in progress. High
+  // monster HP and the 'plain' trait (multiplier always 1) keep the math
+  // predictable (no kill, no weakness multiplier to account for).
+  {
+    const Combat = window.Wordbound.Combat;
+    const Tiles = window.Wordbound.Tiles;
+    // Enough tiles for CAT, DOG, PIG, then CAT again (a repeat).
+    const rack = ['C', 'A', 'T', 'D', 'O', 'G', 'P', 'I', 'G', 'C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+    const player = { rack: rack, items: [], hp: 20, maxHp: 20 };
+    const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+    const comboState = { combo: 0, usedWords: new Set() };
+
+    const r1 = Combat.playWord(player, monster, 'CAT', comboState);
+    check('combo test setup: "CAT" is playable', !!r1);
+    const r2 = r1 && Combat.playWord(player, monster, 'DOG', comboState);
+    const r3 = r2 && Combat.playWord(player, monster, 'PIG', comboState);
+    const r4 = r3 && Combat.playWord(player, monster, 'CAT', comboState); // repeat
+
+    if (r1 && r2 && r3 && r4) {
+      check('combo: 1st distinct word has no bonus yet (comboAtPlay 0, x1.00)', r1.comboAtPlay === 0 && r1.comboMultiplier === 1 && !r1.isRepeat);
+      check('combo: 2nd distinct word gets +12% (comboAtPlay 1, x1.12)', r2.comboAtPlay === 1 && r2.comboMultiplier === 1.12 && !r2.isRepeat);
+      check('combo: 3rd distinct word gets +24% (comboAtPlay 2, x1.24)', r3.comboAtPlay === 2 && r3.comboMultiplier === 1.24 && !r3.isRepeat);
+      check('combo: multiplier strictly grows across 3 distinct words', r1.comboMultiplier < r2.comboMultiplier && r2.comboMultiplier < r3.comboMultiplier);
+      check('combo: damage for each distinct word matches score * comboMultiplier', r1.damage === Math.round(r1.score.total * r1.comboMultiplier) && r2.damage === Math.round(r2.score.total * r2.comboMultiplier) && r3.damage === Math.round(r3.score.total * r3.comboMultiplier));
+
+      check('combo: repeating "CAT" is flagged isRepeat', r4.isRepeat === true);
+      // r4 still earns comboAtPlay 3's bonus (the streak going INTO this word)
+      // before the x0.4 repeat penalty is applied on top.
+      const r4Boosted = Math.round(r4.score.total * r4.comboMultiplier);
+      check('combo: repeat damage is the combo-boosted damage x0.4, rounded', r4.damage === Math.round(r4Boosted * 0.4));
+      check('combo: repeat penalty actually reduced the damage below the combo-boosted (pre-penalty) amount', r4Boosted > 0 && r4.damage < r4Boosted);
+      check('combo: repeating a word resets the combo streak to 0', comboState.combo === 0);
+    } else {
+      console.log('SKIP combo checks -- synthetic rack could not form CAT/DOG/PIG (unexpected, check LETTER tiles)');
+    }
+  }
+
   document.getElementById('btn-new-run').dispatchEvent(new window.Event('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 50));
   check('starting a run produces zero errors', errors.length === 0);

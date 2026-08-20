@@ -5995,3 +5995,138 @@ unchecked GOALS.md item: FUN OVERHAUL 1/8 -- word novelty + combo streaks,
 which explicitly depends on this ticket ("fights end in 1 word and none of
 this can trigger" otherwise) -- now unblocked, and doubly so given fights
 average 2.2+ words. Good pickup for the next run.
+
+## 2026-08-20T08:29Z -- FUN OVERHAUL 1/8: word novelty + combo streaks (v0.11 -> v0.12)
+
+Picked up the first unchecked GOALS.md item, as handed off by the prior run:
+word novelty + combo streaks. Implemented exactly as specified.
+
+**Mechanic, in `js/wordbound/combat.js`:**
+- `Combat.playWord` now takes an optional 4th arg `comboState = { combo,
+  usedWords }`, tracked per-fight by the caller (game.js holds it as
+  `state.comboState`, reset in `startCombat`). Made it optional rather than
+  required so existing/future callers that don't track a fight (tests,
+  tools) keep working unchanged with plain trait-multiplier damage -- both
+  `test/dom-check.js`'s pre-existing Foreword check and
+  `test/orchestrator-qa-boss-reward.js` (which drives the real game, so it
+  gets combo behavior for free via `Game.submitWord`) needed zero changes
+  to their non-combo call sites.
+- `comboAtPlay` = the streak of consecutive distinct words BEFORE this word
+  (capped at 5), used for `comboMultiplier = 1 + 0.12*comboAtPlay`. Damage
+  = `round(score.total * holdMult * traitMultiplier * comboMultiplier)`,
+  then `round(that * 0.4)` if the word's already in `usedWords` this fight.
+  A repeat resets `combo` to 0 for the *next* word; a fresh word adds itself
+  to `usedWords` and increments `combo` by 1, also for the next word only --
+  a word never gets credit for the streak it's itself building, matching
+  the ticket's math exactly (1st word: x1.00, 2nd: x1.12, 3rd: x1.24, ...
+  capped x1.60 at 5+ stacks).
+- Judgment call not spelled out in the ticket: the pre-existing `holdMult`
+  (Mult-on-Hold tile bonus, an existing item mechanic) stays in the same
+  single `Math.round(...)` as `traitMult`/`comboMultiplier` rather than
+  being dropped -- the ticket's formula just predates that mechanic, and
+  dropping a live bonus multiplier silently would be a regression, not a
+  simplification.
+
+**UI/feedback, in `js/wordbound/game.js` + `css/wordbound.css`:**
+- Log lines: a repeat gets "The Archive has heard that one before." (the
+  ticket's own suggested THEME.md-voiced line); a fresh word with an active
+  combo gets "Combo x3! +36% damage."
+- A `.combo-chip` in `#monster-info` ("Combo x3 · +36%"), rendered only
+  when `combo > 0` -- a repeat resetting combo to 0 makes the chip
+  disappear entirely on the next render, which is the "combo reset is
+  visually obvious" requirement (no separate reset animation needed, the
+  pop-in animation on appearance plus outright disappearance on reset does
+  the job).
+- `playCombatSound(damage, comboLevel)` now scales all three hit-tone
+  branches' oscillator frequencies by `1 + 0.08*comboLevel` (up to +40% at
+  5 stacks) -- rising pitch per stack, reusing the existing synth per the
+  ticket, not a new sound.
+
+**Word-finder bots updated to prefer unused words** (both explicitly called
+out in the ticket's VERIFICATION):
+- `test/orchestrator-qa-boss-reward.js`'s `FIND_WORD_FN` now reads the
+  real `Game._state.comboState.usedWords` (the actual live combo tracker,
+  not a separate copy) and prefers the longest word NOT already used this
+  fight, falling back to the best word overall only when every playable
+  word has already been played. Ran the full real-Chromium QA suite after
+  this change: 24/24, zero console/page errors.
+- `test/balance-simulation.js`'s `findPlayableWords`/`chooseWord` now
+  predict damage using the SAME comboMultiplier/repeat-penalty formula as
+  `combat.js` (a `predictComboDamage` helper mirroring it exactly), fed the
+  real `state.comboState` from the live `Game._state` the harness drives.
+  Without this the "best" bot would have kept blindly re-picking its single
+  highest-raw-score word every turn and silently eaten the real x0.4
+  penalty via `Game.submitWord` every time, understating what an actually
+  skilled player (who'd vary words to keep the streak) achieves -- exactly
+  the kind of self-inconsistency this simulation script exists to avoid.
+
+**`npm test`: 34/34** (was 25 -- added 10 targeted combo/repeat assertions
+in `test/dom-check.js`, isolated synthetic setup like the existing Foreword
+check: play CAT/DOG/PIG/CAT-again against a high-HP 'plain'-trait monster
+and assert `comboAtPlay`/`comboMultiplier` grow exactly 1.00/1.12/1.24,
+damage matches `score.total * comboMultiplier` for the three distinct
+plays, the repeat is flagged `isRepeat`, its damage is exactly the
+combo-boosted amount x0.4 rounded, and `comboState.combo` resets to 0 after
+it). Zero uncaught DOM errors throughout, including the full organic-run
+smoke test that follows (starts a run, plays a real damage word, forces and
+confirms the existing kill-blow feedback still works -- untouched by this
+change, still passing).
+
+**`npm run test:qa`: 24/24**, zero console/page errors, real Chromium --
+confirmed the combo-aware word-finder update didn't break the boss-reward
+flow it drives (organic first fight, two boss kills/reward panels, 375px
+mobile viewport pass).
+
+**SIM CHECK (ticket-mandated): re-ran `test/balance-simulation.js`.** Time
+budget for this hourly run didn't stretch to the full n=20/n=30 samples the
+prior balance-pass entry used (a real-Chromium-free jsdom run, but each
+simulated word still waits out the real TILE_PLAY_ANIM_MS/death-beat
+timers, so n=30 was still running past the 10-minute mark and got killed
+rather than block this run indefinitely) -- ran n=10 per strategy instead
+as a spot check, which is enough to see whether combo/repeat pushed the
+win rate meaningfully outside the previously-established band, even if not
+enough for the same statistical confidence as a full n=30 pass:
+
+| strategy | wins | avg words/fight (regular) | avg words/fight (boss) |
+|---|---|---|---|
+| best (n=10) | 4/10 (40%) | 2.08 | 2.53 |
+| first (n=10) | 0/10 (0%) | 5.32 | n/a (never reached) |
+
+**Result: comfortably inside the balance ticket's established 33-50%
+skilled-play win-rate band, no HP nudge needed** (the ticket's own
+instruction for an out-of-band result). Regular-fight word count (2.08) is
+close to the pre-combo baseline (2.19-2.26) -- combo's extra per-word
+damage on turns 2+ is offset by the bot now sometimes forgoing its
+single highest-raw-score word to avoid the repeat penalty, netting out
+close to a wash rather than trivializing fights further. "first" strategy's
+0% win rate is the same pre-existing, already-documented characteristic
+from the prior balance-pass entry (a bot that never swaps a mediocre first
+find), not something this ticket changed.
+**Flagging for whoever picks this up next: a full n=20+ confirmation run
+of `balance-simulation.js` (now combo-aware) would be worth doing when
+there's a full hour free for it**, to get the same statistical confidence
+the original balance pass had -- this run's n=10 is a reasonable spot
+check, not a replacement for that.
+
+**What's verified vs. not:** damage math, combo state transitions, UI
+chip presence/content, and log lines were all verified directly (jsdom
+assertions read `result.comboAtPlay`/`comboMultiplier`/`isRepeat`/damage
+values and `comboState.combo` after each play). **SFX pitch scaling is
+NOT verified** -- jsdom has no Web Audio API (same limitation every prior
+entry in this log has flagged), so `playCombatSound`'s frequency-scaling
+math was reasoned through by hand (all three branches' `setValueAtTime`/
+`exponentialRampToValueAtTime`/`linearRampToValueAtTime` calls multiplied
+by the same `pitchMult`) but never actually heard. Needs a real-browser
+playthrough to confirm it sounds right, not just that it doesn't throw.
+
+**Version:** bumped v0.11 -> v0.12 in `wordbound.html` (core-loop feel
+change, per GOALS.md's own convention).
+
+**Checked off in GOALS.md** (`- [x]`) with a `DONE 2026-08-20T08:29Z` note.
+
+**Current state:** v0.12, `npm test` 34/34, `npm run test:qa` 24/24. Combo
+streaks and the repeat penalty are live in real play (not just the bots).
+Next unchecked GOALS.md item: FUN OVERHAUL 2/8 -- monster intents
+(telegraphed next actions). Good pickup for the next run. Consider running
+a fuller n=20+ `balance-simulation.js` pass first if there's time, per the
+flag above, though it isn't blocking.
