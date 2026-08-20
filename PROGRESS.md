@@ -8887,3 +8887,96 @@ instead, since the actual mechanism is confirmed fine).
 **Current state:** v0.19, HEAD ca6c753 (this pass's pin da0eb54 + FUN
 OVERHAUL 6/8 merged in afterward, untested by this pass). Working tree
 clean, everything committed and pushed.
+
+---
+
+### 2026-08-20T15:10Z -- FUN OVERHAUL 7/8: gamble events, checked off (v0.19 -> v0.20)
+
+Fresh run, zero memory of prior sessions. Started detached one commit behind
+`origin/main` (which had force-moved to 8321198 -- a Fable orchestrator
+commit landing the "restore shop consumable odds" small ticket); rebased my
+checkout to `origin/main` cleanly and picked up the first unchecked queue
+item, **FUN OVERHAUL 7/8 (gamble events)**. `npm install` re-fetched jsdom
+(container was fresh), baseline `npm test` clean before starting.
+
+**What I did:** implemented all 3 gamble events exactly as the ticket
+specified, each with a walk-away option and each in THEME.md's pun-forward
+Archive voice.
+
+- **Forbidden Tome** (events.js): grants a random UNOWNED rule-changer from
+  `Items.RULE_CHANGER_IDS` (the FUN 4/8 pool), costs `max(5, round(maxHp*0.2))`
+  HP, floored at 1 via `Math.max(1, ...)` so it can never end the run.
+- **The Shredder** (events.js + game.js + wordbound.html + css): destroy up
+  to 2 deck tiles permanently. An event effect can now return
+  `{ message, hold }`; `hold: 'SHREDDER'` routes to a new `state.screen ===
+  'SHREDDER'` sub-screen (its own `#shredder-panel`, reusing the
+  `.treasure-choice` deck-list style as pickable buttons with a red
+  `.shredder-picked` state). Pick budget = `min(SHREDDER_MAX_TILES=2,
+  deck.length - SHREDDER_MIN_DECK_SIZE=10)` so it can never thin the deck
+  below a fillable rack (rack cap is 7, or 8 with Spare Satchel).
+  `confirmShredder` splices the picked ids out of `state.deck` for good.
+- **Wager with the Stacks** (events.js + game.js): staking deducts 30 gold
+  up front and sets `state.activeWager = {stake, payout}`. A new
+  `state.repeatedWordThisFight` (set from `combat.js`'s existing
+  `result.isRepeat` inside `submitWord`, reset in `startCombat`) is the lose
+  condition. Resolved in `onMonsterDefeated` on the NEXT kill: a clean
+  (no-repeat) win pays 90, a repeat forfeits the already-deducted stake;
+  losing the fight forfeits by never reaching the payout. Cleared either way
+  (and on `startRun`) so it can't ride to a later fight.
+
+**Plumbing added (game.js, the only DOM-touching Wordbound file):** state
+fields `shredderSelection` / `activeWager` / `repeatedWordThisFight`;
+`finishEvent()` split out of `chooseEventOption` so a held sub-screen can
+resolve the same node; `shredderRemainingPicks()` / `toggleShredderTile` /
+`confirmShredder`; `renderShredder()`; SHREDDER wired into `renderRun`'s
+panel-visibility toggles and the node-map hide list; `renderEvent` now
+honors a choice's optional `disabledReason(state)` (greys the button + shows
+the reason) so an unaffordable/unavailable gamble reads as disabled instead
+of silently no-op'ing. `chooseEventOption` re-checks `disabledReason`
+server-side too, so a stale click or scripted call can't bypass a cost.
+
+**JUDGMENT CALL (noted, not guessed):** "win the NEXT fight" for the wager =
+the next monster kill of ANY type (regular/elite/boss), whenever it happens;
+an intervening non-combat node just carries the wager forward. The ticket
+didn't special-case fight type and this is the natural reading. The wager
+also correctly forfeits on a fight LOSS (the run ends before
+`onMonsterDefeated` is ever reached).
+
+**Verification:**
+- `npm test` **238/238 ALL CHECKS PASSED** (27 new gamble assertions across
+  two blocks: tome grant + exact 20%-HP damage (40->32) + cannot-kill floor
+  (3 HP - 8 -> 1, never 0) + all-rule-changers-owned-disabled + disabled-
+  click-is-noop; shredder screen routing + 2-pick cap + third-pick-rejected
+  + unpick + permanent deck removal + deck-floor guard (disabled at
+  MIN_DECK_SIZE, exactly 1 pick one above it); wager stake-deduct (100->70)
+  + active-wager tracked + can't-afford-disabled + decline-untouched, plus
+  TWO live spliced 1-HP kills driven through the real `Game.submitWord` +
+  death-beat timeout proving the clean-win 90 payout lands AND a repeated-
+  word forfeit adds no payout, both clearing `activeWager`).
+- `npm run test:mobile` clean at 375/414px (new SHREDDER panel doesn't
+  overflow -- it reuses the shared `.treasure-panel`/`.treasure-choices`
+  layout the mobile test already covers).
+- `npm run test:qa` **26/26** real Chromium, zero console/page errors (this
+  script doesn't drive the new events, but confirms no regression in the
+  combat/boss-reward path the wager's `onMonsterDefeated` change touches).
+- Real-Chromium smoke (throwaway script, deleted): entered the Shredder via
+  the real event flow, picked 2 tiles, confirmed -- log read "The Shredder
+  devours A and B. Gone for good..."; then rendered the Forbidden Tome
+  panel. Both screens render correctly (pick state + choice buttons + log
+  lines all present), zero page errors. Screenshots eyeballed, not kept.
+
+**NOT verified (jsdom limits + house rules, flagged for Jaxon's playtest):**
+audio and drag-and-drop are untouched by this ticket but remain jsdom-blind
+as always; and whether the gambles actually FEEL tense / fairly priced (the
+Shredder's deck-thinning payoff, the wager's 30->90 risk, the tome's HP
+cost) is a human feel call only a real playtest can make.
+
+**Version:** v0.19 -> v0.20 (wordbound.html version-info), player-facing
+feature.
+
+**What's next:** FUN OVERHAUL 8/8 (celebration juice -- combo chip pops,
+screen shake on big hits, "MAGNIFICENT!" banner + bonus gold on 7+ letter
+words, item-proc chip flashes; all must respect prefers-reduced-motion).
+That's the LAST overhaul item and the queue's final unchecked task -- after
+it, per GOALS.md's own rules, pull from ROADMAP.md's known-gaps section.
+Working tree clean, everything committed and pushed.
