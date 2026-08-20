@@ -108,6 +108,8 @@
     touchCurrentIndex: null, // track position during touch drag
     touchStartX: null, // track initial touch X position for drag threshold detection
     touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
+    stagingDrag: null, // MOBILE INPUT 2/3 Phase 2: active pointer drag of a STAGED tile (reorder-in-play-area / drag-out-to-remove). { tileId, el, startX, startY, crossed, outside, rects, tileW, insertIndex }. null when no drag in progress
+    suppressNextStagingClick: false, // MOBILE INPUT 2/3 Phase 2: set true after a real staging drag so the synthesized post-pointerup click doesn't immediately unstage the just-reordered tile; reset on the next pointerdown
     selectedTileIds: [], // tiles selected for staging (in click order)
     blankAssignments: {}, // MOBILE INPUT 1/3: tileId -> chosen letter, for blanks staged via the touch-mode letter picker (desktop stages blanks by typing, never populates this)
     touchMode: false, // MOBILE INPUT 1/3: true on coarse-pointer devices -- no typing, tap-to-play only. Set from matchMedia('(pointer: coarse)') at init; desktop behavior is unchanged when false
@@ -122,6 +124,7 @@
   Game._state = state; // exposed for headless/browser test inspection only
   Game._getMusicMode = function () { return currentMusicMode; }; // exposed for headless/browser test inspection only (review F2)
   Game._stagedWord = function () { return stagedWord(); }; // MOBILE INPUT 1/3: exposed for test inspection of the staged-tiles word
+  Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
 
   function $(id) { return document.getElementById(id); }
 
@@ -1612,6 +1615,176 @@
     state.touchDragThresholdCrossed = false;
   }
 
+  // ---- staged-tile dragging (MOBILE INPUT 2/3 Phase 2) -----------------------
+  // Reorder staged tiles within the play area, and drag a staged tile out of the
+  // play area to remove it. Works with BOTH touch and mouse via Pointer Events
+  // (a single unified path -- no separate touch/mouse handlers like the rack has).
+  // The live gesture is transform-only (a "ghost" that follows the pointer plus
+  // sibling tiles sliding to open a gap); the DOM is re-rendered exactly ONCE, on
+  // release, never mid-gesture -- render() rebuilds #staging-area via innerHTML and
+  // would destroy the element being dragged (the hazard the ticket flags).
+
+  // Pure state mutation: move a staged tile to a new position and rebuild the word.
+  // insertIndex is the target slot in 0..selectedTileIds.length, measured against
+  // the array that STILL contains the dragged tile (i.e. "insert before the tile
+  // currently at insertIndex"; length == append to the end). This lets a tile be
+  // dragged all the way to the end, which the rack's drop-ONTO convention can't
+  // express. Exposed for tests via Game._reorderStagedTile.
+  function reorderStagedTile(tileId, insertIndex) {
+    var ids = state.selectedTileIds;
+    var dragIndex = ids.indexOf(tileId);
+    if (dragIndex === -1 || insertIndex === null || insertIndex === undefined) return;
+    ids.splice(dragIndex, 1);
+    var adj = insertIndex > dragIndex ? insertIndex - 1 : insertIndex;
+    if (adj === dragIndex) { ids.splice(dragIndex, 0, tileId); return; } // no move -> restore, no re-render
+    ids.splice(adj, 0, tileId);
+    syncWordInput();
+    render();
+  }
+
+  // Insertion index (0..len) for pointer X, from the rects snapshotted when the
+  // drag threshold was crossed (stable hit-testing -- the live tiles move via
+  // transform during the drag, so their live rects would lie). Counts how many
+  // staged-tile centers sit left of the pointer.
+  function stagedTileAtPosition(x) {
+    var d = state.stagingDrag;
+    if (!d || !d.rects) return null;
+    var idx = 0;
+    for (var i = 0; i < d.rects.length; i++) {
+      var r = d.rects[i].rect;
+      if (r && x > r.left + r.width / 2) idx++;
+    }
+    return idx;
+  }
+
+  function pointerOutsideStaging(px, py) {
+    var area = $('staging-area');
+    if (!area || typeof area.getBoundingClientRect !== 'function') return false;
+    var r = area.getBoundingClientRect();
+    var tol = 30; // spec 5: released >~30px outside the container -> remove
+    return px < r.left - tol || px > r.right + tol || py < r.top - tol || py > r.bottom + tol;
+  }
+
+  // Snapshot sibling positions and switch the dragged tile into "ghost" mode once
+  // the threshold is crossed (deferred until then so a plain tap never lifts).
+  function beginStagingGhost(d) {
+    var area = $('staging-area');
+    if (d.el && d.el.classList) d.el.classList.add('staging-drag-ghost');
+    if (area && area.classList) area.classList.add('staging-dragging');
+    d.rects = [];
+    var tiles = area && area.querySelectorAll ? area.querySelectorAll('.staged-tile') : [];
+    for (var i = 0; i < tiles.length; i++) {
+      var rect = tiles[i].getBoundingClientRect ? tiles[i].getBoundingClientRect() : null;
+      d.rects.push({ el: tiles[i], id: tiles[i].getAttribute('data-tile-id'), rect: rect });
+      if (rect && rect.width && !d.tileW) d.tileW = rect.width + 6; // + flex gap (css gap:6px)
+    }
+  }
+
+  // Slide non-dragged staged tiles aside to open a visible gap at the insertion
+  // point (transform-only; instant under reduced motion).
+  function applyStagingGap(d) {
+    if (!d.rects) return;
+    var dragPos = -1;
+    for (var i = 0; i < d.rects.length; i++) {
+      if (d.rects[i].id === d.tileId) { dragPos = i; break; }
+    }
+    var drop = d.insertIndex;
+    var tween = prefersReducedMotion() ? 'none' : 'transform 0.12s ease';
+    for (var j = 0; j < d.rects.length; j++) {
+      var el = d.rects[j].el;
+      if (!el || !el.style || j === dragPos) continue; // the ghost moves with the pointer, not here
+      var shift = 0;
+      // insertion-index semantics (drop in 0..len): forward move vacates dragPos,
+      // so tiles between it and the insertion point slide left; a backward move
+      // slides the tiles at/after the insertion point right to open the gap.
+      if (drop !== null && drop > dragPos && j > dragPos && j < drop) shift = -d.tileW;
+      else if (drop !== null && drop <= dragPos && j >= drop && j < dragPos) shift = d.tileW;
+      el.style.transition = tween;
+      el.style.transform = shift ? 'translateX(' + shift + 'px)' : '';
+    }
+  }
+
+  function clearStagingGap(d) {
+    if (!d || !d.rects) return;
+    for (var i = 0; i < d.rects.length; i++) {
+      var el = d.rects[i].el;
+      if (el && el.style && d.rects[i].id !== d.tileId) el.style.transform = '';
+    }
+  }
+
+  function startStagingDrag(tileId, el, e) {
+    // Fresh gesture -- a lingering suppress flag from a prior drag must never eat
+    // a genuine tap, so clear it here at the start of every new pointerdown.
+    state.suppressNextStagingClick = false;
+    // No-op safely if the tile is no longer staged (e.g. the rack cycled during
+    // the killing-blow death beat -- gestures in that window must not act).
+    if (state.selectedTileIds.indexOf(tileId) === -1) return;
+    state.stagingDrag = {
+      tileId: tileId, el: el,
+      startX: e.clientX || 0, startY: e.clientY || 0,
+      crossed: false, outside: false, rects: null, tileW: 0, insertIndex: null
+    };
+    if (el && el.setPointerCapture && e.pointerId !== undefined) {
+      try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+  }
+
+  function moveStagingDrag(e) {
+    var d = state.stagingDrag;
+    if (!d) return;
+    var px = e.clientX || 0, py = e.clientY || 0;
+    var dx = px - d.startX, dy = py - d.startY;
+    if (!d.crossed) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // below threshold: still a potential tap
+      d.crossed = true;
+      beginStagingGhost(d);
+    }
+    if (e.cancelable) e.preventDefault(); // stop the page scrolling under a touch drag
+    if (d.el && d.el.style) d.el.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+    var outside = pointerOutsideStaging(px, py);
+    if (outside !== d.outside) {
+      d.outside = outside;
+      if (d.el && d.el.classList) d.el.classList.toggle('staging-drag-out', outside);
+    }
+    if (outside) {
+      d.insertIndex = null;
+      clearStagingGap(d);
+    } else {
+      d.insertIndex = stagedTileAtPosition(px);
+      applyStagingGap(d);
+    }
+  }
+
+  function endStagingDrag(e) {
+    var d = state.stagingDrag;
+    if (!d) return;
+    if (d.el && d.el.releasePointerCapture && e && e.pointerId !== undefined) {
+      try { d.el.releasePointerCapture(e.pointerId); } catch (err) {}
+    }
+    state.stagingDrag = null;
+    if (!d.crossed) return; // never moved -> a tap; let the click handler unstage
+    // A real drag happened. Suppress the synthesized click that pointerup emits so
+    // it doesn't unstage the tile we just reordered.
+    state.suppressNextStagingClick = true;
+    var tileId = d.tileId;
+    // The rack may have cycled out from under the gesture (death-beat window):
+    // if the tile is no longer staged, just rebuild a clean DOM and stop.
+    if (state.selectedTileIds.indexOf(tileId) === -1) { render(); return; }
+    if (d.outside) {
+      unstageTile(tileId); // spec 5: drag-out-to-remove (renders + slides home)
+    } else if (d.insertIndex !== null) {
+      reorderStagedTile(tileId, d.insertIndex); // spec 4 (renders)
+    } else {
+      render(); // no target -> snap back, wiping the ghost/gap transforms
+    }
+  }
+
+  function cancelStagingDrag() {
+    var d = state.stagingDrag;
+    state.stagingDrag = null;
+    if (d && d.crossed) render(); // rebuild clean DOM if a ghost was live
+  }
+
   // ---- rendering ---------------------------------------------------------
 
   function show(id) {
@@ -2240,8 +2413,20 @@
       var variantTip = tile.variant ? Tiles.describeVariant(tile.variant)
         : (tile.bonus ? Tiles.describeBonus(tile.bonus) : '');
       stageTile.title = variantTip ? variantTip + ' -- tap to remove' : 'Tap to remove';
-      // MOBILE INPUT 2/3: tapping a staged tile unstages it (slides home).
-      stageTile.addEventListener('click', function () { unstageTile(tile.id); });
+      // MOBILE INPUT 2/3: tapping a staged tile unstages it (slides home) --
+      // UNLESS a drag just finished on it, whose synthesized click we suppress
+      // so it doesn't undo the reorder/removal we just performed.
+      stageTile.addEventListener('click', function () {
+        if (state.suppressNextStagingClick) { state.suppressNextStagingClick = false; return; }
+        unstageTile(tile.id);
+      });
+      // MOBILE INPUT 2/3 Phase 2: pointer drag (touch + mouse, unified) to
+      // reorder within the play area or drag out of it to remove. A plain
+      // press-release with no movement falls through to the click handler above.
+      stageTile.addEventListener('pointerdown', function (e) { startStagingDrag(tile.id, stageTile, e); });
+      stageTile.addEventListener('pointermove', moveStagingDrag);
+      stageTile.addEventListener('pointerup', endStagingDrag);
+      stageTile.addEventListener('pointercancel', cancelStagingDrag);
       stagingArea.appendChild(stageTile);
     });
   }

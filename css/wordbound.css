@@ -595,8 +595,29 @@ h2 {
   cursor: pointer;
   border: none;
   position: relative;
+  /* MOBILE INPUT 2/3 Phase 2: claim the pointer so a touch drag reorders/removes
+     the tile instead of scrolling the page. */
+  touch-action: none;
 }
 .staged-tile:hover { background: #fff4d6; }
+
+/* MOBILE INPUT 2/3 Phase 2: the tile being dragged follows the pointer (its
+   transform is set inline by JS); lift it above its neighbors and off its
+   origin, which naturally leaves a visible gap where it was. */
+.staged-tile.staging-drag-ghost {
+  z-index: 30;
+  opacity: 0.92;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  cursor: grabbing;
+  transition: none;
+}
+/* Dragged past the play-area bounds (>30px): dim + a warning ring so the player
+   feels "release here to remove". */
+.staged-tile.staging-drag-ghost.staging-drag-out {
+  opacity: 0.4;
+  box-shadow: 0 0 0 2px #d06a7a, 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+.staging-area.staging-dragging { cursor: grabbing; }
 
 .staged-tile sub {
   font-size: 0.6rem;

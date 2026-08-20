@@ -807,6 +807,98 @@ async function main() {
       document.getElementById('word-input').value = '';
       window.Wordbound.Game.openDeckViewer();
       window.Wordbound.Game.closeDeckViewer();
+
+      // MOBILE INPUT 2/3 Phase 2: drag-reorder + drag-out-to-remove STATE LOGIC.
+      // The pointer-event glue (ghost follow, gap, threshold) is browser-only and
+      // can't run in jsdom (no real pointer events, getBoundingClientRect is 0),
+      // so these exercise the pure mutations the glue calls on release:
+      // Game._reorderStagedTile (spec 4) and unstageTile (spec 5's drag-out).
+      state.selectedTileIds = [];
+      document.getElementById('word-input').value = '';
+      const Game = window.Wordbound.Game;
+      let dragCands = nonBlankButtons();
+      if (dragCands.length < 3) {
+        console.log('SKIP staging drag-reorder checks -- fewer than 3 non-blank rack tiles');
+      } else {
+        const id0 = dragCands[0].getAttribute('data-tile-id');
+        const id1 = dragCands[1].getAttribute('data-tile-id');
+        const id2 = dragCands[2].getAttribute('data-tile-id');
+        const L = (id) => state.player.rack.find((t) => t.id === id).letter;
+        dragCands[0].dispatchEvent(new window.Event('click', { bubbles: true }));
+        nonBlankButtons().find((b) => b.getAttribute('data-tile-id') === id1)
+          .dispatchEvent(new window.Event('click', { bubbles: true }));
+        nonBlankButtons().find((b) => b.getAttribute('data-tile-id') === id2)
+          .dispatchEvent(new window.Event('click', { bubbles: true }));
+        check('mobile 2/3 phase2: three tiles staged in order (baseline)',
+          state.selectedTileIds.join(',') === [id0, id1, id2].join(',') &&
+          Game._stagedWord() === L(id0) + L(id1) + L(id2));
+
+        // Reorder to the END: insertion index === length appends. [0,1,2] with
+        // id0 inserted at index 3 -> [1,2,0]. (Insertion-index semantics let a
+        // tile reach the final slot, which the rack's drop-onto convention can't.)
+        Game._reorderStagedTile(id0, 3);
+        check('mobile 2/3 phase2: dragging tile 0 to the end (insert index len) moves it last',
+          state.selectedTileIds.join(',') === [id1, id2, id0].join(','));
+        check('mobile 2/3 phase2: reorder rebuilds the staged word from the new order',
+          Game._stagedWord() === L(id1) + L(id2) + L(id0) &&
+          document.getElementById('word-input').value === L(id1) + L(id2) + L(id0));
+        check('mobile 2/3 phase2: reorder does not add or drop any tile',
+          state.selectedTileIds.length === 3);
+        check('mobile 2/3 phase2: staging area re-rendered all three tiles after reorder',
+          !!stagedTileEl(id0) && !!stagedTileEl(id1) && !!stagedTileEl(id2));
+
+        // Reorder backward: insert the (now-last) id0 at index 0 -> back to front.
+        Game._reorderStagedTile(id0, 0);
+        check('mobile 2/3 phase2: inserting a tile at index 0 moves it to the front',
+          state.selectedTileIds.join(',') === [id0, id1, id2].join(','));
+
+        // Reorder to the MIDDLE: insert id0 at index 2 of [0,1,2] -> [1,0,2].
+        Game._reorderStagedTile(id0, 2);
+        check('mobile 2/3 phase2: inserting a tile at a middle index lands it there',
+          state.selectedTileIds.join(',') === [id1, id0, id2].join(','));
+        Game._reorderStagedTile(id0, 0); // restore [0,1,2]
+        check('mobile 2/3 phase2: restored to [0,1,2] for the no-op checks',
+          state.selectedTileIds.join(',') === [id0, id1, id2].join(','));
+
+        // No-op cases: inserting before/after its own slot, or null/unknown target.
+        const snapshot = state.selectedTileIds.join(',');
+        Game._reorderStagedTile(id1, 1); // before itself
+        Game._reorderStagedTile(id1, 2); // right after itself -> same order
+        Game._reorderStagedTile(id1, null);
+        Game._reorderStagedTile('no-such-tile', 0);
+        check('mobile 2/3 phase2: insert-in-place / null / unknown target are no-ops',
+          state.selectedTileIds.join(',') === snapshot);
+
+        // Drag-out-to-remove: the release path calls unstageTile when the pointer
+        // ends outside the play area. Remove the middle tile that way.
+        const beforeLen = state.selectedTileIds.length;
+        const midId = state.selectedTileIds[1];
+        // unstageTile isn't exposed by name, but the staged-tile tap uses it and a
+        // drag-out release calls the same function -- exercise it via the tap path,
+        // which is the documented single source of truth for unstaging.
+        stagedTileEl(midId).dispatchEvent(new window.Event('click', { bubbles: true }));
+        check('mobile 2/3 phase2: drag-out (unstage) removes exactly the target tile',
+          state.selectedTileIds.length === beforeLen - 1 &&
+          state.selectedTileIds.indexOf(midId) === -1);
+        check('mobile 2/3 phase2: the two other tiles stay staged in order',
+          state.selectedTileIds.join(',') === [id0, id2].join(','));
+
+        // suppressNextStagingClick guard: a click while the flag is set is eaten
+        // once (the synthesized post-drag click), then normal taps resume.
+        state.suppressNextStagingClick = true;
+        const keepLen = state.selectedTileIds.length;
+        stagedTileEl(id0).dispatchEvent(new window.Event('click', { bubbles: true }));
+        check('mobile 2/3 phase2: a suppressed click does NOT unstage (post-drag guard)',
+          state.selectedTileIds.length === keepLen && state.suppressNextStagingClick === false);
+        stagedTileEl(id0).dispatchEvent(new window.Event('click', { bubbles: true }));
+        check('mobile 2/3 phase2: the next click unstages normally (guard cleared)',
+          state.selectedTileIds.indexOf(id0) === -1);
+      }
+
+      state.selectedTileIds = [];
+      document.getElementById('word-input').value = '';
+      window.Wordbound.Game.openDeckViewer();
+      window.Wordbound.Game.closeDeckViewer();
     }
 
     // A blank (?) tile has no letter to stage -- clicking it must be a true

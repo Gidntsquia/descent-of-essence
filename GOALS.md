@@ -1148,7 +1148,7 @@ Rules for the routine:
       present, but only Jaxon's real device can prove the OS keyboard
       never appears. No audio/drag surface touched.
 
-- [ ] MOBILE INPUT 2/3 (DIRECT FROM JAXON, same message): make tile
+- [x] MOBILE INPUT 2/3 (DIRECT FROM JAXON, same message): make tile
       play physically interactive. Today staged tiles are inert display
       divs (renderStagingArea, game.js:2033-2060) and only the RACK
       supports drag-reorder (desktop HTML5 drag game.js:1988-2004,
@@ -1198,6 +1198,61 @@ Rules for the routine:
       changes), drag past container bounds removes, reduced-motion
       path instant, zero page errors; npm run test:mobile. Version
       bump.
+      DONE 2026-08-20 (v0.24 -> v0.25): Phase 2 (the drag mechanics)
+      completed this run; Phase 1 (tap model + FLIP slide + empty-slot
+      rack, specs 1/2/3) landed in the prior run. All six spec items now
+      covered. Implemented via a single unified Pointer Events path (works
+      for BOTH touch and mouse -- no separate touch/mouse handlers like the
+      rack has): pointerdown/move/up/cancel on each staged tile.
+      - Spec 4 (drag-reorder): `reorderStagedTile(tileId, insertIndex)` --
+        pure state mutation, insertion-index semantics (0..len, so a tile
+        CAN be dragged to the very end, which the rack's drop-ONTO
+        convention can't express). Hit-test `stagedTileAtPosition` counts
+        staged-tile centers left of the pointer, using a rect SNAPSHOT
+        taken when the drag threshold is crossed (the live tiles move via
+        transform mid-drag, so their live rects would lie). Siblings slide
+        via translateX to open a visible gap at the insertion point
+        (`applyStagingGap`). Word + input rebuilt immediately on drop.
+      - Spec 5 (drag-out-to-remove): release >30px outside the staging
+        container's rect -> `unstageTile` (the same single-source-of-truth
+        unstage path Phase 1 built). Ghost dims (`.staging-drag-out`) while
+        outside so the player feels the removal.
+      - Spec 6 (ghost): the dragged tile follows the pointer via inline
+        transform (`.staging-drag-ghost`, raised z-index); transform
+        doesn't affect layout, so its origin naturally reads as a gap.
+      - Both ticket HAZARDS handled: (a) NO mid-gesture render -- the live
+        drag is transform-only, DOM re-rendered exactly ONCE on release
+        (render() rebuilds #staging-area via innerHTML and would destroy
+        the dragged element); (b) death-beat window -- startStagingDrag and
+        endStagingDrag both re-check the tile is still in selectedTileIds
+        and no-op safely if the rack cycled out from under the gesture.
+      - `touch-action: none` on `.staged-tile` so a touch drag reorders
+        instead of scrolling the page; a synthesized post-drag click is
+        suppressed (`suppressNextStagingClick`, cleared on the next
+        pointerdown so it can never eat a genuine later tap) so a reorder
+        isn't immediately undone.
+      - Reduced motion: the gap-slide transition is disabled under
+        prefers-reduced-motion (the drag stays fully functional, just no
+        tween); the FLIP on stage/unstage already gated in Phase 1.
+      VERIFIED: `npm test` 311 checks ALL PASSED (+13 new jsdom checks for
+      the reorder/drag-out/no-op/suppress-guard STATE LOGIC -- jsdom can't
+      fire real pointer events or measure rects, so the pointer glue is
+      browser-verified instead). `npm run test:qa` 26/26, `npm run
+      test:mobile` clean at 375/414px, `npm run test:itch-build` clean.
+      Throwaway real-Chromium Playwright script (written, run, deleted) in
+      BOTH reduced-motion and normal-motion contexts: staged three tiles,
+      drove a real pointer drag to reorder tile 0 to the end (confirmed
+      selectedTileIds order + stagedWord() changed, ghost class present
+      mid-drag, no tile lost, no lingering ghost after release), dragged a
+      staged tile >260px below the play area to remove it (confirmed
+      drag-out dim class while outside + exactly that tile removed), and a
+      plain tap still unstaged -- zero console/page errors across both
+      passes. HONEST CAVEAT: verified with MOUSE pointer events
+      (page.mouse, pointerType 'mouse'); touch uses the identical
+      type-agnostic code path (reads clientX/clientY/pointerId, same for
+      both, and touch-action:none is in place), but a synthesized/physical
+      TOUCH drag on a real phone was not exercised here -- only Jaxon's
+      device can prove the touch-drag feel end to end.
 
 - [ ] MOBILE INPUT 3/3 (same directive, "more interactive in general"
       -- input-feel juice, deliberately separate from FUN OVERHAUL
