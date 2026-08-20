@@ -44,7 +44,7 @@ Rules for the routine:
 
 ## Queue
 
-- [ ] BUG, high priority: tapping a rack tile on a touchscreen does not play the
+- [x] BUG, high priority: tapping a rack tile on a touchscreen does not play the
       letter at all. Reported 2026-08-20 by Jaxon ("make sure clicking on letters
       actually plays them"), verified by reading the event-listener wiring (real
       device/touch emulation not available in this environment, but the mechanism

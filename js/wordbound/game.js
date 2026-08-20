@@ -80,6 +80,8 @@
     dragOverIndex: null, // track which position we're hovering over
     touchStartIndex: null, // for touch-based reordering
     touchCurrentIndex: null, // track position during touch drag
+    touchStartX: null, // track initial touch X position for drag threshold detection
+    touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
     selectedTileIds: [] // tiles selected for staging (in click order)
   };
   Game._state = state; // exposed for headless/browser test inspection only
@@ -897,6 +899,13 @@
   }
 
   // Touch reordering support for mobile/tablet
+  function selectTileForWord(tile) {
+    state.selectedTileIds.push(tile.id);
+    $('word-input').value += (tile.letter === '?' ? '' : tile.letter);
+    $('word-input').focus();
+    render();
+  }
+
   function getTileAtPosition(x) {
     var buttons = $('rack-display').querySelectorAll('.letter-tile');
     var closestButton = null;
@@ -916,27 +925,54 @@
     return null;
   }
 
-  function startTouchReorder(tileId, index) {
+  function startTouchReorder(tileId, index, touchX) {
     state.draggedTileId = tileId;
     state.touchStartIndex = index;
     state.touchCurrentIndex = index;
+    state.touchStartX = touchX;
+    state.touchDragThresholdCrossed = false;
   }
 
   function updateTouchReorder(touchX) {
-    var newIndex = getTileAtPosition(touchX);
-    if (newIndex !== null) {
-      state.touchCurrentIndex = newIndex;
+    if (state.draggedTileId === null) return;
+
+    // Check if drag threshold has been crossed
+    if (!state.touchDragThresholdCrossed) {
+      var distance = Math.abs(touchX - state.touchStartX);
+      if (distance > 10) {
+        state.touchDragThresholdCrossed = true;
+      }
+    }
+
+    if (state.touchDragThresholdCrossed) {
+      var newIndex = getTileAtPosition(touchX);
+      if (newIndex !== null) {
+        state.touchCurrentIndex = newIndex;
+      }
     }
   }
 
-  function endTouchReorder() {
-    if (state.touchStartIndex !== null && state.touchCurrentIndex !== null &&
+  function endTouchReorder(tappedTile) {
+    if (state.draggedTileId === null) {
+      state.touchStartX = null;
+      return;
+    }
+
+    // If drag threshold was crossed, do the reorder
+    if (state.touchDragThresholdCrossed &&
+        state.touchStartIndex !== null && state.touchCurrentIndex !== null &&
         state.touchCurrentIndex !== state.touchStartIndex) {
       reorderRackOnDrop(state.touchCurrentIndex);
+    } else if (!state.touchDragThresholdCrossed && tappedTile) {
+      // No drag happened: treat as a tap and play the letter
+      selectTileForWord(tappedTile);
     }
+
     state.draggedTileId = null;
     state.touchStartIndex = null;
     state.touchCurrentIndex = null;
+    state.touchStartX = null;
+    state.touchDragThresholdCrossed = false;
   }
 
   // ---- rendering ---------------------------------------------------------
@@ -1272,10 +1308,7 @@
       btn.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
       if (tile.bonus) btn.title = Tiles.describeBonus(tile.bonus);
       btn.addEventListener('click', function () {
-        state.selectedTileIds.push(tile.id);
-        $('word-input').value += (tile.letter === '?' ? '' : tile.letter);
-        $('word-input').focus();
-        render();
+        selectTileForWord(tile);
       });
       btn.addEventListener('dragstart', function (e) {
         startTileDrag(tile.id);
@@ -1297,17 +1330,20 @@
 
       // Touch reordering for mobile/tablet devices
       btn.addEventListener('touchstart', function (e) {
-        startTouchReorder(tile.id, index);
-        e.preventDefault(); // prevent scrolling while dragging
+        if (e.touches.length > 0) {
+          startTouchReorder(tile.id, index, e.touches[0].clientX);
+        }
       });
       btn.addEventListener('touchmove', function (e) {
         if (state.draggedTileId !== null && e.touches.length > 0) {
           updateTouchReorder(e.touches[0].clientX);
+          if (state.touchDragThresholdCrossed) {
+            e.preventDefault(); // prevent scrolling while dragging
+          }
         }
-        e.preventDefault();
       });
       btn.addEventListener('touchend', function () {
-        endTouchReorder();
+        endTouchReorder(tile);
       });
 
       rack.appendChild(btn);
