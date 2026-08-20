@@ -8719,3 +8719,171 @@ Shredder / Wager with the Stacks). Note for whoever picks it up: 7/8's
 tile-picking, and "Wager with the Stacks" depends on 1/8's per-fight
 usedWords tracking (`state.comboState.usedWords`). Working tree clean,
 everything committed and pushed.
+
+---
+
+### 2026-08-20T14:52Z -- QA pass on da0eb54: real-browser verification of the BALANCE outlier retune, FUN OVERHAUL 4/8 (8 rule-changer items) and 5/8 (tile variants), clean, zero tickets
+
+Fresh QA pass (worker role), zero memory of prior sessions. `git pull`
+fast-forwarded 0744249 -> **da0eb54** (balance gate-#3 outlier HP cut
++ hex-tile sim fix, FUN OVERHAUL 4/8, FUN OVERHAUL 5/8). Pinned this pass to
+**da0eb54**. Origin moved again mid-pass (FUN OVERHAUL 6/8, elites, landed
+as ca6c753); merged cleanly at the very end (fast-forward, zero conflicts)
+but NOT independently re-verified per "note mid-pass movement, don't chase"
+-- that's the next QA pass's job.
+
+**Baselines at da0eb54, all clean:** `npm test` 197/197 ALL CHECKS PASSED
+(up from the 127+ figure in this pass's own briefing -- growth from 4/8's
+21 new assertions and 5/8's variant checks); `npm run test:qa` 26/26 real
+Chromium, zero console/page errors; `npm run test:mobile` clean at
+375px/414px across all 4 screens.
+
+**1. BALANCE outlier retune -- confirmed in code, in GOALS.md, and in real
+combat.** `js/wordbound/monsters.js`: `sentinel` (The Card Catalog) maxHp is
+exactly 70, `spinesplinter` (Spine Splinter) maxHp is exactly 68 -- both the
+documented -20% off the pre-retune 88/85. The BALANCE ticket's box is
+checked with the final band recorded ("60% win / 0% stall / 0 softlock,
+overshoots the 33-50% band on the easy side; the sanctioned further -10%
+strong-tier cut was correctly skipped since that knob only pushes an
+overshoot further in the wrong direction"). Killed both defs in real combat
+(forced encounter via `Monsters.createMonster`, kept the real organically-
+drawn rack, real word-finder, real `#word-input`/`#btn-submit-word`
+clicks): Spine Splinter in 12 words, Card Catalog in 3 -- both sane
+(neither a 1-shot nor a marathon), hex/devour intents fired and resolved
+correctly mid-fight, zero page errors.
+
+**2. FUN OVERHAUL 4/8 (8 rule-changer items) -- all 8 verified end-to-end
+through a real `Game.submitWord` call**, not just the isolated synthetic-ctx
+checks npm test's own 21 assertions already cover per their DONE note.
+Wrote `verify-fun4-fun5-realbrowser.js` (new, kept in scratch dir): force-
+grants one item at a time, force-sets only the exact precondition each
+item's trigger needs (`previousWordThisFight`, `wordsPlayedThisFightCount`,
+or neither), types a real word into `#word-input` and clicks
+`#btn-submit-word`, and reads the resulting `monster.hp`/`player.hp`/`gold`
+delta plus `state.messages` against the ticket's own formula, A/B against an
+items-off baseline so combo/trait multipliers never have to be hand-
+predicted. All 8 positive triggers plus 6 negative/non-trigger cases matched
+exactly, math AND the required proc log line: Illuminated Initial +40%,
+Errant Footnote x2 on the 3rd word, Vowel Reliquary +2x letter-value per
+vowel, Consonant Cluster +2 flat per consonant, Long-S Ligature +25%/+1HP on
+6+ letter words, Cursed Quill +10dmg/-2 self-dmg, Gilded Bookmark x2 on word
+1, Palimpsest +30% on 3+ shared letters. Cursed Quill's lethal case (the
+ticket's own "can kill you, that's the deal" callout, and this pass's
+briefing's specific ask) driven through the real DOM at 1 HP: `player.hp` ->
+0, screen flips to GAME_OVER, `#screen-game-over` actually renders, zero
+page errors -- the 13:48Z entry's death-path fix (checking `player.hp` right
+after the item hook runs, before either the killing-blow or survive branch)
+holds up under a real click, not just its own isolated jsdom check. Boss-
+reward pool confirmed live-fire in the general-regression runs below
+(offered `cursed_quill`/`long_s_ligature`/`second_wind` and
+`foreword`/`second_wind`/`long_s_ligature` across the two runs) -- the new
+rares are genuinely surfacing in real play, not just theoretically wired.
+
+Two false alarms this section caught in my OWN new script before trusting
+any result, per this routine's standing "triple-check your own scripts
+first" rule -- neither was a game bug:
+- First full run threw 28 `Cannot read properties of undefined (reading
+  'hint')` page errors from `renderCombat` (game.js ~1769) and 2 spurious
+  log-content mismatches. Root cause: my own neutral-monster rig set
+  `monster.traitPhases` to a `traitId` ('none') that doesn't exist in
+  `Traits.TRAITS`; `combat.js`'s multiplier lookup guards a missing trait
+  (`trait ? trait.multiplier(...) : 1`) but `renderCombat`'s `trait.hint`
+  read does not, so every render after that crashed. Real monster defs
+  always reference a real `Traits.TRAITS` entry, so this path is
+  unreachable in actual play. Fixed by registering an actual neutral
+  `{hint, multiplier}` entry instead of relying on a missing one --
+  zero page errors on every subsequent run.
+- Two log-text checks read `#message-log`'s DOM text at 60ms post-click
+  (deliberately before `render()`, which is deferred `TILE_PLAY_ANIM_MS`
+  =220ms inside a `setTimeout` for the non-killing-blow path -- confirmed
+  by reading game.js directly -- and which also fires the monster's
+  counterattack, so reading any later would have polluted the HP-delta
+  assertions these tests actually care about). The DOM text is simply
+  stale before that timeout fires; switched both checks to read
+  `state.messages` directly (updated synchronously inside `submitWord`,
+  no render dependency) instead of the DOM.
+
+**3. FUN OVERHAUL 5/8 (tile variants) -- all 4 effects plus the crack
+lifecycle verified through real play.** Same script, same real-DOM-play
+approach: Gilded +2 gold/tile, Charged +4 flat damage/tile (scoring-side,
+`lexicon.js`), Vampiric +1 HP/tile (and its maxHp clamp), Volatile's
+double-letter scoring all matched exactly. The 25% crack roll was forced
+deterministically via the same `rng.chance(0.25)` monkeypatch the
+implementing 14:25Z entry used (grep-confirmed the sole in-fight 0.25
+probability call) -- cracked tile logged, absent from the rack/draw/discard
+piles after the fight's rack-cycle, `crackedThisFight` correctly set on the
+persistent `state.deck` entry (had to add the synthetic test tile to
+`state.deck`, not just the rack, for this specific assertion to even be
+checking the right object -- another own-script fix, not a game issue).
+Did not re-take badge/glyph screenshots at 375px: this pass's own briefing
+pointed at `npm run test:mobile` for that check specifically, it's clean,
+and no CSS changed since the implementing run's own already-documented
+manual screenshot confirmation.
+
+**4. Unabridged 40-word/0-damage stall ticket -- confirmed already resolved,
+nothing outstanding.** GOALS.md's gate-#3 entry explicitly folded this into
+the `balance-simulation.js` hex-tile-awareness fix ("same mechanism, same
+fix, so no separate ticket needed") -- there is no separate bottom-of-queue
+ticket for it to pick up.
+
+**General regression:** 2 full real-browser runs to completion
+(`qa-playthrough.js`, unchanged from prior passes, real clicks throughout,
+How-to-Play dismissal, one seeded + one auto-seed run) -- 0 issues, both
+ended GAME_OVER (design-rate losses, not a bug), all node types visited
+across the two runs (combat/treasure/shop/event/boss/boss-item-reward),
+zero page/console errors.
+
+**Consumable buy+use: investigated a script failure rather than taking it at
+face value, per this routine's own guidance.** The existing
+`qa-consumable-real-clicks.js` reported "never managed to buy a consumable
+in 401 steps." Root cause is NOT a game bug: FUN OVERHAUL 4/8 grew the
+shop's shared item+consumable pool from 18 to 26 entries (23 items + 3
+consumables, up from 15+3), so a random 4-slot shop draw now has roughly
+46% odds of offering zero consumables (was ~33% before 4/8) -- the script's
+fixed step budget just wasn't sized for the new odds. Confirmed the actual
+mechanism is fine with two quick targeted checks (in /tmp, not kept):
+forced a guaranteed consumable into `shopOptions` and bought one for real
+(gold deducted 500->460, `consumables` array populated, real click on the
+real button) -- then separately force-granted and used all 3 real
+consumables (`page_turn`, `index_card_shard`, `errata_slip`) via real clicks
+on the Consumables panel: all 3 decremented correctly, `index_card_shard`'s
++15 `bonusDamageUntilEndOfTurn` and `errata_slip`'s +8 HP matched their
+tooltip text exactly. `js/wordbound/consumables.js` itself has zero
+functional diff across this whole QA scope (`git diff fb8fbeb..HEAD --
+js/wordbound/consumables.js` is a single stale-comment fix from an
+already-shipped, unrelated ticket). Not filing a ticket. Worth a note for
+whoever next touches shop odds or that script: its 400-step budget may need
+raising as the item pool keeps growing across FUN OVERHAUL 4/8-8/8, or it
+could force a consumable into `shopOptions` the way this pass's throwaway
+check did instead of relying on organic odds.
+
+**Verdict: clean. Zero tickets filed.** Both apparent issues this pass
+surfaced (the 28 page errors, the consumable-script failure) traced back to
+the QA tooling itself (a test-rig-only trait ID, a stale probability
+assumption in an older script) rather than the game -- confirmed via direct
+source reads and isolated re-checks before being ruled out, not taken on
+faith either way. Every mechanic actually shipped in the last ~2h of dev
+work (2 monster HP retunes, 8 new items, 4 new tile variants) checks out
+exactly against its GOALS.md spec under real browser/DOM conditions, not
+just jsdom.
+
+**Scratch dir additions (kept, hardened, reusable for future passes):**
+`verify-fun4-fun5-realbrowser.js` (real-DOM per-item/per-variant trigger
+verification with an A/B-against-baseline pattern, a reusable
+`enterRealCombat`/`primeCombat` pair for any future "force a controlled
+monster and drive real word plays" script).
+
+**Not done / left for others:** did not verify FUN OVERHAUL 6/8 (elites,
+landed mid-pass after this pass's pin -- see above, next QA pass's job). Did
+not re-run a fresh `balance-simulation.js` n=30 (the BALANCE ticket's own
+gate-#3 clean run is recent, thorough, and already the current HP values --
+nothing in 4/8 or 5/8 touches monster stats or damage formulas in a way
+that would move win/stall rate). Did not touch the stale
+`verify-intents-full-realbrowser.js` (already flagged as stale by the prior
+pass; still stale, still not this pass's scope to fix) or patch
+`qa-consumable-real-clicks.js`'s budget (documented the finding above
+instead, since the actual mechanism is confirmed fine).
+
+**Current state:** v0.19, HEAD ca6c753 (this pass's pin da0eb54 + FUN
+OVERHAUL 6/8 merged in afterward, untested by this pass). Working tree
+clean, everything committed and pushed.
