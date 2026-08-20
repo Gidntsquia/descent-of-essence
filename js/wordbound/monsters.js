@@ -11,7 +11,7 @@
 // PUBLIC API (window.Wordbound.Monsters):
 //   MONSTER_DEFS[id] = { id, name, maxHp, attack, traitPhases, tier, goldDrop:[min,max], intents? }
 //   BOSS_DEFS[id]     = { id, name, maxHp, attack, traitPhases, floor, intents? }
-//   createMonster(defId) -> fresh instance { defId, name, hp, maxHp, attack, traitPhases, intents, mendUsed }
+//   createMonster(defId) -> fresh instance { defId, name, hp, maxHp, attack, traitPhases, intents, mendUsed, enrageStacks }
 //   createBoss(defId)    -> same shape, isBoss:true
 //   `intents` (GOALS.md "FUN OVERHAUL 2/8", js/wordbound/intents.js): a list
 //   of signature-move ids (from Intents' shared pool: hex/devour/mend/
@@ -134,7 +134,7 @@
     return {
       defId: defId, name: def.name, hp: def.maxHp, maxHp: def.maxHp,
       attack: def.attack, traitPhases: def.traitPhases, isBoss: false, tier: def.tier,
-      intents: def.intents || [], mendUsed: false
+      intents: def.intents || [], mendUsed: false, enrageStacks: 0
     };
   };
 
@@ -144,7 +144,7 @@
     return {
       defId: defId, name: def.name, hp: def.maxHp, maxHp: def.maxHp,
       attack: def.attack, traitPhases: def.traitPhases, isBoss: true,
-      intents: def.intents || [], mendUsed: false
+      intents: def.intents || [], mendUsed: false, enrageStacks: 0
     };
   };
 })();

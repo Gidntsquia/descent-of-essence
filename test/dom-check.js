@@ -291,6 +291,32 @@ async function main() {
       Intents.executeIntent({ type: 'enrage' }, { monster: boss });
       Intents.executeIntent({ type: 'enrage' }, { monster: boss });
       check('monster intents: Enrage stacks (+ENRAGE_ATTACK_BONUS per use)', boss.attack === baseAttack + 2 * Intents.ENRAGE_ATTACK_BONUS);
+      check('monster intents: Enrage tracks enrageStacks', boss.enrageStacks === 2);
+    }
+
+    // GOALS.md balance ticket (2026-08-20): Enrage had no cap, letting a
+    // dragged-out fight (esp. boss_sovereign) stack it indefinitely for an
+    // unbounded attack spiral. Once enrageStacks reaches ENRAGE_MAX_STACKS,
+    // rollIntent must stop offering 'enrage' -- same once-fired guard
+    // pattern as Mend's mendUsed, but a counted cap instead of a boolean.
+    {
+      const boss = Monsters.createBoss('boss_sovereign'); // intents: ['enrage', 'hex']
+      for (let i = 0; i < Intents.ENRAGE_MAX_STACKS; i++) {
+        Intents.executeIntent({ type: 'enrage' }, { monster: boss });
+      }
+      check('monster intents: enrageStacks reaches ENRAGE_MAX_STACKS after that many uses', boss.enrageStacks === Intents.ENRAGE_MAX_STACKS);
+      let enrageSeenAfterCap = false;
+      boss.isBoss = true;
+      for (let i = 0; i < 60; i++) {
+        if (Intents.rollIntent(boss, rng).type === 'enrage') enrageSeenAfterCap = true;
+      }
+      check('monster intents: Enrage is never re-telegraphed once enrageStacks hits the cap (60/60)', !enrageSeenAfterCap);
+      check('monster intents: hex (the def\'s other signature) still rolls once Enrage is capped', (() => {
+        for (let i = 0; i < 60; i++) {
+          if (Intents.rollIntent(boss, rng).type === 'hex') return true;
+        }
+        return false;
+      })());
     }
   }
 

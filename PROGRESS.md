@@ -6638,3 +6638,89 @@ unchecked GOALS.md item: the new BALANCE, HIGH PRIORITY ticket just added
 (Enrage-cap investigation) -- strongly recommended over skipping ahead to
 FUN OVERHAUL 4/8, per the reasoning above, though not force-blocked if a
 future run has good reason to disagree.
+
+---
+
+### 2026-08-20T10:00Z -- Enrage-cap investigation (BALANCE, HIGH PRIORITY ticket): code fix landed, sim verification IN PROGRESS, box NOT checked yet
+
+Picked up the top unchecked GOALS.md item: the Enrage-stacking win-rate
+regression flagged by FUN OVERHAUL 3/8's SIM CHECK (7% win rate vs. the
+33-50% band, 33% stall rate). The ticket's own well-scoped starting
+hypothesis -- give Enrage a Mend-style max-stacks cap -- is what this run
+implemented; it also explicitly asks for `balance-simulation.js` n=30
+before/after data before trusting the fix, which is still running as this
+entry is written (a single n=30 run takes several minutes; started it in
+the background rather than block the whole run on it).
+
+**Fix implemented** (`js/wordbound/intents.js`, `js/wordbound/monsters.js`):
+- New `ENRAGE_MAX_STACKS = 3` constant (the ticket's own suggested number,
+  "e.g. 3, like a soft version of Mend's hard 1" -- used as-is rather than
+  guessing a different number, since the ticket flagged the exact value as
+  something to validate against sim data, not invent from scratch).
+- New `monster.enrageStacks` counter, initialized to 0 in both
+  `Monsters.createMonster` and `Monsters.createBoss` (mirrors the existing
+  `mendUsed` field/pattern exactly). Confirmed `state.monster` is freshly
+  created every `startCombat` (game.js line ~364), so this resets per
+  fight automatically, same as `mendUsed` already does -- no extra reset
+  code needed.
+- `intents.js` `buildPool`: once `enrageStacks >= ENRAGE_MAX_STACKS`,
+  'enrage' drops out of the elite/boss signature pool -- same
+  never-re-telegraph-a-spent-move pattern the `mendUsed` guard already
+  uses, just counted instead of boolean.
+- `executeIntent`'s enrage branch now increments `enrageStacks` alongside
+  the existing `monster.attack += ENRAGE_ATTACK_BONUS`. Did NOT touch
+  Devour -- the ticket explicitly separated "whether Devour also needs
+  this" as a judgment call, and Devour is naturally self-limiting (each
+  proc removes one tile permanently, bounded by rack size, not an
+  unbounded stat spiral like uncapped Enrage was) so there's no equivalent
+  urgency; leaving it alone unless the sim data below says otherwise.
+- Doc comments updated: monsters.js header (createMonster/createBoss
+  return shape now lists `enrageStacks`), intents.js header (documents the
+  cap and points at this ticket + PROGRESS.md for the why).
+
+**Only two defs are affected**: `sentinel` (floor-2 strong-tier, elite-
+eligible) and `boss_sovereign` (floor-3 final boss) are the only two defs
+with `'enrage'` in their `intents` list. Every other def/monster is
+untouched by this change.
+
+**Tests added** (`test/dom-check.js`, same file/style as the existing
+Enrage-stacks test): `enrageStacks` increments per proc; after
+`ENRAGE_MAX_STACKS` uses, 60/60 `rollIntent` calls on that monster never
+return 'enrage' again; confirmed the def's OTHER signature (hex, for
+boss_sovereign) still rolls normally once Enrage alone is capped, so the
+fix doesn't accidentally suppress the whole signature pool. `npm test`:
+**82/82** (was 76 -- 6 new checks), clean, zero uncaught DOM errors.
+
+**What's NOT done yet, why the box stays unchecked:** the ticket's
+VERIFICATION line requires "a fresh `balance-simulation.js` n=30 (or
+larger) run showing the win rate back in band" before checking this off.
+That run was started (`node test/balance-simulation.js 30`, backgrounded)
+but had not finished by the time this run needed to commit code + tests
+(a stop-hook forced a commit of the in-progress state rather than holding
+everything in an uncommitted working tree for several more minutes). This
+entry will be followed by a second one in the same session once the sim
+result is in, either checking the GOALS.md box (if the win rate is back
+in the 33-50% band) or leaving it unchecked with fresh data and next
+steps (if capping Enrage alone isn't enough -- e.g. if Devour's uncapped
+tile removal turns out to matter more than expected, or if something
+structural is still off).
+
+**Verified vs. not:** the cap mechanism itself is fully verified in jsdom
+(exact stack counting, exact cutoff behavior, sibling signature moves
+unaffected) -- that part is solid. What's NOT yet verified is the thing
+that actually matters for closing this ticket: whether capping Enrage
+alone is sufficient to move the measured win rate from 7% back into the
+33-50% band, or whether it needs Devour capped too, or whether something
+else in the regression (the earlier PROGRESS.md entry's multi-phase-boss
+secondary-multiplier note) still leaves it short. No audio or CSS/layout
+changes in this commit -- `npm run test:mobile`/`test:qa` not required by
+that top-of-file rule for this diff, though `test:qa` is still owed per
+the ticket's own VERIFICATION line and will run alongside the sim
+follow-up.
+
+**Current state:** v0.14 (no version bump yet -- deferred until the fix
+is confirmed to actually work, since a balance number that doesn't fix
+the target band isn't a shippable player-facing change). `npm test`
+82/82. Enrage-cap code is live on `main` but the GOALS.md box is
+correctly still unchecked pending sim confirmation, per this repo's own
+rule against checking off unverified work.

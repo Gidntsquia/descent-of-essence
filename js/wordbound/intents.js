@@ -5,7 +5,8 @@
 // after the fact -- the load-bearing mechanic this ticket is chasing.
 //
 // PUBLIC API (window.Wordbound.Intents):
-//   HEAVY_MULTIPLIER, ENRAGE_ATTACK_BONUS, MEND_HEAL_RATIO, DEVOUR_DAMAGE_THRESHOLD
+//   HEAVY_MULTIPLIER, ENRAGE_ATTACK_BONUS, ENRAGE_MAX_STACKS, MEND_HEAL_RATIO,
+//   DEVOUR_DAMAGE_THRESHOLD
 //     -- exported so tests/tools can assert against the real numbers instead
 //     of duplicating them.
 //   rollIntent(monster, rng) -> { type, value }
@@ -17,8 +18,12 @@
 //     signature id listed in the monster's own def-derived `intents` array
 //     (e.g. ['hex', 'devour']) -- 'mend' drops out of the pool once
 //     monster.mendUsed is true (once-per-fight, so it's never telegraphed
-//     as available again after it fires). Uses `rng` (state.rng) so seeded
-//     runs stay deterministic -- never Math.random.
+//     as available again after it fires), same as 'enrage' drops out once
+//     monster.enrageStacks reaches ENRAGE_MAX_STACKS (GOALS.md balance
+//     ticket, 2026-08-20: Enrage had no cap at all, letting a long fight
+//     spiral into an ever-growing attack stat -- see that ticket and
+//     PROGRESS.md for the win-rate data that drove the cap). Uses `rng`
+//     (state.rng) so seeded runs stay deterministic -- never Math.random.
 //   describeIntent(intent) -> "Next: ..." display string.
 //   executeIntent(intent, ctx) -> { damage, message, tileLockedId,
 //                                   tileDevouredLetter, healed, enraged }
@@ -37,11 +42,13 @@
 
   var HEAVY_MULTIPLIER = 1.6;
   var ENRAGE_ATTACK_BONUS = 2;
+  var ENRAGE_MAX_STACKS = 3;
   var MEND_HEAL_RATIO = 0.15;
   var DEVOUR_DAMAGE_THRESHOLD = 12;
 
   Intents.HEAVY_MULTIPLIER = HEAVY_MULTIPLIER;
   Intents.ENRAGE_ATTACK_BONUS = ENRAGE_ATTACK_BONUS;
+  Intents.ENRAGE_MAX_STACKS = ENRAGE_MAX_STACKS;
   Intents.MEND_HEAL_RATIO = MEND_HEAL_RATIO;
   Intents.DEVOUR_DAMAGE_THRESHOLD = DEVOUR_DAMAGE_THRESHOLD;
 
@@ -56,6 +63,7 @@
     if (monster.isElite || monster.isBoss) {
       (monster.intents || []).forEach(function (sig) {
         if (sig === 'mend' && monster.mendUsed) return; // once per fight, don't re-telegraph a spent move
+        if (sig === 'enrage' && (monster.enrageStacks || 0) >= ENRAGE_MAX_STACKS) return; // capped, don't re-telegraph a spent move
         pool.push({ type: sig, weight: 1 });
       });
     }
@@ -147,6 +155,7 @@
 
     if (intent.type === 'enrage') {
       monster.attack = (monster.attack || 0) + ENRAGE_ATTACK_BONUS;
+      monster.enrageStacks = (monster.enrageStacks || 0) + 1;
       result.enraged = true;
       result.message = monster.name + ' enrages — its attack grows!';
       return result;
