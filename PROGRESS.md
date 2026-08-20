@@ -10263,3 +10263,61 @@ n=30 sim with this fix applied was kicked off in the background right
 after; its numbers are the ones that actually decide whether round 1 clears
 the gate (this paragraph's numbers above are from the PRE-fix run, kept for
 the record but superseded by the next entry once it lands).
+
+**UPDATE 2 -- SHREDDER-fixed n=30 landed, round 1 OVERSHOT the win-rate
+band, starting ROUND 2.**
+
+| metric | pre-round-1 baseline (n=25) | round 1, SHREDDER-fixed (n=30) | target |
+|---|---|---|---|
+| win rate ("best") | 16% | **60%** | 35-50% |
+| stall rate | 32% | **0%** | (harness health, not a ticket target) |
+| floor1 death share | 46% | 8% (1/12, and that 1 was the boss, not a regular) | <=50%, and floor1-regular specifically <=10% |
+| floor2 death share | 54% | **67%** | <=50%, toward floor3 parity |
+| floor3 death share | 0% | 25% | toward floor2 parity |
+| floor1-regular (non-elite/boss) deaths | 38% of deaths | **0%** | <=~10% |
+| boss kill rate (all 3 combined) | ~0% | ~5% (1/69 boss encounters) | "a meaningful spike," not a relief |
+
+Zero stalls confirms the SHREDDER fix worked and this measurement is now
+trustworthy (n=30, no discarded/misreported runs). But two of the four
+measurable targets are now missed in the OTHER direction from where round 1
+started: win rate overshot past the top of the band (60% vs. <=50%), and
+floor2's death SHARE actually got WORSE (67% vs. 54%) even though floor2's
+raw per-attempt lethality barely moved (27% pre vs. 28% post) -- because
+floor1 deaths were nearly eliminated (both by the attack cut AND by the
+SHREDDER fix correctly resolving runs that used to be miscounted as
+STALLs, many of which were probably continuing wins), floor2 now accounts
+for a much larger slice of a much smaller death pie. Target 3
+(floor1-regular gentle) is now met with enormous headroom -- 0% vs. the
+<=10% ceiling -- so there's room to add difficulty back to floor 1
+specifically without risking that target. Bosses are still trivial across
+all three floors (this is now the clearest lever available: target 4 wants
+them to be "a meaningful difficulty spike," and boss deaths don't count
+against target 3's floor1-regular metric at all, so boss HP is a
+floor-specific dial that can pull the win rate down without touching
+floor2's already-too-high share).
+
+**ROUND 2 changes (knob, old -> new):**
+| knob | round 1 | round 2 | rationale |
+|---|---|---|---|
+| boss_vowelmaw (floor1 boss) maxHp | 38 | 46 | trivial at 1.7 words/fight, 3% kill rate; floor1 has huge headroom on target 3 (bosses excluded from that metric) |
+| boss_sovereign (floor3/final boss) maxHp | 45 | 55 | trivial at 1.2 words/fight, 0% kill rate; floor3 death share needs to rise toward floor2 parity, and this is the "escalating stakes finale" target 4 asks for |
+| sentinel (Card Catalog) maxHp | 60 | 54 | still floor2's #1 killer (25% kill rate) even after round 1's cut |
+| warden (The Hoarder) maxHp | 70 | 63 | still a top floor2/floor3 killer (13-25% kill rate across both) |
+| spinesplinter maxHp | 58 | 52 | third floor2/3 strong-tier peer, same further trim for consistency |
+
+boss_unabridged (floor2 boss) deliberately left UNCHANGED this round --
+it's already trivial too, but floor2's death SHARE is the thing that needs
+to come DOWN, so adding more floor2-specific difficulty (even from its
+boss) would fight the round's own goal; revisit it once floor2's regular/
+strong-tier share is back under the ceiling. All three strong-tier trims
+are HP-only (attack untouched, already cut once in round 1) to keep fights
+a "words" puzzle rather than a per-turn punishment. Both boss buffs are
+HP-only for the same reason, and deliberately don't touch attack (Vowelmaw
+already tuned down once for a "boss fight doesn't work" complaint;
+Sovereign already has the highest attack in the game plus Enrage, no need
+to compound).
+
+`npm test` **ALL CHECKS PASSED** against round 2 (no assertions reference
+these exact HP numbers; same audit as round 1 -- checked first). A fresh
+n=30 sim was kicked off in the background right after; next entry has the
+result and the checkpoint/checkbox decision.

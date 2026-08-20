@@ -95,8 +95,18 @@
   // words to fell (the ~30-36 avg single-word damage measured in this same
   // ticket's own HP-band comment above), so the "regular monsters survive
   // one hit" hard constraint holds.
-  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 60, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
-  mdef({ id: 'warden', name: 'The Hoarder', maxHp: 70, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
+  // ROUND 2 (same 2026-08-20 rebalance ticket): the round-1 cut brought
+  // overall win rate to 60% (n=30, above the 35-50% band) and, because
+  // floor-1 deaths nearly vanished, floor-2's SHARE of remaining deaths rose
+  // to 67% (worse than pre-round-1's 54%) even though floor2's raw
+  // per-attempt death rate barely moved -- these are still the two deadliest
+  // floor-2 defs (Card Catalog 25%, The Hoarder 13% kill rate in the round-1
+  // sim). A further ~10% HP-only trim (attack untouched this round, already
+  // cut once) to push the floor-2 wall down further; see the boss changes
+  // below for where the win-rate band correction is coming from instead, so
+  // this floor-2 cut doesn't have to do that job alone.
+  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 54, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
+  mdef({ id: 'warden', name: 'The Hoarder', maxHp: 63, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
   mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
   mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
   mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
@@ -106,9 +116,10 @@
   // data (PROGRESS.md). Same intent-pool check as Card Catalog above
   // (hex/devour, weight 1 each vs. attack's 3, matches sibling strong
   // defs) -- not disproportionately signature-heavy, HP-only fix.
-  // maxHp 68 -> 58, attack 5 -> 4 (2026-08-20 Jaxon-authorized difficulty
-  // rebalance): same floor-2 strong-tier pass as sentinel/warden above.
-  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 58, attack: 4, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], intents: ['hex', 'devour'] });
+  // maxHp 68 -> 58 -> 52 (2026-08-20 Jaxon-authorized difficulty rebalance,
+  // round 1 then round 2): same floor-2 strong-tier pass as sentinel/warden
+  // above.
+  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 52, attack: 4, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], intents: ['hex', 'devour'] });
 
   // Boss attack values tuned down from their original 6/8/10 on 2026-08-19 after
   // playtesting showed the player's fixed 20 max HP only survives 3-4 hits, which
@@ -131,7 +142,18 @@
     // fix is non-compounding signature costs (see intents.js) PLUS
     // shortening the sponge itself. See PROGRESS.md for before/after
     // balance-simulation numbers.
-    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 38, attack: 4, floor: 1, goldDrop: [15, 25],
+    // maxHp 38 -> 46 (2026-08-20 rebalance ROUND 2): three rounds of prior
+    // cuts (50->38 above) left this boss trivial -- round-1's n=30 sim
+    // measured it at 1.7 words/fight, 3% kill rate, essentially a free win.
+    // Target 4 of the current ticket requires bosses stay "a meaningful
+    // difficulty spike," and round 1 also overshot the overall win-rate
+    // band (60% vs. 35-50%) -- raising a boss HP (not attack, so the fight
+    // gets longer/more of a puzzle rather than more punishing per turn) is
+    // a floor-1-SPECIFIC lever that adds real difficulty back without
+    // touching target 3's floor-1-regular-death metric (bosses are
+    // excluded from that count by the ticket's own wording) or floor 2's
+    // already-too-high death share.
+    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 46, attack: 4, floor: 1, goldDrop: [15, 25],
     // Floor-1 boss, kept to a single defensive signature (Mend) rather than
     // an offensive one -- this ticket's own judgment call, per this file's
     // history of the floor-1 boss already being the hardest fight in the
@@ -177,7 +199,16 @@
     // This second cut targets ~7-8 words/fight at the same ~5.9 HP/word
     // throughput this boss measured at. See PROGRESS.md for the
     // before/after sim numbers.
-    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 45, attack: 8, floor: 3, goldDrop: [40, 60],
+    // maxHp 45 -> 55 (2026-08-20 rebalance ROUND 2): round-1's n=30 sim
+    // measured this boss at 1.2 words/fight, 0% kill rate -- also trivial,
+    // same reasoning as boss_vowelmaw above. Floor 3's death share (25%)
+    // also needs to move TOWARD floor 2's (67%) per target 2, and this is
+    // the final boss -- the one death this ticket's own design note wants
+    // to feel like an escalating-stakes finale, not a formality after
+    // surviving floors 1-2. HP-only (attack untouched, already the
+    // highest in the game at 8, and Enrage already escalates over a long
+    // fight -- no need to compound that with a bigger per-hit number too).
+    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 55, attack: 8, floor: 3, goldDrop: [40, 60],
     // Final boss: the only def with Enrage, so a run that drags this fight
     // out gets meaningfully harder over time -- the escalating-stakes finale
     // this ticket's design note asks for.
