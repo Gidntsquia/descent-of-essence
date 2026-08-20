@@ -952,6 +952,47 @@ Rules for the routine:
       drag-and-drop; and a human's feel for whether the gambles are
       actually tense -- Jaxon's playtest. Version bumped v0.19 -> v0.20.
 
+- [ ] DESIGN FIX, small (DIRECT FROM JAXON, 2026-08-20 ~11:15 ET -- do this
+      FIRST, before 8/8 and the consumable ticket): "You should not be able
+      to skip the final boss fight for the win." Currently the Empty Shelf
+      event's "Sit and breathe" choice (js/wordbound/events.js:130 sets
+      state.pendingEventSkipNextCombat) is honored for boss nodes in
+      Game.enterCurrentNode (js/wordbound/game.js:228-246), which routes a
+      skipped boss through advanceFloor(); on floor 3 that calls
+      endRun(true) (game.js:192-194) -- i.e. taking the event right before
+      the final boss wins the game without fighting it. That was a
+      deliberate earlier design note (see the comment at game.js:234-239);
+      Jaxon has now explicitly overruled it.
+      FIX (orchestrator's spec -- bosses are the identity fights, so make
+      ALL bosses unskippable, not just floor 3; one clean rule beats a
+      floor-3 special case):
+      1. In enterCurrentNode, do NOT consume pendingEventSkipNextCombat
+         when node.type === 'boss': start the boss fight normally and
+         KEEP the flag pending (it then applies to the next regular
+         combat, e.g. on the following floor -- the player paid an event
+         choice for it; don't silently void it). Log one flavorful line
+         when a boss ignores a pending skip, e.g. "The <boss name> will
+         not be avoided." so the player understands why their skip
+         didn't fire.
+      2. Update the choice text at events.js:127 to match the new rule,
+         e.g. 'Sit and breathe: Recover 3 HP, skip the next fight
+         (bosses will not be avoided)'.
+      3. Update/replace the now-stale comment block at game.js:234-239
+         (the "skipping the boss wins the floor" rationale no longer
+         applies; the advanceFloor()-on-skipped-boss branch should be
+         unreachable for bosses after this change -- remove that branch
+         rather than leaving dead code).
+      4. Elite nodes: unchanged by this ticket -- they remain skippable
+         exactly as today. Do not expand scope.
+      VERIFICATION: npm test with new assertions: (a) pending skip +
+      regular combat node -> combat skipped, flag cleared, no loot;
+      (b) pending skip + boss node -> combat STARTS against the boss,
+      flag still true after entry, and beating that boss still advances
+      floor / final boss still triggers VICTORY; (c) flag survives the
+      boss fight and skips the next regular combat on the following
+      floor; (d) event choice text contains the new wording. npm run
+      test:qa stays 26/26. Version bump per house convention.
+
 - [ ] FUN OVERHAUL 8/8 -- celebration juice for the new systems (do LAST,
       after 1/8-7/8). Small, scoped, no new mechanics: combo chip pops on
       each stack (scale transform, ~150ms); damage >= 25 in one word ->

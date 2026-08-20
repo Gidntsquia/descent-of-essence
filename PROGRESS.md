@@ -8980,3 +8980,14 @@ words, item-proc chip flashes; all must respect prefers-reduced-motion).
 That's the LAST overhaul item and the queue's final unchecked task -- after
 it, per GOALS.md's own rules, pull from ROADMAP.md's known-gaps section.
 Working tree clean, everything committed and pushed.
+
+## 2026-08-20T15:20Z -- Orchestrator: Jaxon ruled on the boss-skip question
+
+Jaxon (awake, direct instruction): "You should not be able to skip the final
+boss fight for the win." Ticketed at the top of the queue as a DESIGN FIX:
+bosses (all floors, not just floor 3) no longer honor
+pendingEventSkipNextCombat -- the flag stays pending through the boss fight
+and applies to the next regular combat instead, event copy updated, stale
+design-note comment at game.js:234-239 removed. Elites deliberately out of
+scope. This overrules the earlier run's "skipping the floor-3 boss wins the
+game" design note. Full spec + verification criteria in the ticket.
