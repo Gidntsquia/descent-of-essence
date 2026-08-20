@@ -6,6 +6,7 @@
     "test": "node test/dom-check.js",
     "test:mobile": "node test/verify-mobile-layout.js",
     "test:qa": "node test/orchestrator-qa-boss-reward.js",
+    "test:drag-interrupt": "node test/verify-drag-interrupt.js",
     "build:itch": "node tools/build-itch.js",
     "test:itch-build": "node test/verify-itch-build.js",
     "record:gameplay": "node tools/record-gameplay.js"

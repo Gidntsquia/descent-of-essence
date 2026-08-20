@@ -3232,7 +3232,7 @@ Rules for the routine:
      drag-to-rack feature (same pointer-gesture code area -- ideally the same
      or adjacent run), then the damage preview, then the wordlist gap. -->
 
-- [ ] BUG, high priority (Jaxon, real iPhone/Safari playtest of v0.28,
+- [x] BUG, high priority (Jaxon, real iPhone/Safari playtest of v0.28,
       2026-08-20): tiles sometimes get STUCK mid-drag. His screenshot shows the
       staging area with a dragged tile (O1) frozen overlapping another staged
       tile (N1) -- the drag never resolved, the tile just stayed wedged there,
@@ -3274,6 +3274,43 @@ Rules for the routine:
       and assert no tile is left transformed/overlapping. Say plainly in
       PROGRESS.md that real-glass confirmation is Jaxon's -- but the
       touchcancel repro is the strong proxy.
+      FIXED 2026-08-20T19:29Z (v0.28 -> v0.29). Root cause was (a) as the
+      ticket suspected: NO gesture-terminating event except pointerup/touchend
+      was handled, and the staged-tile drag's move/end/cancel listeners were
+      bound PER-TILE, so a gesture iOS steals (fires pointercancel/touchcancel)
+      or a finger lifted off the tile left the drag state machine live and the
+      ghost's inline transform frozen -- exactly the wedged O1-over-N1 tile.
+      FIX (js/wordbound/game.js): (1) one shared teardown -- abortStagingDrag()
+      + clearStagingDragStyling() -- run by pointercancel, touchcancel, window
+      blur, AND a new drag starting while one is somehow still live; strips the
+      ghost/out classes + inline transforms off the dragged tile and its
+      siblings and clears the container's grabbing class. (2) move/up/cancel for
+      the staged-tile drag now bound ONCE at the DOCUMENT level (not per-tile),
+      so a pointer released anywhere -- off the tile, outside the viewport, or
+      over an element a mid-drag render replaced -- still ends the drag.
+      (3) render() now runs sweepStagingDragArtifacts(): a render fired mid-drag
+      (e.g. the killing-blow death beat) destroys the dragged element, orphaning
+      the drag with no node any pointerup can reach -- the sweep drops the
+      orphaned state and wipes any stray transform, so a stuck tile can never
+      survive a re-render. (4) BOTH drag paths (staged-tile pointer drag AND the
+      rack's touch reorder) now track the identifier of the finger that started
+      them, so a second simultaneous touch can't hijack or prematurely end the
+      drag (ticket path d); rack touchmove made a non-passive listener and the
+      rack now handles touchcancel too. VERIFICATION: `npm test` 359/359 (+19
+      new jsdom assertions covering touchcancel, second-finger, off-element
+      pointerup, window blur, mid-drag re-render orphan sweep, multi-touch
+      identity, and the rack machine's reset -- all interruption paths reset the
+      state machine AND leave zero DOM artifacts). New `npm run test:drag-
+      interrupt` (real Chromium, hasTouch) drives a genuine pointer drag on a
+      staged tile until the ghost lifts with a live inline transform, then fires
+      touchcancel / window blur mid-drag and asserts zero ghost/out/transform
+      artifacts survive and no tiles are lost, plus a clean-drop happy-path
+      guard -- 12/12 OK. `npm run test:qa` 26/26, `npm run test:mobile` clean.
+      NOT verified (honest caveat): true real-glass confirmation on Jaxon's
+      physical iPhone that the wedge is gone -- jsdom + Playwright synthesize
+      the interruption events but can't reproduce the exact WebKit gesture-theft
+      timing/hit-testing of real hardware. The touchcancel + blur repros are the
+      strong proxy the ticket names; Jaxon's eyes on glass are the last word.
 
 - [ ] FEATURE (Jaxon, same real-device playtest): drag staged tiles BACK TO
       THE RACK to unstage them, in addition to the existing tap-to-unstage.

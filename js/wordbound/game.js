@@ -108,6 +108,7 @@
     touchCurrentIndex: null, // track position during touch drag
     touchStartX: null, // track initial touch X position for drag threshold detection
     touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
+    touchIdentifier: null, // identifier of the finger that owns the active rack drag, so a second touch can't hijack or end it (stuck-drag fix)
     stagingDrag: null, // MOBILE INPUT 2/3 Phase 2: active pointer drag of a STAGED tile (reorder-in-play-area / drag-out-to-remove). { tileId, el, startX, startY, crossed, outside, rects, tileW, insertIndex }. null when no drag in progress
     suppressNextStagingClick: false, // MOBILE INPUT 2/3 Phase 2: set true after a real staging drag so the synthesized post-pointerup click doesn't immediately unstage the just-reordered tile; reset on the next pointerdown
     settleTileIds: [], // MOBILE INPUT 3/3: tile ids to give a one-shot land-settle animation on the NEXT render only (a tile just staged into the play area or unstaged back to the rack); consumed + cleared during renderStagingArea
@@ -1674,12 +1675,38 @@
     return null;
   }
 
-  function startTouchReorder(tileId, index, touchX) {
+  function startTouchReorder(tileId, index, touchX, touchId) {
     state.draggedTileId = tileId;
     state.touchStartIndex = index;
     state.touchCurrentIndex = index;
     state.touchStartX = touchX;
     state.touchDragThresholdCrossed = false;
+    state.touchIdentifier = touchId === undefined ? null : touchId;
+  }
+
+  // Shared reset for the rack's touch reorder -- run by touchend AND by every
+  // interruption path (touchcancel, window blur). The rack drag is state-only
+  // (no inline transforms), so there is nothing visual to strip, but a state
+  // machine left live would make the NEXT tap resolve as a phantom reorder.
+  function cancelTouchReorder() {
+    state.draggedTileId = null;
+    state.touchStartIndex = null;
+    state.touchCurrentIndex = null;
+    state.touchStartX = null;
+    state.touchDragThresholdCrossed = false;
+    state.touchIdentifier = null;
+  }
+
+  // The touch that owns the active rack drag, or null if this event is a
+  // different finger's. A touch list with no identifiers (synthetic events)
+  // falls back to the first touch, so tests still drive the normal path.
+  function ownTouch(list) {
+    if (!list || !list.length) return null;
+    if (state.touchIdentifier === null || state.touchIdentifier === undefined) return list[0];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].identifier === state.touchIdentifier) return list[i];
+    }
+    return null;
   }
 
   function updateTouchReorder(touchX) {
@@ -1703,9 +1730,11 @@
 
   function endTouchReorder(tappedTile, e) {
     if (state.draggedTileId === null) {
-      state.touchStartX = null;
+      cancelTouchReorder();
       return;
     }
+    // A different finger lifting must not resolve (or cancel) this drag.
+    if (e && e.changedTouches && !ownTouch(e.changedTouches)) return;
 
     // If drag threshold was crossed, do the reorder
     if (state.touchDragThresholdCrossed &&
@@ -1720,11 +1749,7 @@
       selectTileForWord(tappedTile);
     }
 
-    state.draggedTileId = null;
-    state.touchStartIndex = null;
-    state.touchCurrentIndex = null;
-    state.touchStartX = null;
-    state.touchDragThresholdCrossed = false;
+    cancelTouchReorder();
   }
 
   // ---- staged-tile dragging (MOBILE INPUT 2/3 Phase 2) -----------------------
@@ -1824,7 +1849,95 @@
     }
   }
 
+  // ---- gesture teardown (stuck-drag bug, Jaxon's iPhone playtest of v0.28) ---
+  // A drag can be terminated by far more than a clean pointerup: iOS Safari
+  // steals gestures (page scroll, notification banner, edge swipe, app switch)
+  // and fires pointercancel/touchcancel instead; the finger can lift outside the
+  // viewport; a second finger can land mid-drag; the dragged element can be
+  // destroyed by a render fired from a timer. Every one of those paths must run
+  // the SAME cleanup, or the ghost's inline transform survives and the tile sits
+  // frozen on top of its neighbor (exactly what Jaxon screenshotted).
+
+  function releaseStagingCapture(d, pointerId) {
+    if (!d || !d.el || !d.el.releasePointerCapture) return;
+    var id = pointerId !== undefined ? pointerId : d.pointerId;
+    if (id === undefined || id === null) return;
+    try { d.el.releasePointerCapture(id); } catch (err) {}
+  }
+
+  // Strip every visual artifact a live drag can leave behind: the ghost/out
+  // classes and inline transform on the dragged tile (which may already be
+  // detached from the DOM), the gap transforms on its siblings, and the
+  // grabbing-cursor class on the container.
+  function clearStagingDragStyling(d) {
+    var els = [];
+    if (d && d.el) els.push(d.el);
+    if (d && d.rects) {
+      for (var i = 0; i < d.rects.length; i++) if (d.rects[i].el) els.push(d.rects[i].el);
+    }
+    var area = $('staging-area');
+    var live = area && area.querySelectorAll ? area.querySelectorAll('.staged-tile') : [];
+    for (var j = 0; j < live.length; j++) els.push(live[j]);
+    for (var k = 0; k < els.length; k++) {
+      var el = els[k];
+      if (el.classList) {
+        el.classList.remove('staging-drag-ghost');
+        el.classList.remove('staging-drag-out');
+      }
+      if (el.style) { el.style.transform = ''; el.style.transition = ''; }
+    }
+    if (area && area.classList) area.classList.remove('staging-dragging');
+  }
+
+  // The one shared teardown. Ends the drag WITHOUT applying a drop -- used by
+  // every interruption path (pointercancel, touchcancel, window blur, a new
+  // gesture starting while this one is somehow still live).
+  function abortStagingDrag() {
+    var d = state.stagingDrag;
+    state.stagingDrag = null;
+    if (!d) return;
+    releaseStagingCapture(d);
+    clearStagingDragStyling(d);
+    // A drag that never crossed the threshold left no artifacts and no state to
+    // undo, so it needs no re-render (and re-rendering there would destroy the
+    // element a plain tap's click handler is about to fire on).
+    if (d.crossed) render();
+  }
+
+  // Defensive sweep, run on every render of the play area: a stuck tile must
+  // never survive a re-render. renderStagingArea rebuilds its innerHTML, so the
+  // dragged element is destroyed by any render that happens mid-gesture -- when
+  // that happens the drag is orphaned (no pointerup will ever reach a detached
+  // node) and has to be dropped, or the next pointermove would keep transforming
+  // a ghost nobody can see.
+  function sweepStagingDragArtifacts() {
+    var area = $('staging-area');
+    var d = state.stagingDrag;
+    if (d && d.el && area && area.contains && !area.contains(d.el)) {
+      releaseStagingCapture(d);
+      clearStagingDragStyling(d);
+      state.stagingDrag = null;
+      d = null;
+    }
+    if (d) return; // a live drag owns its own ghost/gap transforms -- leave them alone
+    if (area && area.classList) area.classList.remove('staging-dragging');
+    var tiles = area && area.querySelectorAll ? area.querySelectorAll('.staged-tile') : [];
+    for (var i = 0; i < tiles.length; i++) {
+      var el = tiles[i];
+      if (el.classList) {
+        el.classList.remove('staging-drag-ghost');
+        el.classList.remove('staging-drag-out');
+      }
+      if (el.style && el.style.transform) { el.style.transform = ''; el.style.transition = ''; }
+    }
+  }
+
   function startStagingDrag(tileId, el, e) {
+    // Belt-and-braces: a drag still live at the start of a NEW gesture means a
+    // previous one was never terminated (a stolen gesture, a second finger).
+    // Tear it down and swallow this press rather than stacking a second drag on
+    // top of it -- the next press starts clean.
+    if (state.stagingDrag) { abortStagingDrag(); return; }
     // Fresh gesture -- a lingering suppress flag from a prior drag must never eat
     // a genuine tap, so clear it here at the start of every new pointerdown.
     state.suppressNextStagingClick = false;
@@ -1832,18 +1945,27 @@
     // the killing-blow death beat -- gestures in that window must not act).
     if (state.selectedTileIds.indexOf(tileId) === -1) return;
     state.stagingDrag = {
-      tileId: tileId, el: el,
-      startX: e.clientX || 0, startY: e.clientY || 0,
+      tileId: tileId, el: el, pointerId: e ? e.pointerId : undefined,
+      startX: (e && e.clientX) || 0, startY: (e && e.clientY) || 0,
       crossed: false, outside: false, rects: null, tileW: 0, insertIndex: null
     };
-    if (el && el.setPointerCapture && e.pointerId !== undefined) {
+    if (el && el.setPointerCapture && e && e.pointerId !== undefined) {
       try { el.setPointerCapture(e.pointerId); } catch (err) {}
     }
+  }
+
+  // True when this event belongs to a pointer OTHER than the one that started
+  // the drag (a second finger). Events with no pointerId at all (synthetic /
+  // jsdom) always match, so tests and non-pointer-event browsers still work.
+  function isForeignPointer(d, e) {
+    return !!(d && e && e.pointerId !== undefined && d.pointerId !== undefined &&
+      e.pointerId !== d.pointerId);
   }
 
   function moveStagingDrag(e) {
     var d = state.stagingDrag;
     if (!d) return;
+    if (isForeignPointer(d, e)) return;
     var px = e.clientX || 0, py = e.clientY || 0;
     var dx = px - d.startX, dy = py - d.startY;
     if (!d.crossed) {
@@ -1870,11 +1992,14 @@
   function endStagingDrag(e) {
     var d = state.stagingDrag;
     if (!d) return;
-    if (d.el && d.el.releasePointerCapture && e && e.pointerId !== undefined) {
-      try { d.el.releasePointerCapture(e.pointerId); } catch (err) {}
-    }
+    if (isForeignPointer(d, e)) return; // a second finger lifting must not end this drag
+    releaseStagingCapture(d, e ? e.pointerId : undefined);
     state.stagingDrag = null;
     if (!d.crossed) return; // never moved -> a tap; let the click handler unstage
+    // Wipe the ghost/gap styling up front, so every branch below (including the
+    // early return when the tile is gone) leaves a clean DOM even if its own
+    // render is a no-op.
+    clearStagingDragStyling(d);
     // A real drag happened. Suppress the synthesized click that pointerup emits so
     // it doesn't unstage the tile we just reordered.
     state.suppressNextStagingClick = true;
@@ -1891,10 +2016,11 @@
     }
   }
 
-  function cancelStagingDrag() {
+  function cancelStagingDrag(e) {
     var d = state.stagingDrag;
-    state.stagingDrag = null;
-    if (d && d.crossed) render(); // rebuild clean DOM if a ghost was live
+    if (!d) return;
+    if (isForeignPointer(d, e)) return;
+    abortStagingDrag();
   }
 
   // ---- rendering ---------------------------------------------------------
@@ -2452,23 +2578,29 @@
       });
       btn.addEventListener('dragend', endTileDrag);
 
-      // Touch reordering for mobile/tablet devices
+      // Touch reordering for mobile/tablet devices. Every terminating event is
+      // handled (touchend AND touchcancel -- iOS fires the latter whenever it
+      // steals the gesture), and the drag tracks the identifier of the finger
+      // that started it so a second touch can't hijack or end it.
       btn.addEventListener('touchstart', function (e) {
+        if (state.draggedTileId !== null) return; // a drag is already live -- ignore extra fingers
         if (e.touches.length > 0) {
-          startTouchReorder(tile.id, index, e.touches[0].clientX);
+          startTouchReorder(tile.id, index, e.touches[0].clientX, e.touches[0].identifier);
         }
       });
       btn.addEventListener('touchmove', function (e) {
-        if (state.draggedTileId !== null && e.touches.length > 0) {
-          updateTouchReorder(e.touches[0].clientX);
-          if (state.touchDragThresholdCrossed) {
-            e.preventDefault(); // prevent scrolling while dragging
-          }
+        if (state.draggedTileId === null) return;
+        var t = ownTouch(e.touches);
+        if (!t) return;
+        updateTouchReorder(t.clientX);
+        if (state.touchDragThresholdCrossed && e.cancelable) {
+          e.preventDefault(); // prevent scrolling while dragging
         }
-      });
+      }, { passive: false });
       btn.addEventListener('touchend', function (e) {
         endTouchReorder(tile, e);
       });
+      btn.addEventListener('touchcancel', function () { cancelTouchReorder(); });
 
       rack.appendChild(btn);
       currentRackIds.push(tile.id);
@@ -2477,6 +2609,7 @@
     state.rackJustRefilled = false;
 
     renderStagingArea();
+    sweepStagingDragArtifacts(); // a stuck drag ghost must never survive a re-render
     // MOBILE INPUT 3/3: the land-settle is one-shot -- both the rack loop above
     // and renderStagingArea have now consumed this render's settle ids, so clear
     // them (here, not inside renderStagingArea, which early-returns when the play
@@ -2550,10 +2683,11 @@
       // MOBILE INPUT 2/3 Phase 2: pointer drag (touch + mouse, unified) to
       // reorder within the play area or drag out of it to remove. A plain
       // press-release with no movement falls through to the click handler above.
+      // Only the START of the gesture is bound to the tile. Move/end/cancel live
+      // at the document level (wired once in Game.init) so a finger lifted
+      // outside the tile -- or outside the viewport, or over a tile this element
+      // no longer is because a render replaced it -- still ends the drag.
       stageTile.addEventListener('pointerdown', function (e) { startStagingDrag(tile.id, stageTile, e); });
-      stageTile.addEventListener('pointermove', moveStagingDrag);
-      stageTile.addEventListener('pointerup', endStagingDrag);
-      stageTile.addEventListener('pointercancel', cancelStagingDrag);
       stagingArea.appendChild(stageTile);
     });
   }
@@ -2645,6 +2779,25 @@
     if (loadingIndicator) {
       loadingIndicator.classList.add('hidden');
     }
+
+    // Staged-tile drag: move/end/cancel are bound ONCE here, at the document
+    // level, not per-tile. Per-tile end handlers die with the element (every
+    // render rebuilds #staging-area), and a gesture the browser steals or a
+    // finger lifted off the tile never reaches them -- which is how a dragged
+    // tile ended up frozen mid-drag on Jaxon's iPhone. Document handlers cover
+    // the pointer released anywhere, and touchcancel/blur cover iOS taking the
+    // gesture away entirely. All of them are no-ops when no drag is live.
+    document.addEventListener('pointermove', moveStagingDrag, { passive: false });
+    document.addEventListener('pointerup', endStagingDrag);
+    document.addEventListener('pointercancel', cancelStagingDrag);
+    document.addEventListener('touchcancel', function () {
+      abortStagingDrag();
+      cancelTouchReorder();
+    });
+    window.addEventListener('blur', function () {
+      abortStagingDrag();
+      cancelTouchReorder();
+    });
 
     // MOBILE INPUT 1/3: cancel button for the touch-mode blank-letter picker
     // (its A-Z grid buttons are wired per-render in renderBlankPicker).

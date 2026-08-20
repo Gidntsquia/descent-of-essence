@@ -893,6 +893,158 @@ async function main() {
         stagedTileEl(id0).dispatchEvent(new window.Event('click', { bubbles: true }));
         check('mobile 2/3 phase2: the next click unstages normally (guard cleared)',
           state.selectedTileIds.indexOf(id0) === -1);
+
+        // ---- STUCK-DRAG interruption checks (Jaxon's real-iPhone playtest of
+        // v0.28: a staged tile froze mid-drag, overlapping its neighbor).
+        // jsdom has no real pointer/touch input and getBoundingClientRect is all
+        // zeros, so these can't test the FEEL of a drag -- what they DO test is
+        // the state machine and the DOM it leaves behind when a gesture is
+        // terminated by something other than a clean pointerup, which is exactly
+        // the class of bug that shipped. A pointer event is faked with MouseEvent
+        // (jsdom supports clientX/clientY on it); pointerId is defined only where
+        // a check needs two distinct pointers.
+        const pev = (type, opts) => {
+          const o = opts || {};
+          const e = new window.MouseEvent(type, {
+            bubbles: true, cancelable: true, clientX: o.clientX || 0, clientY: o.clientY || 0,
+          });
+          if (o.pointerId !== undefined) Object.defineProperty(e, 'pointerId', { value: o.pointerId });
+          return e;
+        };
+        const bareEvent = (type) => new window.Event(type, { bubbles: true, cancelable: true });
+        const restage = (ids) => {
+          state.selectedTileIds = [];
+          state.blankAssignments = {};
+          document.getElementById('word-input').value = '';
+          Game.openDeckViewer(); Game.closeDeckViewer(); // force a clean render
+          ids.forEach((id) => {
+            const b = document.querySelector('#rack-display .letter-tile[data-tile-id="' + id + '"]');
+            if (b) b.dispatchEvent(new window.Event('click', { bubbles: true }));
+          });
+        };
+        // No staged tile anywhere may be left lifted, shifted or ghosted, and the
+        // container must not keep its grabbing-cursor class.
+        const noDragArtifacts = () => {
+          const tiles = Array.from(document.querySelectorAll('#staging-area .staged-tile'));
+          const area = document.getElementById('staging-area');
+          return !area.classList.contains('staging-dragging') && tiles.every((t) =>
+            !t.classList.contains('staging-drag-ghost') &&
+            !t.classList.contains('staging-drag-out') &&
+            !t.style.transform);
+        };
+        const dragTo = (el, x, y) => {
+          el.dispatchEvent(pev('pointerdown', { clientX: 0, clientY: 0 }));
+          document.dispatchEvent(pev('pointermove', { clientX: x, clientY: y }));
+        };
+
+        // (a) touchcancel -- iOS Safari's "the browser took your gesture" event.
+        restage([id0, id1, id2]);
+        let dragEl = stagedTileEl(id0);
+        dragTo(dragEl, 20, 0);
+        check('stuck-drag: a pointerdown + past-threshold move starts a live drag with a lifted ghost',
+          !!state.stagingDrag && dragEl.classList.contains('staging-drag-ghost') &&
+          !!dragEl.style.transform);
+        document.dispatchEvent(bareEvent('touchcancel'));
+        check('stuck-drag: touchcancel mid-drag clears the drag state machine',
+          !state.stagingDrag);
+        check('stuck-drag: touchcancel mid-drag strips the ghost styling off the dragged element',
+          !dragEl.style.transform && !dragEl.classList.contains('staging-drag-ghost'));
+        check('stuck-drag: touchcancel mid-drag leaves NO drag artifacts in the play area',
+          noDragArtifacts());
+        check('stuck-drag: touchcancel loses no tiles (all three still staged)',
+          state.selectedTileIds.length === 3);
+
+        // (d) a second touch landing mid-drag -- the exact shape of Jaxon's
+        // screenshot (one tile frozen on top of another). The stale drag is torn
+        // down instead of being silently replaced by the new one.
+        restage([id0, id1, id2]);
+        dragEl = stagedTileEl(id0);
+        dragTo(dragEl, 20, 0);
+        const secondEl = stagedTileEl(id1);
+        secondEl.dispatchEvent(pev('pointerdown', { clientX: 0, clientY: 0 }));
+        check('stuck-drag: a second pointerdown mid-drag tears the stale drag down',
+          !state.stagingDrag);
+        check('stuck-drag: the interrupted tile is not left frozen over its neighbor',
+          !dragEl.style.transform && !dragEl.classList.contains('staging-drag-ghost') &&
+          noDragArtifacts());
+
+        // (c) the pointer released away from the tile still ends the drag --
+        // move/up are bound at the document level, so this works even though the
+        // element that started the gesture never sees the release.
+        restage([id0, id1, id2]);
+        dragEl = stagedTileEl(id0);
+        dragTo(dragEl, 20, 0);
+        document.dispatchEvent(pev('pointerup', { clientX: 20, clientY: 0 }));
+        check('stuck-drag: a pointerup dispatched away from the tile still ends the drag',
+          !state.stagingDrag && noDragArtifacts());
+        check('stuck-drag: ending a drag off-element keeps all three tiles staged',
+          state.selectedTileIds.length === 3);
+
+        // window blur -- app switch / incoming call, where iOS may fire nothing else.
+        restage([id0, id1, id2]);
+        dragEl = stagedTileEl(id0);
+        dragTo(dragEl, 20, 0);
+        window.dispatchEvent(new window.Event('blur'));
+        check('stuck-drag: losing window focus mid-drag ends the drag cleanly',
+          !state.stagingDrag && !dragEl.style.transform && noDragArtifacts());
+
+        // A render fired mid-gesture (e.g. the killing-blow death beat) destroys
+        // the element being dragged -- no pointerup can ever reach a detached
+        // node, so render() itself has to drop the orphaned drag.
+        restage([id0, id1, id2]);
+        dragEl = stagedTileEl(id0);
+        dragTo(dragEl, 20, 0);
+        Game.openDeckViewer(); Game.closeDeckViewer(); // forces a full re-render
+        check('stuck-drag: a re-render mid-drag drops the now-orphaned drag state',
+          !state.stagingDrag);
+        check('stuck-drag: no drag artifact survives that re-render', noDragArtifacts());
+        document.dispatchEvent(pev('pointermove', { clientX: 60, clientY: 0 }));
+        check('stuck-drag: a stray move after the orphan sweep transforms nothing',
+          noDragArtifacts());
+
+        // Multi-touch identity: a foreign pointer's release must not end (or
+        // corrupt) the drag the first pointer owns.
+        restage([id0, id1, id2]);
+        dragEl = stagedTileEl(id0);
+        dragEl.dispatchEvent(pev('pointerdown', { clientX: 0, clientY: 0, pointerId: 1 }));
+        document.dispatchEvent(pev('pointermove', { clientX: 20, clientY: 0, pointerId: 1 }));
+        document.dispatchEvent(pev('pointerup', { clientX: 90, clientY: 90, pointerId: 2 }));
+        check('stuck-drag: another finger lifting does not end this pointer\'s drag',
+          !!state.stagingDrag);
+        document.dispatchEvent(pev('pointerup', { clientX: 20, clientY: 0, pointerId: 1 }));
+        check('stuck-drag: the owning pointer\'s release does end it, cleanly',
+          !state.stagingDrag && noDragArtifacts());
+
+        // The rack's own touch-reorder state machine has the same failure mode
+        // (state-only -- no transforms -- but a live machine makes the NEXT tap
+        // resolve as a phantom reorder).
+        restage([]);
+        const rackBtn = () => document.querySelector('#rack-display .letter-tile');
+        const tev = (type, touches) => {
+          const e = new window.Event(type, { bubbles: true, cancelable: true });
+          Object.defineProperty(e, 'touches', { value: touches });
+          Object.defineProperty(e, 'changedTouches', { value: touches });
+          return e;
+        };
+        const rb = rackBtn();
+        rb.dispatchEvent(tev('touchstart', [{ clientX: 5, identifier: 1 }]));
+        check('stuck-drag/rack: touchstart begins a rack drag', state.draggedTileId !== null);
+        rb.dispatchEvent(tev('touchmove', [{ clientX: 60, identifier: 1 }]));
+        check('stuck-drag/rack: a past-threshold touchmove crosses the drag threshold',
+          state.touchDragThresholdCrossed === true);
+        const ownerTile = state.draggedTileId;
+        rb.dispatchEvent(tev('touchstart', [{ clientX: 5, identifier: 2 }]));
+        check('stuck-drag/rack: a second finger does not hijack the live drag',
+          state.draggedTileId === ownerTile);
+        rb.dispatchEvent(tev('touchcancel', []));
+        check('stuck-drag/rack: touchcancel fully resets the rack drag state machine',
+          state.draggedTileId === null && state.touchStartIndex === null &&
+          state.touchCurrentIndex === null && state.touchStartX === null &&
+          state.touchDragThresholdCrossed === false && state.touchIdentifier === null);
+
+        // A real staging drag above set suppressNextStagingClick; clear it so a
+        // later block's genuine unstage-by-tap isn't silently eaten.
+        state.suppressNextStagingClick = false;
       }
 
       state.selectedTileIds = [];
