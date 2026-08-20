@@ -325,6 +325,23 @@ h2 {
 .monster-hp-text { font-size: 0.85rem; color: #b8ac8a; margin-bottom: 8px; }
 .monster-weakness { font-size: 0.9rem; color: #9ab88a; font-style: italic; }
 
+/* Monster intent: telegraphed next action (GOALS.md "FUN OVERHAUL 2/8").
+   Plain Attack/Heavy Blow reads as a routine threat; a signature move
+   (Hex/Devour/Mend/Enrage) is called out in the same red family as the HP
+   flash so a "special" incoming registers at a glance. */
+.monster-intent { font-size: 0.85rem; color: #d8b088; font-weight: bold; margin-top: 6px; }
+.monster-intent.intent-signature { color: #e08a8a; }
+
+/* Hexed tile: locked for the player's current turn (Hex monster intent).
+   Same greyscale-lock language a disabled control uses elsewhere. */
+.letter-tile.tile-hexed {
+  opacity: 0.35;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  box-shadow: 0 0 0 2px #6a5a8a;
+}
+.letter-tile.tile-hexed:hover { background: #e8dfc8; }
+
 /* Combo chip: word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8").
    Appears once the player has strung together 1+ distinct words this fight,
    disappears the instant a repeated word resets the combo -- that pop-in/

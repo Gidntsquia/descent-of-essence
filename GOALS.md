@@ -227,7 +227,7 @@ Rules for the routine:
       new targeted combo assertions), `npm run test:qa` 24/24. Bumped
       v0.11 -> v0.12.
 
-- [ ] FUN OVERHAUL 2/8 -- monster intents (telegraphed next actions).
+- [x] FUN OVERHAUL 2/8 -- monster intents (telegraphed next actions).
       Fights are reactive damage races with no reads or answers; Slay the
       Spire's single most load-bearing mechanic is showing what the enemy
       does next. MECHANIC:
@@ -253,6 +253,18 @@ Rules for the routine:
       before the monster acts and matches what then happens; Hex actually
       prevents using the locked tile for one turn; Devour skips when the
       word dealt >= 12). `npm run test:qa` full pass. Version bump.
+      DONE 2026-08-20T09:04Z: see PROGRESS.md for the full implementation
+      (new js/wordbound/intents.js module, monster.isElite flag set from
+      node.type in startCombat, a Hex splice-guard in Game.submitWord that
+      locks a tile for both click/tap staging AND typed words), the
+      elite/boss signature assignments (a judgment call, noted in
+      PROGRESS.md), a real bug found and fixed in the process (Hex could
+      permanently freeze a fight if the chosen word needed the locked tile
+      -- fixed by clearing hexedTileId before cycling, not after), and a
+      `test:qa` word-finder update to route around a hexed tile. `npm test`
+      58/58, `npm run test:qa` 24/24, `npm run test:mobile` clean, plus
+      real-Chromium stress runs (15 boss fights + 10 elite fights across
+      all 6 defs, zero errors). Bumped v0.12 -> v0.13.
 
 - [ ] DESIGN/BALANCE (review N4), FUN OVERHAUL 3/8 -- do AFTER the balance
       ticket above lands: restore boss fight arcs via multi-phase traits.

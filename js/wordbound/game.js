@@ -14,7 +14,7 @@
   window.Wordbound = window.Wordbound || {};
   var Game = (window.Wordbound.Game = {});
 
-  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements;
+  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents;
 
   var audioContext = null;
   var musicOscillators = [];
@@ -105,7 +105,8 @@
     touchStartX: null, // track initial touch X position for drag threshold detection
     touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
     selectedTileIds: [], // tiles selected for staging (in click order)
-    comboState: { combo: 0, usedWords: new Set() } // word novelty + combo streaks, reset in startCombat
+    comboState: { combo: 0, usedWords: new Set() }, // word novelty + combo streaks, reset in startCombat
+    hexedTileId: null // set by a Hex monster intent, cleared when the rack that held it cycles away (see monster-intents ticket)
   };
   Game._state = state; // exposed for headless/browser test inspection only
 
@@ -361,9 +362,16 @@
 
   function startCombat(node) {
     state.monster = node.type === 'boss' ? Monsters.createBoss(node.defId) : Monsters.createMonster(node.defId);
+    // Elites reuse regular MONSTER_DEFS (floor.js pickEliteDefId pulls from
+    // the same 'strong'-tier pool a plain floor-3 fight can also draw), so
+    // "is this fight an elite" lives on the node, not the def -- tag the
+    // instance here so Intents.rollIntent knows whether the def's signature
+    // pool (hex/devour/mend/enrage) is actually live for this fight.
+    state.monster.isElite = node.type === 'elite';
     state.pile = { drawPile: Tiles.shuffleIntoDrawPile(state.deck, state.rng), discardPile: [] };
     state.player.rack = [];
     state.comboState = { combo: 0, usedWords: new Set() };
+    state.hexedTileId = null;
     Items.runHook('onRunStart', { player: state.player, pileState: state.pile }, state.player);
     refillRack();
     ensureRackIsPlayable();
@@ -371,6 +379,9 @@
     var isBoss = node.type === 'boss';
     startBackgroundMusic(isBoss);
     log('A ' + state.monster.name + ' appears!');
+    // Telegraphed monster actions (GOALS.md "FUN OVERHAUL 2/8"): pre-roll
+    // what the monster does on ITS first turn before the player acts.
+    state.monster.intent = Intents.rollIntent(state.monster, state.rng);
     render();
     if (!hasSeenHowToPlay()) {
       Game.openHowToPlay();
@@ -479,7 +490,24 @@
     if (!word) return;
 
     var monsterHpBefore = state.monster.hp;
+
+    // A Hex'd tile (monster intent, "FUN OVERHAUL 2/8") is locked for this
+    // turn -- pull it out of the rack before word-formation runs so neither
+    // a click-staged word (blocked separately in selectTileForWord) nor a
+    // typed one can use it, then put it straight back: it isn't consumed,
+    // just temporarily invisible to Combat.playWord's rack-matching.
+    var hexedTile = null, hexedTileIndex = -1;
+    if (state.hexedTileId) {
+      hexedTileIndex = state.player.rack.findIndex(function (t) { return t.id === state.hexedTileId; });
+      if (hexedTileIndex !== -1) hexedTile = state.player.rack.splice(hexedTileIndex, 1)[0];
+    }
+
     var result = Combat.playWord(state.player, state.monster, word, state.comboState);
+
+    if (hexedTile) {
+      state.player.rack.splice(Math.min(hexedTileIndex, state.player.rack.length), 0, hexedTile);
+    }
+
     if (!result) {
       log('"' + word + '" is not playable -- not a word you know, or you don\'t have those tiles.');
       render();
@@ -546,17 +574,39 @@
       }
 
       cycleRackAfterWord(result.tilesUsed);
+      // Any Hex from a PREVIOUS monster turn applied to the rack that just
+      // got discarded -- clear it before the monster's action below maybe
+      // sets a fresh one on the new rack.
+      state.hexedTileId = null;
 
-      var dmgCtx = { player: state.player, monster: state.monster, damage: state.monster.attack || 0 };
-      Items.runHook('onPlayerDamaged', dmgCtx, state.player);
-      state.player.hp = Math.max(0, state.player.hp - dmgCtx.damage);
-      log(state.monster.name + ' hits you for ' + dmgCtx.damage + '.');
+      // Execute the monster's pre-telegraphed intent (GOALS.md
+      // "FUN OVERHAUL 2/8") rather than a flat counterattack. Falls back to
+      // a plain attack if somehow nothing was rolled (shouldn't happen --
+      // startCombat/this same block always rolls the next one below --
+      // defensive only).
+      var intent = state.monster.intent || { type: 'attack', value: state.monster.attack || 0 };
+      var actionResult = Intents.executeIntent(intent, {
+        player: state.player, monster: state.monster, turnDamage: result.damage, rng: state.rng
+      });
+      if (actionResult.tileLockedId) state.hexedTileId = actionResult.tileLockedId;
+      if (actionResult.tileDevouredLetter) ensureRackIsPlayable(); // devour can empty an unlucky rack
+
+      var dmgCtx = { player: state.player, monster: state.monster, damage: actionResult.damage };
+      if (dmgCtx.damage > 0) {
+        Items.runHook('onPlayerDamaged', dmgCtx, state.player);
+        state.player.hp = Math.max(0, state.player.hp - dmgCtx.damage);
+      }
+      log(actionResult.message);
 
       if (state.player.hp <= 0) {
         state.combatActive = false;
         endRun(false);
         return;
       }
+
+      // Roll what the monster does NEXT, before rendering, so the intent
+      // line shown for the player's upcoming turn is already up to date.
+      state.monster.intent = Intents.rollIntent(state.monster, state.rng);
 
       render();
 
@@ -1044,6 +1094,10 @@
 
   // Touch reordering support for mobile/tablet
   function selectTileForWord(tile) {
+    // A Hex'd tile (monster intent, "FUN OVERHAUL 2/8") is locked for this
+    // turn -- greyed out in the rack (see renderCombat) and a no-op here so
+    // neither a click nor a touch tap can stage it.
+    if (tile.id === state.hexedTileId) return;
     state.selectedTileIds.push(tile.id);
     $('word-input').value += (tile.letter === '?' ? '' : tile.letter);
     $('word-input').focus();
@@ -1460,11 +1514,21 @@
     var comboChip = combo > 0
       ? '<div class="combo-chip">Combo x' + combo + ' &middot; +' + Math.min(combo, 5) * 12 + '%</div>'
       : '';
+    // Monster intent (GOALS.md "FUN OVERHAUL 2/8"): what the monster does on
+    // ITS next turn, telegraphed before the player picks a word so they can
+    // answer it. Signature moves (hex/devour/mend/enrage) get a distinct
+    // color so a "special" incoming reads at a glance vs. a plain hit.
+    var intentLine = '';
+    if (m.intent) {
+      var intentClass = Intents.isSignatureIntent(m.intent) ? ' intent-signature' : '';
+      intentLine = '<div id="monster-intent" class="monster-intent' + intentClass + '">' + escapeHtml(Intents.describeIntent(m.intent)) + '</div>';
+    }
     info.innerHTML =
       '<div class="monster-name ' + tierClass + '">' + tierGlyph + ' ' + escapeHtml(m.name) + '</div>' +
       '<div class="monster-hp-bar"><div id="monster-hp-fill" class="monster-hp-fill" style="width:' + Math.max(0, hpRatio * 100) + '%"></div></div>' +
       '<div class="monster-hp-text">' + m.hp + ' / ' + m.maxHp + ' HP</div>' +
       '<div class="monster-weakness">Weakness: ' + escapeHtml(trait.hint) + '</div>' +
+      intentLine +
       comboChip;
 
     var rack = $('rack-display');
@@ -1478,6 +1542,7 @@
       btn.setAttribute('data-tile-index', index);
       var isNewTile = state.rackJustRefilled || state.lastRackTileIds.indexOf(tile.id) === -1;
       var isSelected = state.selectedTileIds.indexOf(tile.id) !== -1;
+      var isHexed = tile.id === state.hexedTileId;
       var bonusClass = '';
       if (tile.bonus) {
         bonusClass = ' has-bonus';
@@ -1485,10 +1550,12 @@
         else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
         else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
       }
-      btn.className = 'letter-tile' + bonusClass + (isNewTile ? ' new-tile' : '') + (isSelected ? ' selected' : '');
+      btn.className = 'letter-tile' + bonusClass + (isNewTile ? ' new-tile' : '') + (isSelected ? ' selected' : '') + (isHexed ? ' tile-hexed' : '');
+      if (isHexed) btn.disabled = true;
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       btn.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
-      if (tile.bonus) btn.title = Tiles.describeBonus(tile.bonus);
+      if (isHexed) btn.title = 'Hexed -- locked for this turn';
+      else if (tile.bonus) btn.title = Tiles.describeBonus(tile.bonus);
       btn.addEventListener('click', function () {
         selectTileForWord(tile);
       });
@@ -1582,6 +1649,7 @@
     Lexicon = window.Wordbound.Lexicon;
     Traits = window.Wordbound.Traits;
     Monsters = window.Wordbound.Monsters;
+    Intents = window.Wordbound.Intents;
     Combat = window.Wordbound.Combat;
     Items = window.Wordbound.Items;
     Floor = window.Wordbound.Floor;

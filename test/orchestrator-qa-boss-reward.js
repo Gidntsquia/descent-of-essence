@@ -71,6 +71,19 @@ function check(label, cond) {
 // once the deck cycles back to a similar draw). Falls back to the best word
 // overall (a repeat) only when every playable word this rack can form has
 // already been used this fight -- better than NO_WORD_FOUND.
+//
+// Monster intents (GOALS.md "FUN OVERHAUL 2/8"): also excludes a Hex'd tile
+// (Game._state.hexedTileId) from the candidate letter pool, matching the
+// real UI constraint (a hexed tile is greyed out/unplayable for one turn --
+// see game.js's own splice-guard in Game.submitWord). Found live: without
+// this, a bot that picks the single "best" word for the rack's full letter
+// set can get stuck submitting the SAME word every turn if that word
+// happens to require the now-locked tile with no duplicate available --
+// Combat.playWord correctly rejects it every time, which (also correctly)
+// never cycles the rack, so the identical rejected word gets recomputed and
+// resubmitted forever. Not a real softlock for a human player (any OTHER
+// word from the same rack that avoids that one tile still works fine), but
+// it stalls this bot's single-best-word strategy, which has no fallback.
 const FIND_WORD_FN = `
 (function findPlayableWord() {
   var W = window.Wordbound;
@@ -86,10 +99,11 @@ const FIND_WORD_FN = `
     window.__anagramIndex = idx;
   }
   var rack = W.Game._state.player.rack;
+  var hexedTileId = W.Game._state.hexedTileId;
   var usedWords = (W.Game._state.comboState && W.Game._state.comboState.usedWords) || new Set();
   var letters = [];
   for (var r = 0; r < rack.length; r++) {
-    if (rack[r].letter !== '?') letters.push(rack[r].letter);
+    if (rack[r].letter !== '?' && rack[r].id !== hexedTileId) letters.push(rack[r].letter);
   }
   var n = letters.length;
   var bestUnused = null;

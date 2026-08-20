@@ -6265,3 +6265,195 @@ only, see above. `npm test`/`npm run test:qa` were not re-run against
 `85d3679` by this pass (that commit's own entry already reports 34/34 and
 24/24 respectively). Next unchecked GOALS.md item: FUN OVERHAUL 2/8 --
 monster intents.
+
+---
+
+## 2026-08-20T09:04Z -- FUN OVERHAUL 2/8: monster intents (telegraphed next
+actions), v0.12 -> v0.13
+
+**Ticket:** GOALS.md's first unchecked item -- monster fights pre-roll and
+display the monster's next action before the player picks a word, so a
+turn's word choice can answer a specific incoming threat instead of
+reacting blind after the fact.
+
+**New module, `js/wordbound/intents.js`** (loaded after monsters.js, before
+combat.js in wordbound.html): `rollIntent(monster, rng)`,
+`describeIntent(intent)`, `isSignatureIntent(intent)`,
+`executeIntent(intent, ctx)`. Exports its own constants
+(`HEAVY_MULTIPLIER`=1.6, `ENRAGE_ATTACK_BONUS`=2, `MEND_HEAL_RATIO`=0.15,
+`DEVOUR_DAMAGE_THRESHOLD`=12) so tests assert against the real numbers
+instead of duplicating them.
+- **Weighted pool:** WEAK-tier monsters always roll plain Attack (weight-1
+  pool of just that). Regular (normal/strong) monsters weight Attack:3 /
+  Heavy Blow (1.6x):1. Elite and boss instances additionally weight 1 each
+  toward every signature id in their def's own `intents` array -- Mend
+  drops out of the pool once `monster.mendUsed` is true so a spent
+  once-per-fight move never gets re-telegraphed. Uses `rng.weightedChoice`
+  (state.rng) throughout, never Math.random -- seeded-run determinism
+  confirmed still holds (`test/verify-seeded-runs.js` 15/15, unchanged).
+- **Signatures implemented (all four from the ticket):** Hex (locks a
+  random rack tile for the player's next turn), Devour (if the player's
+  word that turn dealt < 12 damage, permanently eats a random rack tile for
+  the rest of the fight; otherwise the lunge is thwarted -- "your strike
+  drove it back", 0 damage either way, this is a turn spent on something
+  other than a hit), Mend (heals 15% max HP, once per fight), Enrage (+2
+  attack permanently, stacks with no cap).
+
+**Elite gating (`js/wordbound/game.js` `startCombat`):** elites reuse
+regular `MONSTER_DEFS` (floor.js's `pickEliteDefId` pulls from the same
+'strong'-tier pool a plain floor-3 regular fight can also draw), so "is
+this fight an elite" lives on the NODE, not the def. `startCombat` now sets
+`state.monster.isElite = node.type === 'elite'` so `Intents.rollIntent`
+only unlocks a def's signature pool when the fight is actually an
+elite/boss encounter -- a regular fight against the same monster never
+sees them (verified: `test/dom-check.js`'s isolated "regular (non-elite)
+strong-tier fight never rolls a signature move" check, 40/40 attack/heavy
+only).
+
+**Signature assignments per def -- this run's own judgment call, since the
+ticket left flavor picks to the implementer:**
+- `sentinel` (Card Catalog, elite): Hex + Enrage
+- `warden` (Hoarder, elite): Devour + Mend
+- `spinesplinter` (elite): Hex + Devour
+- `boss_vowelmaw` (floor 1): Mend only -- kept to a single DEFENSIVE
+  signature since this file's own history already flags the floor-1 boss
+  as historically the hardest fight in the game pre-retune; stacking an
+  offensive signature on top felt like the wrong call without a fresh
+  balance pass to back it.
+- `boss_unabridged` (floor 2): Hex + Devour
+- `boss_sovereign` (floor 3, final boss): Enrage + Hex -- the only def with
+  Enrage, so a run that drags this fight out gets meaningfully harder over
+  time (escalating-stakes finale).
+`monsters.js`'s header comment was updated to document the new `intents`
+field's semantics (gated on isElite/isBoss) -- did NOT touch its separate,
+pre-existing "bosses have 2-3 phases" claim, which stays wrong until FUN
+OVERHAUL 3/8 (multi-phase bosses) actually ships; that's explicitly a
+different queued ticket per its own text.
+
+**Hex enforcement, `js/wordbound/game.js`:** locked at TWO layers so it's
+real for every input method, not just cosmetic:
+1. UI: the locked tile's rack button gets `.tile-hexed` (greyed,
+   `cursor: not-allowed`) and `disabled = true`; `selectTileForWord` also
+   early-returns on the hexed tile id as a second guard (covers the touch
+   tap path, which calls the same function).
+2. Typed words: `Game.submitWord` splices the hexed tile OUT of
+   `player.rack` before calling `Combat.playWord`, then splices it back in
+   at its original index afterward (it's never consumed, just temporarily
+   invisible to rack-matching) -- so a typed word needing that exact tile
+   with no duplicate available is correctly rejected as unplayable, the
+   same as if the player had tried to click it.
+`state.hexedTileId` clears at the top of the counterattack branch (right
+after `cycleRackAfterWord`, before that turn's own intent maybe sets a NEW
+one) -- tied to the rack cycle, not a separate timer, so it always covers
+exactly "the player's next turn" as specified.
+
+**REAL BUG found and fixed during verification (not shipped):** the first
+version cleared `hexedTileId` only on a SUCCESSFUL word play. A live
+Playwright repro (fighting the floor-2 boss with a naive "always play the
+single best word for this rack" bot, the same strategy `test:qa`'s word-
+finder uses) hit a case where the bot's chosen word required the exact
+tile Hex had just locked, with no duplicate letter available --
+`Combat.playWord` correctly rejected it as unplayable every time, but
+since a rejected word never reaches `cycleRackAfterWord`, the rack never
+redrew and the hex never cleared -- the bot recomputed and resubmitted the
+literal same doomed word 39 times in a row until the test's turn cap. Not
+a real softlock for a human (any OTHER word from the same rack that avoids
+that one tile still plays fine -- the greyed-out tile is a visible cue why
+that one word is stuck), but it's exactly the kind of thing this ticket's
+own "verify intent matches what then happens" line exists to catch, and it
+would have made `npm run test:qa` genuinely flaky. Root cause was never in
+the hex-clearing *logic* (which was already tied to the rack cycle, as
+above) -- it was that a rejected word skips the cycle entirely, so a stale
+lock from a PREVIOUS successful turn survives an arbitrarily long streak of
+rejected retries on the SAME rack. Fixed on the test-bot side, not the
+game side: updated `test/orchestrator-qa-boss-reward.js`'s `FIND_WORD_FN`
+to exclude the current `state.hexedTileId` tile from its candidate letter
+pool (mirroring the real UI constraint), matching how FUN OVERHAUL 1/8
+already taught the same bot to route around the repeat-word penalty. Chose
+the test-side fix over a game-side one because the game's own behavior here
+is correct (reject an unplayable word, don't silently reinterpret it) --
+the bot's strategy was the thing missing information a real player already
+has visually.
+
+**Verification:**
+- `npm test`: **58/58** (was 34 -- added 24 new checks). Isolated,
+  deterministic unit-style checks for the Intents module (same synthetic-
+  setup style as the existing Foreword/combo blocks): weak-tier always-
+  Attack over 30 rolls, a signature-bearing def rolling clean over 40
+  tries when NOT elite/boss, the same def actually rolling its signatures
+  when flagged elite (60 rolls), Heavy Blow's damage formula, Hex leaving
+  the rack untouched while returning a valid locked tile id, Devour's
+  exact <12/>=12 threshold behavior (eats vs. thwarted) with synthetic
+  turnDamage, Mend's heal math + once-per-fight exclusion from the pool
+  (60 more rolls), Enrage's stacking math. Plus one live-DOM integration
+  check inside the existing run flow: forces the in-progress fight's
+  monster into elite+Hex-only, confirms the "Next: Hex..." line is
+  telegraphed BEFORE the turn resolves, submits a real (predicted-
+  survivable) word, then confirms a tile actually got locked, is still
+  present in the rack (locked, not removed), its button is disabled with
+  the `tile-hexed` class in the real rendered DOM, and clicking it doesn't
+  stage it -- then resets state back to neutral so it doesn't affect the
+  existing checks that follow. Devour/Mend/Enrage were deliberately left to
+  the isolated unit tests rather than also forced through a live DOM turn,
+  since predicting a real word's exact damage precisely enough to force
+  those specific branches through actual play would be unreliably precise
+  (isolated `executeIntent` calls with synthetic `turnDamage` test the
+  exact same code path deterministically instead). Ran `npm test` 8x back
+  to back (each with a fresh random run seed) with zero flakes.
+- `npm run test:qa`: **24/24**, confirmed clean across 5 consecutive real-
+  Chromium runs after the word-finder fix above (was flaky/failing on the
+  second boss fight before that fix, see the bug writeup).
+- `npm run test:mobile`: clean at 375/414px, main menu + combat (the new
+  `#monster-intent` line adds panel height but didn't overflow at either
+  breakpoint).
+- `test/verify-seeded-runs.js`: 15/15, unchanged -- confirms the new
+  `rng.weightedChoice`/`rng.choice`/`rng.randInt` calls inside
+  Intents.rollIntent/executeIntent don't break seeded-run determinism
+  (same seed still produces identical outcomes; different seeds still
+  vary).
+- `test/verify-touch-tap-fix.js`: 8/8, unchanged -- confirms the
+  `selectTileForWord` hex guard didn't regress the existing touch-tap-
+  exactly-once behavior or drag-to-reorder.
+- **Extra real-Chromium stress testing beyond the ticket's own
+  VERIFICATION line** (scratch scripts, not committed -- this ticket's
+  new code paths, especially elite fights, aren't organically exercised
+  by any existing committed test): fought all 3 boss defs 5 rounds each
+  (15 total boss fights, every signature combination) and all 3
+  elite-eligible defs across 10 total elite fights (every one of the 3
+  elite signature pairings hit multiple times) via real Playwright +
+  Chromium, using the same fixed word-finder as `test:qa`. Zero
+  console/page errors, zero stalls, all resolved within a handful of
+  turns. This is the strongest evidence available that Hex/Devour/Mend/
+  Enrage all work correctly in real, continuous play, not just in
+  isolated unit tests -- but it's still a scripted bot, not a human, so
+  actual on-screen readability/feel of the intent line and the hex-grey
+  tile still wants a real playtest per the note below.
+
+**What's verified vs. not:** damage/heal/attack-stacking math, rack
+mutation (or lack thereof) for Hex/Devour, the once-per-fight Mend gate,
+the elite/boss-only gating of signatures, and the intent-matches-outcome
+contract for Hex were all verified directly against real code paths (jsdom
++ real Chromium). **NOT verified: visual/UX feel** -- whether the intent
+line and signature-color distinction actually read clearly at a glance in
+real play, whether the pacing of an elite/boss fight with signatures mixed
+in feels good (vs. just correct), is reasoning-through-the-numbers +
+automated-test-passing, not a human playtest. Also not verified: how Hex
+interacts with the Foreword item's "unused tile count" bonus (a locked
+tile is still counted as "in the rack," so Foreword's bonus is unaffected
+by design, but this wasn't explicitly tested together). No audio changes
+in this ticket, so nothing new to flag there.
+
+**Version:** bumped v0.12 -> v0.13 in `wordbound.html` (player-facing
+feature per GOALS.md's own convention).
+
+**Checked off in GOALS.md** (`- [x]`) with a `DONE 2026-08-20T09:04Z` note.
+
+**Current state:** v0.13, `npm test` 58/58, `npm run test:qa` 24/24,
+`npm run test:mobile` clean, seeded-run determinism and touch-tap
+regression tests both still green. Monster intents are live for every
+fight (weak/regular/elite/boss all show a "Next: ..." line; elites and
+bosses can roll their own signature moves). Next unchecked GOALS.md item:
+DESIGN/BALANCE (review N4), FUN OVERHAUL 3/8 -- multi-phase boss traits.
+Good pickup for the next run; it explicitly depends on the balance ticket
+(already done) and touches the same monsters.js header comment this run
+left alone.

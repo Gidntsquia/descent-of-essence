@@ -5,10 +5,16 @@
 // single phase; bosses have 2-3, so the puzzle changes as you wear them down.
 //
 // PUBLIC API (window.Wordbound.Monsters):
-//   MONSTER_DEFS[id] = { id, name, maxHp, attack, traitPhases, tier, goldDrop:[min,max] }
-//   BOSS_DEFS[id]     = { id, name, maxHp, attack, traitPhases, floor }
-//   createMonster(defId) -> fresh instance { defId, name, hp, maxHp, attack, traitPhases }
+//   MONSTER_DEFS[id] = { id, name, maxHp, attack, traitPhases, tier, goldDrop:[min,max], intents? }
+//   BOSS_DEFS[id]     = { id, name, maxHp, attack, traitPhases, floor, intents? }
+//   createMonster(defId) -> fresh instance { defId, name, hp, maxHp, attack, traitPhases, intents, mendUsed }
 //   createBoss(defId)    -> same shape, isBoss:true
+//   `intents` (GOALS.md "FUN OVERHAUL 2/8", js/wordbound/intents.js): a list
+//   of signature-move ids (from Intents' shared pool: hex/devour/mend/
+//   enrage) a def can roll ON TOP of Attack/Heavy Blow -- but only while the
+//   instance is fighting as an elite or boss (Intents.rollIntent gates on
+//   monster.isElite/isBoss, set by game.js's startCombat from the node
+//   type). Regular (non-elite) fights against the same def never see them.
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -43,12 +49,21 @@
   mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 56, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }] });
   mdef({ id: 'golempup', name: 'Echo Pup', maxHp: 58, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
   mdef({ id: 'raven', name: 'Quoth', maxHp: 52, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
-  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 88, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }] });
-  mdef({ id: 'warden', name: 'The Hoarder', maxHp: 82, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }] });
+  // `intents` (GOALS.md "FUN OVERHAUL 2/8"): signature moves this monster
+  // can roll on TOP of Attack/Heavy Blow, but ONLY when it's fighting as an
+  // elite (node.type === 'elite') -- these are the same defs the floor also
+  // uses for plain 'strong'-tier regular fights (floor.js pickCombatDefId),
+  // where the extra signature pool stays dormant (Intents.buildPool only
+  // consults `intents` when monster.isElite/isBoss). Flavor pairing is this
+  // ticket's own judgment call, noted in PROGRESS.md: sentinel (a collector)
+  // hoards a tile and gets tougher; warden (the Hoarder, thematically) eats
+  // tiles and heals; spinesplinter binds and devours.
+  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 88, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
+  mdef({ id: 'warden', name: 'The Hoarder', maxHp: 82, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
   mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
   mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
   mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
-  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 85, attack: 5, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
+  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 85, attack: 5, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], intents: ['hex', 'devour'] });
 
   // Boss attack values tuned down from their original 6/8/10 on 2026-08-19 after
   // playtesting showed the player's fixed 20 max HP only survives 3-4 hits, which
@@ -65,18 +80,29 @@
     // This widens that window without touching the trait; see PROGRESS.md --
     // the 0x-floor phase is the real cause and needs a design call, not a stat.
     id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 4, floor: 1, goldDrop: [15, 25],
+    // Floor-1 boss, kept to a single defensive signature (Mend) rather than
+    // an offensive one -- this ticket's own judgment call, per this file's
+    // history of the floor-1 boss already being the hardest fight in the
+    // game pre-retune (see the attack-tuning comment above); Hex/Devour/
+    // Enrage stack extra pressure on top of a fight that's already tight.
+    intents: ['mend'],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'vowelHungry' }
     ]
   });
   bdef({
     id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 80, attack: 6, floor: 2, goldDrop: [25, 40],
+    intents: ['hex', 'devour'],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'lengthy' }
     ]
   });
   bdef({
     id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 120, attack: 8, floor: 3, goldDrop: [40, 60],
+    // Final boss: the only def with Enrage, so a run that drags this fight
+    // out gets meaningfully harder over time -- the escalating-stakes finale
+    // this ticket's design note asks for.
+    intents: ['enrage', 'hex'],
     traitPhases: [
       { hpThreshold: 1.0, traitId: 'silentE' }
     ]
@@ -87,7 +113,8 @@
     if (!def) throw new Error('Monsters.createMonster: unknown defId "' + defId + '"');
     return {
       defId: defId, name: def.name, hp: def.maxHp, maxHp: def.maxHp,
-      attack: def.attack, traitPhases: def.traitPhases, isBoss: false, tier: def.tier
+      attack: def.attack, traitPhases: def.traitPhases, isBoss: false, tier: def.tier,
+      intents: def.intents || [], mendUsed: false
     };
   };
 
@@ -96,7 +123,8 @@
     if (!def) throw new Error('Monsters.createBoss: unknown defId "' + defId + '"');
     return {
       defId: defId, name: def.name, hp: def.maxHp, maxHp: def.maxHp,
-      attack: def.attack, traitPhases: def.traitPhases, isBoss: true
+      attack: def.attack, traitPhases: def.traitPhases, isBoss: true,
+      intents: def.intents || [], mendUsed: false
     };
   };
 })();

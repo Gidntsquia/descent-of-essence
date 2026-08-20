@@ -147,6 +147,121 @@ async function main() {
     }
   }
 
+  // Monster intents (GOALS.md "FUN OVERHAUL 2/8"): isolated, deterministic
+  // checks of the Intents module's own logic -- same synthetic-setup style
+  // as the Foreword/combo blocks above, independent of any run in progress.
+  {
+    const Intents = window.Wordbound.Intents;
+    const Monsters = window.Wordbound.Monsters;
+    const RNGModule = window.Game.RNG;
+    const rng = RNGModule.create('intents-test-seed');
+
+    // WEAK-tier monsters always roll plain Attack -- floor 1 stays welcoming,
+    // no telegraphed variety needed.
+    const weak = Monsters.createMonster('slime');
+    let weakOk = true;
+    for (let i = 0; i < 30; i++) {
+      const intent = Intents.rollIntent(weak, rng);
+      if (intent.type !== 'attack' || intent.value !== weak.attack) weakOk = false;
+    }
+    check('monster intents: WEAK-tier always rolls plain Attack (30/30)', weakOk);
+
+    // A def with a non-empty `intents` list (sentinel: hex/enrage) fighting
+    // as a REGULAR (non-elite, non-boss) monster must never roll a
+    // signature move -- only the elite/boss instance of the same fight
+    // should see them.
+    const regularSentinel = Monsters.createMonster('sentinel');
+    check('monster intents: regular-fight instance is not flagged elite/boss', !regularSentinel.isElite && !regularSentinel.isBoss);
+    let regularSawSignature = false;
+    for (let i = 0; i < 40; i++) {
+      const intent = Intents.rollIntent(regularSentinel, rng);
+      if (Intents.isSignatureIntent(intent)) regularSawSignature = true;
+    }
+    check('monster intents: regular (non-elite) strong-tier fight never rolls a signature move (40/40 attack/heavy only)', !regularSawSignature);
+
+    // The SAME def, now flagged as an elite fight, should see its signature
+    // pool (hex/enrage for sentinel) mixed in -- weight 1 each against
+    // attack:3/heavy:1, so over 60 rolls the odds of never seeing either are
+    // astronomically small; a real failure here means the elite gate broke.
+    const eliteSentinel = Monsters.createMonster('sentinel');
+    eliteSentinel.isElite = true;
+    const seenTypes = new Set();
+    for (let i = 0; i < 60; i++) {
+      seenTypes.add(Intents.rollIntent(eliteSentinel, rng).type);
+    }
+    check('monster intents: elite fight can roll its def\'s signature moves', seenTypes.has('hex') || seenTypes.has('enrage'));
+    check('monster intents: elite fight never rolls a signature NOT in its own def\'s list', !seenTypes.has('devour') && !seenTypes.has('mend'));
+
+    // Heavy Blow's damage value.
+    const serpent = Monsters.createMonster('serpent');
+    let heavyIntent = null;
+    for (let i = 0; i < 100 && !heavyIntent; i++) {
+      const intent = Intents.rollIntent(serpent, rng);
+      if (intent.type === 'heavy') heavyIntent = intent;
+    }
+    check('monster intents: Heavy Blow was rolled at least once in 100 tries', !!heavyIntent);
+    if (heavyIntent) check('monster intents: Heavy Blow value is round(attack * HEAVY_MULTIPLIER)', heavyIntent.value === Math.round(serpent.attack * Intents.HEAVY_MULTIPLIER));
+
+    // describeIntent / isSignatureIntent sanity.
+    check('monster intents: describeIntent formats Attack', Intents.describeIntent({ type: 'attack', value: 5 }) === 'Next: Attack 5');
+    check('monster intents: describeIntent formats Heavy Blow', Intents.describeIntent({ type: 'heavy', value: 8 }) === 'Next: Heavy Blow 8');
+    check('monster intents: isSignatureIntent is false for attack/heavy, true for hex/devour/mend/enrage',
+      !Intents.isSignatureIntent({ type: 'attack' }) && !Intents.isSignatureIntent({ type: 'heavy' }) &&
+      Intents.isSignatureIntent({ type: 'hex' }) && Intents.isSignatureIntent({ type: 'devour' }) &&
+      Intents.isSignatureIntent({ type: 'mend' }) && Intents.isSignatureIntent({ type: 'enrage' }));
+
+    // executeIntent: Hex locks a tile without removing it from the rack.
+    {
+      const Tiles = window.Wordbound.Tiles;
+      const player = { rack: ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null)) };
+      const monster = { name: 'Test Monster' };
+      const before = player.rack.map((t) => t.id);
+      const result = Intents.executeIntent({ type: 'hex' }, { player, monster, rng });
+      check('monster intents: Hex returns a locked tile id from the current rack', before.indexOf(result.tileLockedId) !== -1);
+      check('monster intents: Hex does not remove the locked tile from the rack', player.rack.length === 3 && JSON.stringify(player.rack.map((t) => t.id)) === JSON.stringify(before));
+      check('monster intents: Hex deals zero damage', result.damage === 0);
+    }
+
+    // executeIntent: Devour eats a tile only when the player's word dealt
+    // less than the threshold; at/above it, the lunge is thwarted and the
+    // rack is untouched.
+    {
+      const Tiles = window.Wordbound.Tiles;
+      const monster = { name: 'Test Monster' };
+      const weakHitPlayer = { rack: ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null)) };
+      const weakHitResult = Intents.executeIntent({ type: 'devour' }, { player: weakHitPlayer, monster, turnDamage: Intents.DEVOUR_DAMAGE_THRESHOLD - 1, rng });
+      check('monster intents: Devour eats a tile when turn damage is below the threshold', weakHitPlayer.rack.length === 2 && !!weakHitResult.tileDevouredLetter);
+
+      const strongHitPlayer = { rack: ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null)) };
+      const strongHitResult = Intents.executeIntent({ type: 'devour' }, { player: strongHitPlayer, monster, turnDamage: Intents.DEVOUR_DAMAGE_THRESHOLD, rng });
+      check('monster intents: Devour is thwarted (skips) when turn damage meets the threshold', strongHitPlayer.rack.length === 3 && strongHitResult.tileDevouredLetter === null && strongHitResult.damage === 0);
+    }
+
+    // executeIntent: Mend heals a fixed % of max HP, once per fight.
+    {
+      const boss = Monsters.createBoss('boss_vowelmaw'); // intents: ['mend']
+      boss.hp = 10;
+      const expectedHeal = Math.round(boss.maxHp * Intents.MEND_HEAL_RATIO);
+      const mendResult = Intents.executeIntent({ type: 'mend' }, { monster: boss });
+      check('monster intents: Mend heals maxHp * MEND_HEAL_RATIO', boss.hp === 10 + expectedHeal && mendResult.healed === expectedHeal);
+      check('monster intents: Mend sets mendUsed', boss.mendUsed === true);
+      let mendSeenAfterUse = false;
+      for (let i = 0; i < 60; i++) {
+        if (Intents.rollIntent(boss, rng).type === 'mend') mendSeenAfterUse = true;
+      }
+      check('monster intents: Mend is never re-telegraphed after it\'s already fired this fight (60/60)', !mendSeenAfterUse);
+    }
+
+    // executeIntent: Enrage permanently increases attack and stacks.
+    {
+      const boss = Monsters.createBoss('boss_sovereign'); // intents: ['enrage', 'hex']
+      const baseAttack = boss.attack;
+      Intents.executeIntent({ type: 'enrage' }, { monster: boss });
+      Intents.executeIntent({ type: 'enrage' }, { monster: boss });
+      check('monster intents: Enrage stacks (+ENRAGE_ATTACK_BONUS per use)', boss.attack === baseAttack + 2 * Intents.ENRAGE_ATTACK_BONUS);
+    }
+  }
+
   document.getElementById('btn-new-run').dispatchEvent(new window.Event('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 50));
   check('starting a run produces zero errors', errors.length === 0);
@@ -191,6 +306,68 @@ async function main() {
   const hpRatio = state.monster.maxHp > 0 ? state.monster.hp / state.monster.maxHp : 0;
   const activeTraitId = Traits.activeTraitForHpRatio(state.monster.traitPhases, hpRatio);
   const trait = Traits.TRAITS[activeTraitId];
+
+  // Monster intents (GOALS.md "FUN OVERHAUL 2/8"), live integration check:
+  // force THIS in-progress fight's monster into elite mode with only Hex
+  // available, submit a real (survivable, first-turn) word, and confirm the
+  // telegraphed "Next: Hex" line matches what then actually happens -- a
+  // tile gets locked, greyed out and disabled in the real rendered rack,
+  // and clicking it is a no-op. Resets back to a neutral, non-elite state
+  // afterward so it doesn't affect the checks below, which assume a plain
+  // fight (Devour/Mend/Enrage are covered deterministically in the isolated
+  // Intents unit tests above instead of here, since predicting a real
+  // word's exact damage well enough to force those specific branches
+  // through a live run would be unreliably precise).
+  {
+    let safeWord = null;
+    for (let i = 0; i < WORDLIST.length; i++) {
+      const w = WORDLIST[i];
+      if (w.length < 2 || w.length > state.player.rack.length) continue;
+      if (!Lexicon.isValidWord(w)) continue;
+      const formed = Lexicon.canFormFromRack(w, state.player.rack);
+      if (!formed.possible) continue;
+      const score = Lexicon.scoreWord(w, formed.tilesUsed);
+      const mult = trait ? trait.multiplier(w, formed.tilesUsed) : 1;
+      if (Math.round(score.total * mult) < state.monster.hp) { safeWord = w; break; } // must not kill it
+    }
+    if (!safeWord) {
+      console.log('SKIP monster-intent Hex integration check -- no survivable word found from this rack (unexpected)');
+    } else {
+      state.monster.isElite = true;
+      state.monster.intents = ['hex'];
+      state.monster.intent = { type: 'hex' };
+      window.Wordbound.Game.openDeckViewer(); // forces a real re-render (existing test convention)
+      window.Wordbound.Game.closeDeckViewer();
+
+      const intentEl = document.getElementById('monster-intent');
+      check('monster intent: Hex is telegraphed before it fires ("Next: Hex...")', !!intentEl && intentEl.textContent.indexOf('Hex') !== -1);
+
+      document.getElementById('word-input').value = safeWord;
+      document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 300));
+
+      check('monster intent: Hex turn produces zero errors', errors.length === 0);
+      check('monster intent: telegraphed Hex actually locked a tile', !!state.hexedTileId);
+      const hexedTile = state.player.rack.find((t) => t.id === state.hexedTileId);
+      check('monster intent: the locked tile is still in the rack (locked, not removed)', !!hexedTile);
+      const hexedBtn = hexedTile && document.querySelector('[data-tile-id="' + hexedTile.id + '"]');
+      check('monster intent: the locked tile\'s button is disabled in the rendered rack', !!hexedBtn && hexedBtn.disabled === true);
+      check('monster intent: the locked tile\'s button has the tile-hexed class', !!hexedBtn && hexedBtn.className.indexOf('tile-hexed') !== -1);
+      if (hexedBtn) {
+        const selectedBefore = state.selectedTileIds.length;
+        hexedBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+        check('monster intent: clicking the locked tile does not stage it', state.selectedTileIds.length === selectedBefore);
+      }
+
+      state.monster.isElite = false;
+      state.monster.intents = [];
+      state.hexedTileId = null;
+      state.monster.intent = { type: 'attack', value: state.monster.attack || 0 };
+      window.Wordbound.Game.openDeckViewer();
+      window.Wordbound.Game.closeDeckViewer();
+    }
+  }
+
   let word = null;
   for (let i = 0; i < WORDLIST.length; i++) {
     const w = WORDLIST[i];
