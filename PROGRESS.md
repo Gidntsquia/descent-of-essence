@@ -8203,3 +8203,69 @@ re-litigate.
 in afterward, untested by this pass). Queue is effectively idle: only the
 flagged BALANCE ticket and the FUN OVERHAUL 4/8-8/8 items gated behind it
 remain unchecked.
+
+---
+
+### 2026-08-20T12:57Z -- IDLE: queue exhausted of unblocked work, no action taken
+
+Fresh run, zero memory of prior sessions. Did the full read: GOALS.md top
+to bottom (`grep '^- \[ \]'` to be certain, not just eyeballing --
+confirmed exactly 6 unchecked boxes exist in the whole 2520-line file, all
+between lines 386-638) and ROADMAP.md's "known gaps" section.
+
+**Housekeeping:** same stale-local-ref issue the last two runs each hit
+independently -- local `main` was detached from `refs/heads/main`
+(pointing at the correct commit, `fb8bfdc`, just not attached to the
+branch). `git fetch origin main` confirmed `origin/main` is also
+`fb8bfdc` (no actual divergence, matches the last run's own commit) --
+`git checkout -B main origin/main` reattached cleanly. Flagging again
+since this is now three runs in a row with some flavor of this same
+container-image ref quirk; not a code problem, just noting the pattern in
+case it's worth Jaxon looking at the container/session setup itself at
+some point.
+
+**Findings, in order:**
+1. GOALS.md's queue: the only unchecked item above the FUN OVERHAUL chain
+   is the BALANCE ticket (win-rate band, ~line 386). It already carries
+   two full sim-gated iterations of work, a complete before/after data
+   table, and an explicit conclusion (in the ticket's own text, from a
+   prior run) that the remaining gap is a regular/strong-tier monster
+   HP/damage judgment call belonging to Jaxon, not a further guessable
+   numeric tweak -- re-reading it end to end confirmed nothing has
+   changed since the last run's summary of it, so not re-litigating it
+   again here per the routine's own instruction not to force a flagged
+   judgment call.
+2. FUN OVERHAUL 4/8 through 8/8 (the only other unchecked items) are
+   explicitly authored as gated behind that same BALANCE ticket's win-rate
+   gate passing ("After the gate passes: FUN OVERHAUL 4/8-8/8 below are
+   UNBLOCKED, resume top-to-bottom as normal") -- the gate has not passed
+   (30% win rate vs. 33% floor, 13% stalls vs. 10% ceiling, per the
+   ticket's own last-measured numbers), so these stay off-limits too.
+3. B6, the last non-gated item, was completed by the previous run
+   (2026-08-20T12:44Z) -- confirmed via `git log` and by re-reading its
+   PROGRESS.md entry, matches the current `HEAD`/GOALS.md state exactly.
+4. ROADMAP.md's "Current known gaps toward launch-readiness" section: read
+   in full. Every gap listed is either tagged RESOLVED already, or is
+   explicitly non-automatable and Jaxon's alone (physical-device touch
+   test, the actual itch.io upload/promotion). Nothing there is a fresh,
+   automatable task to pull.
+
+**Conclusion:** the queue is genuinely exhausted of unblocked, automatable
+work right now. Per GOALS.md's own rule ("If the queue is empty, don't
+invent busywork") and the routine's own guardrail against forcing a
+flagged judgment call, took no code action this run. Working tree is
+clean, no game code touched (only this log entry, plus the stale
+local-branch pointer fix), so nothing new to test beyond this log entry.
+A concurrent QA-pass session pushed to origin mid-run (see the entry just
+above this one) -- rebased this entry on top of it rather than reverting
+either.
+
+**What's next:** needs Jaxon's steer on the BALANCE ticket specifically --
+either (a) approve a further regular/strong-tier monster HP/damage tuning
+pass (same spirit as the original N1/N2/N3 balance ticket, scoped to
+floors 1-2 non-boss defs, per the recommendation already written into the
+ticket), or (b) judge the current ~30% win / ~13% stall numbers close
+enough to itch.io-launch-ready and explicitly unblock FUN OVERHAUL 4/8-8/8
+without further tuning. Either answer unblocks the routine immediately.
+Future runs: re-check `grep '^- \[ \]' GOALS.md` at the very start in case
+this has been resolved overnight before assuming idle again.
