@@ -129,14 +129,11 @@ async function main() {
   page.on('console', (msg) => {
     if (msg.type() === 'error') errors.push('console.error: ' + msg.text());
   });
-  // The game has no favicon; the browser's implicit /favicon.ico request 404s
-  // against this bare static server. Track failed requests by URL so that one
-  // known-benign case can be exempted without masking real load failures.
   page.on('requestfailed', (req) => {
-    if (!req.url().endsWith('/favicon.ico')) errors.push('requestfailed: ' + req.url());
+    errors.push('requestfailed: ' + req.url());
   });
   page.on('response', (res) => {
-    if (res.status() >= 400 && !res.url().endsWith('/favicon.ico')) {
+    if (res.status() >= 400) {
       errors.push('http ' + res.status() + ': ' + res.url());
     }
   });
@@ -158,6 +155,12 @@ async function main() {
   );
   // first node may be any type; if it's combat, fight it organically
   if (firstNodeState.combatActive) {
+    // How to Play auto-shows once on a browser's very first-ever combat entry
+    // (localStorage-gated) and intercepts pointer events over the combat
+    // panel until dismissed -- clear it before trying to play a word.
+    if (await page.isVisible('#howto-overlay')) {
+      await page.click('#btn-close-howto');
+    }
     const outcome = await fightUntilOver(page, 15);
     check('organic first combat resolves without stalling (outcome: ' + outcome + ')', outcome !== 'MAX_TURNS' && outcome !== 'NO_WORD_FOUND');
     if (outcome === 'TILE_REWARD') {
@@ -259,13 +262,8 @@ async function main() {
   check('skip path: skipping the boss item still advances the floor (' + floorBeforeSkip + ' -> ' + floorAfterSkip + ')', floorAfterSkip === floorBeforeSkip + 1);
 
   // ---- Errors across the whole run ----
-  // console.error for a 404 doesn't carry the URL; the response/requestfailed
-  // listeners above record any non-favicon failure with its URL, so a bare
-  // "Failed to load resource" console entry with no matching http/requestfailed
-  // entry can only be the favicon -- drop just that shape.
-  const substantiveErrors = errors.filter((e) => !e.startsWith('console.error: Failed to load resource'));
-  check('zero console/page errors across the whole QA run (favicon 404 exempted)', substantiveErrors.length === 0);
-  if (substantiveErrors.length) substantiveErrors.slice(0, 10).forEach((e) => console.log('  ERR:', e));
+  check('zero console/page errors across the whole QA run', errors.length === 0);
+  if (errors.length) errors.slice(0, 10).forEach((e) => console.log('  ERR:', e));
 
   await browser.close();
   server.close();

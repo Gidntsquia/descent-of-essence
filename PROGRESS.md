@@ -4645,3 +4645,109 @@ Checked off in GOALS.md.
 (POLISH, small) -- next hourly run should pick that up. Once it's done, per
 GOALS.md's own rule, check ROADMAP.md's "known gaps" section for what to
 pull next before concluding the queue is empty.
+
+---
+
+## 2026-08-20T04:45Z (hourly routine)
+
+**Housekeeping before starting:** local `main` and `origin/main` were both
+stuck at a stale ref (`115e324`, 20+ commits behind the real tip at
+`0c17617`) despite HEAD being detached at the correct tip -- `git fetch
+origin main` forced the update and `git checkout -B main origin/main` fixed
+it. Cosmetic (nothing was actually lost, `origin/main` on GitHub was already
+current), but worth noting in case a future run's `git status`/`git log`
+looks confusingly behind on a fresh checkout.
+
+**Task:** the only remaining queue item -- POLISH, favicon for both games.
+
+**What changed:**
+- `wordbound.html`: `<link rel="icon" href="data:image/svg+xml,...📖...">`
+  in `<head>`, right after `<title>`.
+- `index.html`: same pattern, ⚔️ instead (distinct from Wordbound's 📖 per
+  the ticket's own requirement that the two tabs look different --
+  crossed swords for a dungeon-descent action game).
+  Both are inline data-URI SVGs (percent-encoded UTF-8 bytes for the emoji,
+  not raw), zero new asset files, consistent with this project's
+  no-external-assets constraint.
+- `test/orchestrator-qa-boss-reward.js`: removed the now-moot
+  `/favicon.ico`-404 exemption from all three places it appeared (the
+  `requestfailed` listener, the `response` status-code listener, and the
+  final "zero console/page errors" check's string-matching workaround) --
+  chose "remove" over "leave with a note" per the ticket's own either-is-fine
+  framing, since I could directly confirm via a real-browser check (below)
+  that the implicit favicon request no longer fires at all with a real
+  favicon link present, so the exemption had nothing left to guard against.
+
+**Verification:**
+- `npm test`: 16/16 clean, both before and after removing the QA-script
+  exemption.
+- Wrote a throwaway Playwright script (same sandbox-chromium-path pattern
+  `verify-mobile-layout.js` already uses, not committed -- pure one-off
+  diagnostic) that loads both `wordbound.html` and `index.html` over a local
+  static server and asserts: `link[rel="icon"]` exists with the expected
+  `data:image/svg+xml` href, and there are zero failed/4xx+ requests of any
+  kind, specifically confirming no implicit `/favicon.ico` request occurs
+  anymore. Both files: clean.
+
+**Unplanned side-fix, found while re-verifying with `npm run test:qa` as
+extra belt-and-suspenders verification (not required by this ticket, but a
+good idea given tonight's standing "actually execute it, don't just reason
+about it" lesson):** `npm run test:qa` (test/orchestrator-qa-boss-reward.js)
+was hard-timing-out (30s, `Timeout 30000ms exceeded` on the "Play Word"
+click), fully broken, unrelated to the favicon change. Root cause: the "How
+to Play" onboarding panel (shipped 2026-08-20T03:48Z) auto-shows once per
+browser on the very first-ever combat entry (localStorage-gated), and a
+fresh Playwright context always has empty localStorage -- so the overlay now
+always auto-shows on this script's first fight, and `#howto-panel` sits on
+top of `#btn-submit-word` intercepting pointer events, blocking the script's
+real click indefinitely. This had been silently broken since the How to Play
+ticket landed (confirmed via `grep` on PROGRESS.md: `test:qa` hasn't been
+run since before that commit) -- exactly the "looked fine on paper, nobody
+actually ran it" failure mode GOALS.md's own top-of-file warning is about,
+just in test infrastructure rather than game code this time.
+Fixed with a 6-line addition right after the first-combat entry: check
+`page.isVisible('#howto-overlay')`, and if true, a real click on
+`#btn-close-howto` before calling `fightUntilOver`. Verified: `npm run
+test:qa` now passes 24/24 clean (all the existing boss-reward-flow, tile-
+reward, panel-stacking, and 375px-viewport checks it already covered,
+nothing new added). Also re-ran `npm test` (16/16) afterward to confirm the
+test-script fix didn't somehow affect the jsdom suite (it shouldn't have --
+different scripts, different runtime -- and it didn't).
+Ticketed the discovery+fix in GOALS.md as its own entry (checked off, since
+the fix is complete and verified) rather than burying it in the favicon
+entry, plus flagged one genuine open question for Jaxon there: should
+`npm run test:qa` become a mandatory gate for combat/reward-flow-touching
+tasks (like `test:mobile` is for CSS-layout tasks), given it can silently
+rot exactly like this? Didn't decide that myself -- it's a rule change to
+this file's own mandates, felt like Jaxon's call.
+
+**Not verified:** the actual rendered tab icon glyph in a real, visible
+browser chrome (Playwright's headless mode has no visible tab UI to
+screenshot) -- confirmed the `<link>` element and its href are correct and
+that the browser makes zero related network requests, which is what's
+actually checkable from this sandbox. Whether 📖/⚔️ render as intended emoji
+glyphs (vs. tofu/placeholder boxes) depends on the font substitution of
+whatever real device/browser opens the tab -- both are extremely common,
+widely-supported emoji (page/book and crossed-swords), so this is a very
+low-risk unknown, not a real doubt, but noting per this project's "don't
+claim confidence you don't have" standard.
+
+**Version:** not bumped -- pure polish (a tab icon) plus a test-infra fix,
+neither is a player-facing gameplay/feature change per GOALS.md's version
+convention.
+
+Checked off in GOALS.md (favicon ticket + the new test:qa ticket).
+
+**Current state:** v0.10. GOALS.md's queue is now fully empty. Checked
+ROADMAP.md's "known gaps" section per the guardrail rule and found it stale
+(referenced the itch-build and seeded-run gaps as still-open, both of which
+were completed by earlier runs tonight) -- updated it to reflect current
+reality: everything genuinely resolvable from this sandbox has been
+resolved, and what's left (a physical-device touch test, a human feel/fun
+playtest, the actual itch.io upload, and an undefined meta-progression
+question) all explicitly needs Jaxon, not more automated work. Per GOALS.md's
+own guardrail ("only if that's also empty/exhausted, note idle and stop --
+don't invent busywork"), the next hourly run should treat both GOALS.md and
+ROADMAP.md as exhausted unless Jaxon has added something new, and should
+re-check both files fresh rather than trusting this sentence, in case that's
+changed by the time it runs.

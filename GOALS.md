@@ -386,9 +386,16 @@ Rules for the routine:
       with different seeds differ. It's a character-select UI change, so
       `npm run test:mobile` too.
 
-- [ ] POLISH, small: neither wordbound.html nor index.html has a favicon (browser
+- [x] POLISH, small: neither wordbound.html nor index.html has a favicon (browser
       tabs show the default globe; verified 2026-08-20 -- also why the
-      orchestrator QA script has to exempt a /favicon.ico 404). This project is
+      orchestrator QA script has to exempt a /favicon.ico 404). COMPLETED
+      2026-08-20T04:45Z: see PROGRESS.md for full details -- data-URI SVG
+      emoji favicons added to both files (📖 Wordbound, ⚔️ Descent of
+      Essence), the now-moot QA-script favicon exemption removed, and one
+      unrelated pre-existing regression found and fixed along the way (the
+      QA script had been silently broken by the How to Play auto-overlay
+      since that ticket shipped).
+      This project is
       no-external-assets by design, so use an inline SVG emoji data-URI favicon,
       e.g. `<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">`
       -- 📖 for Wordbound (matches the tier-glyph language already in the game);
@@ -398,6 +405,50 @@ Rules for the routine:
       a real browser that the tab icon renders and the /favicon.ico 404 stops
       appearing (then remove the QA script's favicon exemption if it's now moot,
       or leave it with a note -- either is fine, say which).
+
+- [x] TEST-INFRA: `npm run test:qa` (test/orchestrator-qa-boss-reward.js) was
+      silently broken by the "How to Play" onboarding panel ticket
+      (completed 2026-08-20T03:48Z) and nobody noticed until now, because
+      `npm run test:qa` isn't one of GOALS.md's mandatory gates (only
+      `npm test` and, for CSS tasks, `npm run test:mobile` are) -- it's an
+      ad hoc extra check, so it can silently rot exactly like the two bugs
+      in this file's own top-of-file warning did. FOUND AND FIXED
+      2026-08-20T04:45Z as an opportunistic side-fix while verifying the
+      favicon ticket above (I ran `npm run test:qa` as extra verification,
+      not because the favicon ticket required it, and it happened to catch
+      this). Leaving this as its own queue entry rather than folding it
+      silently into the favicon ticket's commit, so the fix is visible and
+      searchable on its own, and so the underlying process question below
+      gets a real decision instead of getting lost.
+      ROOT CAUSE: How to Play auto-shows once per browser (localStorage-gated
+      on `wordbound_seen_howto`) on the very first combat entry ever. A fresh
+      Playwright browser context (which `test/orchestrator-qa-boss-reward.js`
+      always launches) has no localStorage history, so the overlay now always
+      auto-shows on that script's first combat -- and `#howto-panel` sits
+      on top of `#btn-submit-word` with pointer-events enabled, so
+      Playwright's real click on "Play Word" timed out waiting for the
+      overlay to stop intercepting it. 30s timeout, script never completes.
+      FIX ALREADY APPLIED: in `test/orchestrator-qa-boss-reward.js`, right
+      after entering the first node and confirming `combatActive`, added a
+      `page.isVisible('#howto-overlay')` check and, if true, a real click on
+      `#btn-close-howto` before calling `fightUntilOver`. Verified: `npm run
+      test:qa` now passes 24/24 clean (was hanging to a 30s timeout before).
+      REMAINING OPEN QUESTION for Jaxon (not attempted here -- a process
+      decision, not a code fix): should `npm run test:qa` become a mandatory
+      gate in this file's top-of-file rules (like `npm test`/`test:mobile`)
+      for tasks that touch the combat/reward flow specifically? It's slower
+      (a full scripted playthrough vs. dom-check.js's single-node smoke
+      test) so making it mandatory for every game.js-touching task is
+      probably too heavy, but leaving it fully ad hoc means it can silently
+      break again the same way and sit broken for a while. A middle ground
+      (mandatory only for tasks that touch combat/reward-screen flow
+      specifically, same as the test:mobile carve-out for CSS-layout tasks)
+      seems reasonable but is a rule change to this file's own mandates,
+      which felt like it should be Jaxon's call rather than something to
+      quietly decide solo while fixing an unrelated ticket.
+      VERIFICATION: `npm run test:qa` 24/24 (was hard-hanging/timing out
+      before this fix). `npm test` 16/16, unaffected (this only touched a
+      test script, no game/CSS code).
 
 - [x] BUG, high priority: tapping a rack tile on a touchscreen does not play the
       letter at all. Reported 2026-08-20 by Jaxon ("make sure clicking on letters

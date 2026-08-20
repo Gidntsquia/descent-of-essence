@@ -67,27 +67,39 @@ runs should look at to decide what's next once GOALS.md's queue empties.)
   (pick and skip paths), organic first-fight play, and 375px layout. A human
   playtest for *feel* (animations, audio, pacing) is still Jaxon's to do -- the
   scripts prove correctness, not fun.
-- **No packaged, itch.io-ready build.** The repo is source files; itch.io wants a zip
-  (or a URL if hosting elsewhere, which GitHub Pages already provides -- itch.io does
-  support linking to an external page for HTML5 games, so the current GitHub Pages URL
-  may be usable directly without a separate zip. Worth confirming against itch.io's
-  actual upload options when the page gets created, rather than assuming a zip is
-  required.)
-- **Replayability is partly addressed, still thin vs. genre peers.** Since this
-  was written: 3 characters with distinct starting decks, 5 achievements
-  unlocking 5 items (cross-run localStorage persistence), 15 items, 4 more
-  monsters, boss-kill bonus rewards. Still absent: any daily/seeded-run hook
-  (the RNG is already fully seeded under the hood -- surfacing it is cheap and
-  ticketed 2026-08-20), and run-to-run meta-progression beyond achievements.
-- **No packaged itch.io build yet -- now the top remaining launch blocker.**
-  itch.io's HTML5 upload wants a zip with `index.html` at the zip root, but this
-  repo's `index.html` is Descent of Essence (a different game) -- Wordbound lives
-  at `wordbound.html`, so a build step has to stage/rename it. Ticketed
-  2026-08-20 in GOALS.md with full details. (The external-URL option via GitHub
-  Pages exists as a fallback, but an itch-hosted upload keeps plays and ratings
-  on the itch page itself instead of bouncing visitors to an external site --
-  likely better for traction, though how itch's ranking actually weighs this
-  is not something that can be verified from here.)
+- **RESOLVED 2026-08-20 -- packaged itch.io build.** `npm run build:itch`
+  stages Wordbound's exact dependency set into `dist/wordbound-itch.zip`
+  (index.html at zip root, itch.io's required layout), verified by
+  `npm run test:itch-build` (dom-check against the unzipped copy + a
+  real-browser zero-404 check). The actual itch.io upload and its iframe
+  embed behavior still can't be verified from this sandbox -- that step is
+  Jaxon's.
+- **RESOLVED 2026-08-20 -- seeded runs.** Seed input on character-select,
+  seed displayed on the run/game-over/victory screens, determinism verified
+  (`test/verify-seeded-runs.js`, 11/11). Run-to-run meta-progression beyond
+  achievements is still absent and not currently ticketed -- a real
+  scope/design decision (what would it even be?) rather than a small task,
+  so left for Jaxon to define if he wants it pursued.
+- **RESOLVED 2026-08-20 -- the two small mobile findings this list used to
+  flag** (Deck/Consumables buttons under the 36px tap floor, 8 sub-12px text
+  elements) -- both fixed, `npm run test:mobile` reports zero warnings at
+  375/414px.
+- **RESOLVED 2026-08-20 -- favicons.** Both games had the default browser
+  globe in the tab; both now have inline SVG data-URI emoji favicons (no new
+  asset files, matches the project's no-external-assets constraint).
+- **Physical-device touch test still not done.** Playwright's touch
+  emulation (`hasTouch: true`, `.tap()`) has verified the tap-to-play and
+  drag-to-reorder interactions are mutually exclusive and both work, but an
+  emulated touch event is not the same as a real finger on real glass --
+  worth 5 minutes on an actual phone before launch. Sandbox-only runs can't
+  close this gap; it's Jaxon's to do.
+- **As of 2026-08-20T04:45Z, GOALS.md's queue and this known-gaps list are
+  both empty of anything the sandbox can act on.** Everything left above
+  needs Jaxon directly (a physical-device check, a feel/fun playtest, the
+  actual itch.io upload) or a product/scope decision only he can make
+  (meta-progression, if he wants it). Future runs: re-read this list fresh
+  rather than trusting this summary sentence, in case Jaxon added something
+  since.
 
 ## Draft store page copy (for Jaxon to review/edit, then paste into itch.io)
 
