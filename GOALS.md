@@ -330,9 +330,14 @@ Rules for the routine:
       (or documented-acceptable) text-size warnings, zero overflow/clipping at
       both widths -- plus `npm test` 16/16 as always.
 
-- [ ] PRESENTATION: record a real gameplay GIF for the README (its screenshot
+- [x] PRESENTATION: record a real gameplay GIF for the README (its screenshot
       section has had a "TODO: needs a real screen recording" placeholder since
-      2026-08-19) and for Jaxon's itch.io page. This IS automatable from the
+      2026-08-19) and for Jaxon's itch.io page. COMPLETED 2026-08-20T04:17Z:
+      see PROGRESS.md for the exact segment recorded, file sizes, and one
+      correction to this ticket's own environment assumption (the
+      /opt/pw-browsers ffmpeg has no gif/palettegen support -- had to
+      `apt-get install ffmpeg` for a full build).
+      This IS automatable from the
       sandbox, contrary to what the README TODO assumed: Playwright records
       .webm video natively (`browser.newContext({ recordVideo: { dir, size } })`),
       and ffmpeg ships in this sandbox at /opt/pw-browsers/ffmpeg-1011 (also on

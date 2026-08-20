@@ -4395,3 +4395,129 @@ All three are independent of each other -- next hourly run should start on
 the GIF ticket, or feel free to skip to seeded-runs or favicon if the GIF
 ticket's video-recording tooling turns out to be flakier in practice than
 the ticket assumes (say why in PROGRESS.md if so, don't silently swap).
+
+---
+
+## 2026-08-20T04:17Z (hourly routine)
+
+Housekeeping before starting: the checkout's local `main` branch was
+detached-HEAD and pointed at a stale, unrelated 3-commit history (no common
+ancestor with `origin/main` at all -- `git merge-base` returned nothing).
+`origin/main` (fetched fresh) matched the detached HEAD I was actually on
+and had all 54 of the real commits this project's history shows. Reset local
+`main` to `origin/main` (`git reset --hard origin/main`) before doing
+anything else -- no uncommitted work was at risk (working tree was already
+clean at that state), just a stale local branch pointer.
+
+**Task:** top of queue was PRESENTATION -- record a real gameplay GIF for
+the README and a source clip for Jaxon's itch.io page.
+
+**Correction to the ticket's own environment assumption:** the ticket said
+"ffmpeg ships in this sandbox at /opt/pw-browsers/ffmpeg-1011... contrary to
+what the README TODO assumed, this IS automatable." That binary exists, but
+it's a Playwright-internal build stripped down to only what Playwright
+itself needs (`ffmpeg -filters`/`-encoders` confirmed: webm/matroska demux,
+mjpeg + libvpx_vp8 decode only, scale/crop/pad filters only, png + libvpx_vp8
+encode only) -- **no gif encoder, no palettegen/paletteuse filters, no
+libx264**. The two-pass palette GIF pipeline and mp4 export the ticket
+itself specifies are impossible with that binary. Fixed by `apt-get
+install -y ffmpeg` (session is root; a couple of packages 404'd on the first
+attempt from a stale index, `apt-get update` first fixed it) -- pulls a full
+Ubuntu ffmpeg 6.1.1 build with libx264, palettegen, and paletteuse all
+present, confirmed via `ffmpeg -filters`. This is a one-time sandbox
+environment fix, not something committed to the repo; a future run in a
+fresh container that needs to re-run the recorder will need to
+`apt-get install ffmpeg` again first -- documented directly in the new
+script's header comment so this doesn't have to be rediscovered.
+
+**Script added:** `tools/record-gameplay.js` (`npm run record:gameplay`).
+Reuses `test/orchestrator-qa-boss-reward.js`'s exact patterns: a local
+static server (same file-serving logic), the page-side anagram-index
+word-finder (`FIND_WORD_FN`, verbatim), and the sandboxed-Chromium
+`executablePath` fallback (`/opt/pw-browsers/chromium` -- needed here too;
+the installed `@playwright/test` version didn't match what the default
+`chromium.launch()` looked for, same "Executable doesn't exist" failure
+`run`/other scripts already work around). Drives a real Playwright browser
+(real clicks, real `page.type()` into `#word-input`) at a 960x600 viewport
+with `recordVideo` enabled, then shells out to the real `ffmpeg` for a
+two-pass palette GIF and an h264 mp4.
+
+**One fix needed mid-script:** the first run hung on `#btn-submit-word`
+until Playwright's 30s timeout, because the "How to Play" onboarding panel
+(landed 03:48Z) auto-shows on a browser's first-ever combat entry and
+intercepted pointer events on top of the combat panel. Since this clip is
+about core gameplay, not onboarding, suppressed it the same way a real
+returning player would already have it suppressed:
+`localStorage.setItem('wordbound_seen_howto', '1')` right after page load,
+before starting a run. (This is exactly the flag/mechanism the How-to-Play
+ticket itself added -- not a hack around it.)
+
+**Segment recorded** (13.48s, confirmed via `ffprobe`): main menu (~1.2s) ->
+click New Run -> character select -> pick the first character -> node map
+-> click into the first (always-combat, per floor.js) node -> up to 5 real
+typed words against that monster (loop breaks as soon as `combatActive`
+goes false, so it's exactly however many hits the fight actually took) ->
+the tile-reward panel, real click to take a tile -> setup jump to this
+floor's boss node (state only, not a recorded interaction, same "setup vs.
+interaction" pattern the QA script documents) -> a REAL click on the boss
+node pill, capturing 1.4s of the `bossEntrance` CSS keyframe
+(`.boss-combat #monster-info`, css/wordbound.css ~line 204) -> one more real
+typed word against the boss. Visually verified (not just trusted) by
+extracting 4 frames from the encoded mp4 via `ffmpeg -vf select=...` and
+reading them: frame 1 is the clean main menu; frame 2 is the node map mid-
+transition; frame 3 shows a real combat-log line ("You play \"UNAGILER\" for
+21 damage / Defeated The Appendix!") and the tile-reward choice screen (E/P/D
+options); frame 4 shows the boss fight in progress -- 👑 The Vowelmaw, its
+HP bar, "Weakness: Starved for vowels—gorges on them.", a full letter rack,
+and "RETI" mid-typed in the word-input box with the boss-combat pink glow
+border visible. This is real, in-order gameplay, not a blank or broken
+screen.
+
+**Outputs** (both under `docs/`, both git-tracked -- `dist/` is gitignored
+but `docs/` is not):
+- `docs/gameplay.gif`: 560x350, 12fps, 162 frames, 13.5s, **1.57 MB** (well
+  under the ~8MB target and GitHub's render-friendly range).
+- `docs/gameplay.mp4`: 960x600 (native recording resolution, not
+  downscaled), 25fps, 13.48s, h264/yuv420p, **0.42 MB** -- for Jaxon's itch
+  page, which accepts video on store pages per ROADMAP.md's draft-copy
+  section.
+
+**README.md**: replaced the `[TODO: Gameplay GIF goes here]` placeholder in
+the "Screenshots & GIF" section with a real `![...](docs/gameplay.gif)`
+embed plus a caption describing the segment and pointing at the mp4/script
+for anyone who wants the itch-ready source or wants to re-record.
+
+**package.json**: added `"record:gameplay": "node tools/record-gameplay.js"`
+alongside the existing `test:*`/`build:*` scripts.
+
+**Verification:**
+- `npm test`: 16/16 (this task didn't touch game.js/wordbound.html rendering
+  logic, but the recording script does drive the game and mutate
+  localStorage/state during its run, so ran the gate anyway as a sanity
+  check that nothing regressed).
+- `ffprobe` confirmed both files' dimensions/framerate/duration/frame count
+  as stated above -- not just "the file exists," it actually plays back the
+  expected length.
+- 4 extracted frames read directly (not just file-size-checked) confirm the
+  segment shows real, in-order gameplay content as described.
+- Did NOT re-run `npm run test:mobile` -- this task added no CSS and changed
+  no rendering/event-handling code, only README/package.json/a new
+  standalone recording script, so the mobile-layout gate doesn't apply per
+  GOALS.md's own top-of-file rule (that mandate is scoped to "CSS that
+  affects rendering/events," which this isn't).
+
+**Not verified / Jaxon's call**, per the ticket's own carve-out: whether the
+clip *looks good* -- pacing, whether 13.5s feels too short or the boss-jump
+cut feels like a jarring edit rather than a "cool moment," whether the
+main-menu HP-header text visibly re-wrapping between the node-map frame and
+the combat frame (an existing layout quirk at this exact viewport width, not
+something this task introduced or was asked to fix) is noticeable enough in
+the compressed GIF to be distracting. Described the exact segment above so
+he can judge without digging through the video himself.
+
+Checked off in GOALS.md. No version bump -- this is dev/presentation
+tooling and a README asset, not a player-facing gameplay change.
+
+**Current state:** v0.9, 2 unchecked tickets remain: (1) seeded runs
+[now top of queue], (2) inline-SVG favicon. Both independent of each other
+and of everything just completed.

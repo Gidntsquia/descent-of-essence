@@ -120,7 +120,9 @@ Run `npm test` after any changes to ensure nothing broke.
 
 ## Screenshots & GIF
 
-**[TODO: Gameplay GIF goes here]** ← A real browser recording of a full run showing combat, item pickup, and character selection is needed. This needs to be recorded on a real machine and inserted here. See PROGRESS.md for context.
+![Wordbound gameplay: spelling a word to damage a monster, a tile reward pick, and a boss entrance](docs/gameplay.gif)
+
+*A ~13s clip: the first fight of a run (typing a real word, the damage animation, the kill), the deck tile-reward pick, then entering a boss fight (trait/weakness callout, entrance flash) and playing a word against it. Recorded with `tools/record-gameplay.js` — see that file to re-record after a visual change. A higher-quality source clip (`docs/gameplay.mp4`) is also available for itch.io's store page, which accepts video.*
 
 ## How to Play
 
