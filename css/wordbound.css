@@ -51,6 +51,38 @@ body {
   margin: 0 0 16px;
 }
 
+.seed-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.seed-input-row label {
+  color: #b8ac8a;
+  font-size: 0.9rem;
+}
+
+#run-seed-input {
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #4a4130;
+  background: #14110b;
+  color: #e8dfc8;
+  width: 160px;
+}
+
+.run-seed-display {
+  text-align: center;
+  color: #6f6552;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  margin: 4px 0 0;
+}
+
 h2 {
   margin: 0 0 18px 0;
   padding-bottom: 12px;

@@ -358,7 +358,12 @@ Rules for the routine:
       LOOKS good is Jaxon's call -- describe in PROGRESS.md exactly what segment
       got recorded so he can judge without digging.
 
-- [ ] FEATURE/REPLAYABILITY: surface seeded runs. The RNG is already fully
+- [x] FEATURE/REPLAYABILITY: surface seeded runs. COMPLETED 2026-08-20T04:27Z
+      (v0.9 -> v0.10): seed input on character-select, seed displayed on the
+      run screen footer + game-over/victory screens. See PROGRESS.md for the
+      string-hashing round-trip detail (why an auto-generated seed is hashed
+      as a string too, not a raw number) and the new
+      test/verify-seeded-runs.js (11/11) that proves determinism. The RNG is already fully
       seeded under the hood (js/core/rng.js: mulberry32, string-hashable seeds,
       the instance exposes `.seed`; verified 2026-08-20) -- game.js line ~123 just
       calls `RNG.create(RNG.randomSeed())`, so this is surfacing, not rebuilding.

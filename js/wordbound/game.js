@@ -137,11 +137,26 @@
     });
   }
 
-  Game.startRun = function (characterId) {
+  Game.startRun = function (characterId, seedInput) {
     var characterDef = characterId ? Characters.getCharacter(characterId) : Characters.getCharacter('archivist');
     state.selectedCharacter = characterId || 'archivist';
     state.player = newPlayer(characterDef);
-    state.rng = RNG.create(RNG.randomSeed());
+    // Seeds are always hashed as strings (RNG.hashStringToSeed), even an
+    // auto-generated random one -- so typing a displayed seed back into the
+    // seed input later reproduces the same run. Feeding RNG.create a raw JS
+    // number instead would hash differently than typing those same digits
+    // into a text input (RNG.create treats a number as already-a-seed, but
+    // hashes a string), which would silently break "type this seed back in"
+    // for the common case of a random run someone wants to share afterward.
+    var trimmedSeed = seedInput ? String(seedInput).trim() : '';
+    state.runSeed = trimmedSeed || String(RNG.randomSeed());
+    // Same seed + character reproduces the same floors/monsters/rewards --
+    // but treasure/shop pools are filtered by which items are unlocked
+    // (Achievements.getUnlockedAchievements/UNLOCKABLE_ITEMS), which differs
+    // per player and can change over time on the same browser. So identical
+    // runs are only guaranteed at identical unlock state; that's an accepted
+    // v1 caveat, not something this feature tries to fix.
+    state.rng = RNG.create(state.runSeed);
     state.deck = createCharacterDeck(characterDef);
     state.floorNumber = 1;
     state.floor = Floor.generateFloor(state.floorNumber, state.rng);
@@ -1101,10 +1116,12 @@
 
   function renderGameOver() {
     $('game-over-stats').textContent = 'You reached floor ' + state.floorNumber + '.';
+    $('game-over-seed').textContent = 'Seed: ' + state.runSeed;
   }
 
   function renderVictory() {
     $('victory-stats').textContent = 'You cleared all ' + Floor.TOTAL_FLOORS + ' floors. Wordbound complete.';
+    $('victory-seed').textContent = 'Seed: ' + state.runSeed;
   }
 
   function renderCharacterSelect() {
@@ -1118,7 +1135,7 @@
       button.innerHTML = '<p class="character-name">' + characterDef.name + '</p>' +
                          '<p class="character-description">' + characterDef.description + '</p>';
       button.addEventListener('click', function () {
-        Game.startRun(id);
+        Game.startRun(id, $('run-seed-input').value);
       });
       choices.appendChild(button);
     });
@@ -1134,6 +1151,7 @@
     $('gold-display').textContent = state.player.gold + ' 🪙';
     var floorName = getFloorName(state.floorNumber);
     $('floor-label').textContent = 'Floor ' + state.floorNumber + ' / ' + Floor.TOTAL_FLOORS + (floorName ? ' — ' + floorName : '');
+    $('run-seed-display').textContent = 'Seed: ' + state.runSeed;
     renderItemsOwned();
     var log_ = $('message-log');
     log_.innerHTML = state.messages.map(function (m) { return '<div>' + escapeHtml(m) + '</div>'; }).join('');

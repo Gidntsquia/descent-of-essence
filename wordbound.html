@@ -12,7 +12,7 @@
   <div id="screen-main-menu" class="screen">
     <div class="panel main-menu-panel">
       <h1 class="game-title">WORDBOUND</h1>
-      <p class="version-info">v0.9</p>
+      <p class="version-info">v0.10</p>
       <div id="dictionary-loading-indicator" class="dictionary-loading-indicator">
         <div class="loading-spinner"></div>
         <p>Loading dictionary...</p>
@@ -29,6 +29,10 @@
     <div class="panel character-select-panel">
       <h1 class="game-title">Choose Your Path</h1>
       <p style="text-align: center; color: #b8ac8a; margin-bottom: 20px;">Each character plays differently. Pick one and face the Archive.</p>
+      <div class="seed-input-row">
+        <label for="run-seed-input">Seed (optional)</label>
+        <input id="run-seed-input" type="text" placeholder="random" maxlength="40" autocomplete="off" spellcheck="false">
+      </div>
       <div id="character-choices" class="character-choices"></div>
       <button id="btn-back-to-menu" class="btn btn-secondary" style="width: 100%; margin-top: 20px;">Back to Menu</button>
     </div>
@@ -49,6 +53,7 @@
       </div>
     </div>
     <div id="items-owned" class="items-owned"></div>
+    <div id="run-seed-display" class="run-seed-display"></div>
     <div id="message-log" class="message-log"></div>
 
     <div id="node-map" class="node-map"></div>
@@ -110,6 +115,7 @@
     <div class="panel">
       <h1>You Died</h1>
       <p id="game-over-stats"></p>
+      <p id="game-over-seed" class="run-seed-display"></p>
       <button id="btn-gameover-continue" class="btn btn-primary">Main Menu</button>
     </div>
   </div>
@@ -118,6 +124,7 @@
     <div class="panel">
       <h1>Victory!</h1>
       <p id="victory-stats"></p>
+      <p id="victory-seed" class="run-seed-display"></p>
       <button id="btn-victory-continue" class="btn btn-primary">Main Menu</button>
     </div>
   </div>
