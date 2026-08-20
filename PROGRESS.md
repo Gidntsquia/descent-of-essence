@@ -10369,3 +10369,37 @@ attrition, so it needs a bigger push, not a different lever.
 
 `npm test` **ALL CHECKS PASSED**. Balance-simulation n=30 re-running in the
 background; next entry has the result.
+
+**UPDATE 4 -- round 3's floor-1 rest node badly OVERSHOT. Dialing it back
+(ROUND 3b) rather than reverting outright.**
+
+Round 3's n=30 sim: win rate **73%** (22/30) -- a ~30-point jump, way past
+the top of the 35-50% band. Floor-1's boss (Vowelmaw) dropped to a literal
+**0/29 kills** (was a healthy 11% in round 2) -- the floor got fully
+re-trivialized. The floor2/floor3 death-share PARITY problem actually did
+resolve (3 floor2 / 3 floor3 of only 6 total deaths, a clean 50/50 split),
+but at the cost of blowing the win-rate target wide open -- a
+full-strength (50% maxHp) rest node on floor 1, identical to floors 2-3's,
+turned out to be a much stronger lever than intended: a 12-HP mid-floor
+refill on a floor whose total accumulated damage is modest amounts to
+nearly resetting the floor's difficulty, and that safety cushion then
+carries forward through the rest of the run too (compounding, not just a
+floor-1-local effect).
+
+Rather than reverting the floor-1-checkpoint-heal idea outright (the
+underlying diagnosis -- floor2 deaths often being floor1 damage landing a
+floor late -- still holds, and target 3's floor1-regular metric has been
+comfortably in-band this whole time, so floor 1 clearly had room), diluted
+the lever instead of removing it: `game.js`'s rest-node heal amount is now
+floor-dependent -- **floor 1 heals 25% of maxHp, floors 2-3 keep the
+original 50%** (`node.type === 'rest'` branch, `restRatio = floorNumber
+=== 1 ? 0.25 : 0.5`). Quarter-strength still gives floor 1 SOME mid-floor
+recovery (the actual goal) without fully re-trivializing it. `boss_sovereign`
+stays at round 3's maxHp 65 (that change is independent of the rest-node
+overshoot and still wanted for target 4).
+
+`npm test` **ALL CHECKS PASSED** (checked test/dom-check.js first -- no
+rest-node assertions exist yet to update). Balance-simulation n=30
+re-running in the background with this dialed-back version; next entry has
+the result and, if it lands in band on enough targets, the
+checkpoint/checkbox decision.
