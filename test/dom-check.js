@@ -79,6 +79,23 @@ async function main() {
     process.exit(1);
   }
 
+  // Wordlist ENABLE1 union (Jaxon, 2026-08-20): ZITS was rejected live on his
+  // phone. The base dictionary omitted informal/newer words; ENABLE1 (public
+  // domain) was merged in, strictly additive. These probes were all MISSING
+  // before the merge and must now validate; the pre-existing words confirm the
+  // union didn't clobber anything, and the count guard confirms it only grew.
+  {
+    const Lexicon = window.Wordbound.Lexicon;
+    const WORD_SET = window.Wordbound.WORD_SET;
+    ['ZITS', 'ZIT', 'SNIT', 'LUTZ'].forEach((w) => {
+      check('Wordlist union: "' + w + '" is now valid (was missing pre-ENABLE1)', Lexicon.isValidWord(w));
+    });
+    ['ZAGS', 'QUIZ', 'ADZE', 'WHIZ', 'CAT', 'GARDEN'].forEach((w) => {
+      check('Wordlist union: pre-existing "' + w + '" still valid', Lexicon.isValidWord(w));
+    });
+    check('Wordlist union: list grew to > 500000 words (was 497871)', WORD_SET.size > 500000);
+  }
+
   // Foreword item (review B2): its unused-tile-count bonus used to be
   // computed as `rack.length - tilesUsed.length`, but Combat.playWord
   // already removes played tiles from the rack BEFORE onWordPlayed hooks

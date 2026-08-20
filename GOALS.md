@@ -1015,7 +1015,7 @@ Rules for the routine:
       the full state/flow is confirmed; the log message is a plain string
       push, no audio/drag involved.)
 
-- [ ] BUG (DIRECT FROM JAXON, 2026-08-20 ~11:20 ET, hit live on his phone
+- [x] BUG (DIRECT FROM JAXON, 2026-08-20 ~11:20 ET, hit live on his phone
       -- do this SECOND, right after the boss-skip fix; it's small):
       common words are rejected -- he staged Z,I,T,S from real rack tiles
       and got '"ZITS" is not playable'. Orchestrator verified: WORDLIST
@@ -1036,6 +1036,29 @@ Rules for the routine:
       checks -- if the union pushes the build over a size limit, report
       the numbers in PROGRESS.md and prefer trimming NOTHING (raise the
       limit if it's our own arbitrary threshold). Version bump.
+      DONE 2026-08-20T15:45Z: fetched ENABLE1
+      (https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt,
+      172,823 lines), filtered to purely A-Z length 2-15 uppercased (168,551
+      kept), unioned into the existing fully-expanded WORDLIST. Added 50,764
+      NEW words; total 497,871 -> 548,635, deduped and sorted. Strictly
+      additive (the merge set was SEEDED with the old expanded list, then
+      only added -- zero removals, verified by construction and by the
+      pre-existing-word regression probes). Rewrote wordlist.js as a single
+      fully-baked static WORDS array (the old file generated -S/-ES/-ER/-ING
+      forms at runtime; those are now baked in, so no behavior change, just
+      the same words as static literals + the ENABLE1 union). Lexicon
+      .isValidWord uses WORD_SET.has(upper), so validation and every QA
+      script's WORDLIST/WORD_SET scan both pick up the new words with no
+      other change. VERIFIED: npm test 267 checks (11 new wordlist probes:
+      ZITS/ZIT/SNIT/LUTZ now valid, ZAGS/QUIZ/ADZE/WHIZ/CAT/GARDEN still
+      valid, count > 500000). npm run test:itch-build ALL CHECKS PASSED, zip
+      1.40 -> 1.41 MB (wordlist gzips tiny; no size gate exists anyway, the
+      test only reports the number). Version v0.21 -> v0.22. NOTE: fixing
+      the itch build surfaced a SEPARATE pre-existing launch-blocker (not
+      part of this ticket) -- js/wordbound/intents.js was referenced by
+      wordbound.html but missing from tools/build-itch.js's DEPENDENCIES
+      list, so the itch build 404'd on it and combat would break in the
+      deployed build. Added the one missing manifest line; build now clean.
 
 - [ ] MOBILE INPUT 1/3 (DIRECT FROM JAXON, 2026-08-20 ~11:15 ET): on
       touch devices there must be NO typing option -- the soft keyboard

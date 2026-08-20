@@ -43,6 +43,7 @@ const DEPENDENCIES = [
   'js/wordbound/events.js',
   'js/wordbound/floor.js',
   'js/wordbound/game.js',
+  'js/wordbound/intents.js',
   'js/wordbound/items.js',
   'js/wordbound/lexicon.js',
   'js/wordbound/monsters.js',
