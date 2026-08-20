@@ -109,7 +109,7 @@
     touchStartX: null, // track initial touch X position for drag threshold detection
     touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
     touchIdentifier: null, // identifier of the finger that owns the active rack drag, so a second touch can't hijack or end it (stuck-drag fix)
-    stagingDrag: null, // MOBILE INPUT 2/3 Phase 2: active pointer drag of a STAGED tile (reorder-in-play-area / drag-out-to-remove). { tileId, el, startX, startY, crossed, outside, rects, tileW, insertIndex }. null when no drag in progress
+    stagingDrag: null, // MOBILE INPUT 2/3 Phase 2: active pointer drag of a STAGED tile (reorder-in-play-area / drag-out-to-remove / drag-onto-rack-to-unstage). { tileId, el, startX, startY, crossed, outside, overRack, rects, tileW, insertIndex }. null when no drag in progress
     suppressNextStagingClick: false, // MOBILE INPUT 2/3 Phase 2: set true after a real staging drag so the synthesized post-pointerup click doesn't immediately unstage the just-reordered tile; reset on the next pointerdown
     settleTileIds: [], // MOBILE INPUT 3/3: tile ids to give a one-shot land-settle animation on the NEXT render only (a tile just staged into the play area or unstaged back to the rack); consumed + cleared during renderStagingArea
     selectedTileIds: [], // tiles selected for staging (in click order)
@@ -1802,6 +1802,20 @@
     return px < r.left - tol || px > r.right + tol || py < r.top - tol || py > r.bottom + tol;
   }
 
+  // Jaxon real-device playtest: dragging a staged tile onto the RACK unstages
+  // it (the natural inverse of staging). The rack is an EXPLICIT drop zone, so
+  // a release over it unstages even when it sits inside pointerOutsideStaging's
+  // 30px tolerance (a rack close under the staging area otherwise reads as
+  // "snap back"). Any point over the rack container counts -- the tile always
+  // returns to its own home slot regardless of which slot it's dropped on.
+  function pointerOverRack(px, py) {
+    var rack = $('rack-display');
+    if (!rack || typeof rack.getBoundingClientRect !== 'function') return false;
+    var r = rack.getBoundingClientRect();
+    if (!r || (!r.width && !r.height)) return false;
+    return px >= r.left && px <= r.right && py >= r.top && py <= r.bottom;
+  }
+
   // Snapshot sibling positions and switch the dragged tile into "ghost" mode once
   // the threshold is crossed (deferred until then so a plain tap never lifts).
   function beginStagingGhost(d) {
@@ -1887,6 +1901,8 @@
       if (el.style) { el.style.transform = ''; el.style.transition = ''; }
     }
     if (area && area.classList) area.classList.remove('staging-dragging');
+    var rack = $('rack-display');
+    if (rack && rack.classList) rack.classList.remove('rack-drop-target');
   }
 
   // The one shared teardown. Ends the drag WITHOUT applying a drop -- used by
@@ -1921,6 +1937,8 @@
     }
     if (d) return; // a live drag owns its own ghost/gap transforms -- leave them alone
     if (area && area.classList) area.classList.remove('staging-dragging');
+    var rack = $('rack-display');
+    if (rack && rack.classList) rack.classList.remove('rack-drop-target');
     var tiles = area && area.querySelectorAll ? area.querySelectorAll('.staged-tile') : [];
     for (var i = 0; i < tiles.length; i++) {
       var el = tiles[i];
@@ -1975,10 +1993,21 @@
     }
     if (e.cancelable) e.preventDefault(); // stop the page scrolling under a touch drag
     if (d.el && d.el.style) d.el.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
-    var outside = pointerOutsideStaging(px, py);
+    // Over the rack is an explicit unstage target; folding it into `outside`
+    // means a release there routes to unstageTile (return-to-rack) exactly like
+    // the existing drag-out-of-staging path, and the ghost gets the same
+    // "out" styling. Tracked separately in d.overRack only to drive the rack's
+    // own drop-target highlight.
+    var overRack = pointerOverRack(px, py);
+    var outside = pointerOutsideStaging(px, py) || overRack;
     if (outside !== d.outside) {
       d.outside = outside;
       if (d.el && d.el.classList) d.el.classList.toggle('staging-drag-out', outside);
+    }
+    if (overRack !== d.overRack) {
+      d.overRack = overRack;
+      var rack = $('rack-display');
+      if (rack && rack.classList) rack.classList.toggle('rack-drop-target', overRack);
     }
     if (outside) {
       d.insertIndex = null;

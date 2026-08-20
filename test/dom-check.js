@@ -1015,6 +1015,32 @@ async function main() {
         check('stuck-drag: the owning pointer\'s release does end it, cleanly',
           !state.stagingDrag && noDragArtifacts());
 
+        // ---- DRAG-TO-RACK (Jaxon real-device playtest): dragging a staged
+        // tile ONTO THE RACK unstages it (return-to-rack), even when the drop
+        // point sits INSIDE the staging area's 30px drag-out tolerance. jsdom
+        // rects are all-zero, so stub the rack's rect to a known box and drop
+        // the pointer inside it at (10,10) -- a point pointerOutsideStaging
+        // reads as INSIDE (|10| < 30), proving the RACK zone (not the generic
+        // drag-out-of-staging path) is what routes to unstage here.
+        restage([id0, id1, id2]);
+        const rackForDrop = document.getElementById('rack-display');
+        const origRackRect = rackForDrop.getBoundingClientRect;
+        rackForDrop.getBoundingClientRect = () =>
+          ({ left: 0, right: 100, top: 0, bottom: 50, width: 100, height: 50 });
+        dragEl = stagedTileEl(id0);
+        dragEl.dispatchEvent(pev('pointerdown', { clientX: 0, clientY: 0 }));
+        document.dispatchEvent(pev('pointermove', { clientX: 10, clientY: 10 }));
+        check('drag-to-rack: hovering a staged tile over the rack marks it as an unstage target (inside staging tolerance)',
+          !!state.stagingDrag && state.stagingDrag.overRack === true && state.stagingDrag.outside === true);
+        check('drag-to-rack: the rack shows the drop-target highlight while hovered',
+          rackForDrop.classList.contains('rack-drop-target'));
+        document.dispatchEvent(pev('pointerup', { clientX: 10, clientY: 10 }));
+        check('drag-to-rack: releasing over the rack unstages exactly that tile (returns it to the rack)',
+          !state.stagingDrag && state.selectedTileIds.indexOf(id0) === -1 && state.selectedTileIds.length === 2);
+        check('drag-to-rack: after the drop the rack highlight is cleared and no drag artifacts remain',
+          !document.getElementById('rack-display').classList.contains('rack-drop-target') && noDragArtifacts());
+        rackForDrop.getBoundingClientRect = origRackRect;
+
         // The rack's own touch-reorder state machine has the same failure mode
         // (state-only -- no transforms -- but a live machine makes the NEXT tap
         // resolve as a phantom reorder).

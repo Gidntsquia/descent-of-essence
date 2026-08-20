@@ -731,6 +731,16 @@ h2 {
 }
 .staging-area.staging-dragging { cursor: grabbing; }
 
+/* Jaxon real-device playtest: while a staged tile is dragged over the rack,
+   highlight the rack as the "release here to send it back" drop zone. Pairs
+   with the ghost's staging-drag-out dim so the intent reads at a glance. */
+.rack-display.rack-drop-target {
+  outline: 2px dashed #6ac0a0;
+  outline-offset: 4px;
+  border-radius: 8px;
+  background: rgba(106, 192, 160, 0.08);
+}
+
 /* MOBILE INPUT 3/3: input-feel juice. Restrained -- tactile, not carnival.
    All of it is gated on prefers-reduced-motion (haptics too, in JS). The
    animated reorder gap open/close asked for by this ticket already ships in

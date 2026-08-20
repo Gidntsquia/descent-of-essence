@@ -9839,3 +9839,62 @@ not a ceiling, on human skill, same caveat as every prior sim reading.
 **State:** committed + pushed to main. GOALS.md queue remains empty (no box to
 check -- no ticket was worked). Next run: if Jaxon has queued a floor-1/2
 balance pass or an elite-skip ticket, pick it up; otherwise idle.
+
+## 2026-08-20T19:38Z -- Drag staged tiles back to the rack to unstage (v0.29 -> v0.30)
+
+**Task:** first unchecked GOALS.md item -- Jaxon's real-device playtest FEATURE:
+drag a staged tile onto the rack to unstage it (the inverse of staging). Its
+prerequisite (the stuck-mid-drag BUG) already landed as v0.29 (commit e5e0f10)
+in a concurrent session, so the cleanup rework it warned about was already done
+-- I built on top of it, not around it.
+
+**What the gap actually was:** `unstageTile` already returns a tile to its home
+rack slot (with the FLIP slide), and the existing drag-out-of-staging gesture
+already called it. But it only fired when the pointer left the staging area by
+>30px (`pointerOutsideStaging`'s tolerance). A rack sitting close under the
+staging area falls INSIDE that tolerance, so dropping a tile onto it read as
+"snap back to staging," not "return to rack." That's why drop-onto-rack didn't
+reliably work.
+
+**Fix (js/wordbound/game.js):** added `pointerOverRack(px,py)` (hit-tests the
+#rack-display container's rect). `moveStagingDrag` now computes
+`outside = pointerOutsideStaging(...) || overRack`, so a release over the rack
+routes to the SAME unstageTile path -- even inside the 30px tolerance. Tracked
+`d.overRack` separately only to drive a `.rack-drop-target` highlight
+(css/wordbound.css: dashed green outline + faint fill) so the drop zone reads
+at a glance. The highlight is removed in every teardown path
+(clearStagingDragStyling + sweepStagingDragArtifacts), so no interruption
+(touchcancel, blur, mid-drag re-render, second finger) can leave it stuck --
+same discipline the v0.29 stuck-drag fix established. Single pointer code path,
+so it works for touch and mouse alike. No change to reorder or drag-out
+semantics; unstageTile is return-to-rack, so folding over-rack into it is
+semantically consistent (not a new "destroy" path).
+
+**Verified:**
+- `npm test` **ALL CHECKS PASSED** (+4 new jsdom assertions): with the rack's
+  rect stubbed to a known box and the drop point at (10,10) -- a point
+  pointerOutsideStaging reads as INSIDE (|10|<30) -- hovering sets
+  overRack+outside, the rack gets `.rack-drop-target`, release unstages exactly
+  the dragged tile (2 of 3 remain), and highlight+artifacts clear after. This
+  proves the RACK zone (not the generic drag-out) is what triggers it.
+- `npm run test:mobile` **clean at 375/414px** (highlight CSS adds no overflow).
+- `npm run test:qa` **26/26 real Chromium, zero console/page errors.**
+- **Throwaway real-Chromium Playwright check (written in test/, run, deleted):**
+  used GENUINE getBoundingClientRect (jsdom's are all-zero, so the unit test
+  stubs them) -- dragged a real staged tile to the real rack center and
+  confirmed overRack, the highlight, the unstage, the tile back in the rack
+  DOM, and clean teardown. This is the real hit-test confirmation jsdom can't
+  give.
+
+**NOT verified (honest caveat, per GOALS.md's drag rule):** the subjective FEEL
+on real glass -- whether the drop target reads clearly and the return animation
+feels right under a real finger. The state machine, the real-rect hit-testing,
+and the visual affordance are all confirmed in a real browser; Jaxon's eyes on
+his iPhone are the last word. No audio surface touched.
+
+**State:** box checked in GOALS.md, v0.29 -> v0.30. Committing + pushing to
+main. Two FEATURE tickets remain in the queue (staged-word damage preview;
+BORKS dictionary gap). NOTE for next run/Jaxon: also flagged this run (earlier
+commit 5437708 + its PROGRESS entry above) that a fresh balance-simulation shows
+win rate has fallen to 13-17% (from 60% at v0.16) -- floor-2 strong/elite
+damage is the wall; that's a Jaxon-authorized-pass call, not queued.

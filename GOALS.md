@@ -3312,7 +3312,7 @@ Rules for the routine:
       timing/hit-testing of real hardware. The touchcancel + blur repros are the
       strong proxy the ticket names; Jaxon's eyes on glass are the last word.
 
-- [ ] FEATURE (Jaxon, same real-device playtest): drag staged tiles BACK TO
+- [x] FEATURE (Jaxon, same real-device playtest): drag staged tiles BACK TO
       THE RACK to unstage them, in addition to the existing tap-to-unstage.
       Currently a staged tile can be tapped (unstages) or dragged out of the
       staging area >~30px (removes). Jaxon expects the natural inverse of
@@ -3331,6 +3331,31 @@ Rules for the routine:
       staged tile ending over the rack container -> tile back in rack, staging
       empty, no lingering empty-slot or ghost); `npm run test:qa` clean;
       `npm run test:mobile` clean at 375/414px.
+      DONE 2026-08-20T19:38Z (v0.29 -> v0.30): the rack is now an EXPLICIT
+      drop-to-unstage zone. New `pointerOverRack(px,py)` hit-tests the
+      rack-display container; moveStagingDrag folds "over rack" into the
+      existing `outside` flag (so a release there routes to the SAME
+      unstageTile return-to-rack path the drag-out-of-staging gesture already
+      used) and toggles a `.rack-drop-target` highlight on the rack while
+      hovered. The one meaningful behavior change: a drop over the rack now
+      unstages EVEN when it sits inside pointerOutsideStaging's 30px tolerance
+      (a rack close under the staging area otherwise read as "snap back") --
+      that gap was why "drop onto the rack" didn't reliably work before.
+      Reuses all existing MOBILE INPUT 2/3 drag plumbing; the rack highlight is
+      cleared in every teardown path (clearStagingDragStyling +
+      sweepStagingDragArtifacts). Works for touch and mouse (single pointer
+      code path). VERIFIED: `npm test` ALL PASSED (+4 new jsdom assertions:
+      hovering the rack while INSIDE staging tolerance sets overRack+outside,
+      the highlight applies, release unstages exactly the dragged tile, and
+      the highlight+artifacts clear after); `npm run test:mobile` clean at
+      375/414px (new highlight CSS adds no overflow); `npm run test:qa` 26/26
+      real Chromium zero errors; PLUS a throwaway real-Chromium Playwright
+      check with GENUINE (non-stubbed) getBoundingClientRect hit-testing --
+      dragged a staged tile to the real rack center and confirmed overRack,
+      the highlight, the unstage, the tile back in the rack DOM, and clean
+      teardown (jsdom rects are all-zero so this is the real hit-test
+      confirmation). The subjective feel on real glass is still Jaxon's to
+      confirm, per the top-of-file drag caveat.
 
 - [ ] FEATURE (Jaxon, same real-device playtest): show the staged word's
       POTENTIAL damage/score before it's played. When >= 1 tile is staged,
