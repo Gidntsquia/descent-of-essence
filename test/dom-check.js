@@ -1506,6 +1506,52 @@ async function main() {
     window.Wordbound.Game.closeDeckViewer();
   }
 
+  // BALANCE (shop consumable odds): FUN OVERHAUL 4/8's eight new items grew the
+  // item pool from 15 to 23 against a fixed 3 consumables, so a uniform
+  // 4-of-26 draw left most shops with no consumable at all. rollShopOptions now
+  // pins one slot to the consumable pool. 50 seeded rolls, each must contain
+  // >= 1 consumable ('c:'-prefixed id), and the result must still be 4 distinct
+  // string ids (the flat-string-array contract every consumer relies on).
+  {
+    const savedRng = state.rng;
+    const savedItems = state.player.items;
+    let allHaveConsumable = true;
+    let allFourDistinctStrings = true;
+    let sawANonConsumable = false;
+    const firstSlotConsumableCount = [];
+
+    state.player.items = [];
+    for (let i = 0; i < 50; i++) {
+      state.rng = window.Game.RNG.create('shop-odds-' + i);
+      const opts = window.Wordbound.Game._rollShopOptions();
+      const consumables = opts.filter((id) => typeof id === 'string' && id.indexOf('c:') === 0);
+      if (consumables.length < 1) allHaveConsumable = false;
+      if (opts.length !== 4 || !opts.every((id) => typeof id === 'string') || new Set(opts).size !== opts.length) {
+        allFourDistinctStrings = false;
+      }
+      if (opts.some((id) => id.indexOf('c:') !== 0)) sawANonConsumable = true;
+      firstSlotConsumableCount.push(opts[0].indexOf('c:') === 0 ? 1 : 0);
+    }
+
+    check('shop consumable odds: all 50 seeded shop rolls contain at least one consumable', allHaveConsumable);
+    check('shop consumable odds: every roll is still 4 distinct string ids', allFourDistinctStrings);
+    check('shop consumable odds: rolls still offer non-consumable items too', sawANonConsumable);
+    // The pinned consumable must not always land in slot 0 -- the final shuffle
+    // exists so the guaranteed slot isn't a visually predictable first row.
+    const pinnedFirstCount = firstSlotConsumableCount.reduce((a, b) => a + b, 0);
+    check('shop consumable odds: the guaranteed consumable is not always the first row (final shuffle applied)', pinnedFirstCount > 0 && pinnedFirstCount < 50);
+
+    // Determinism: the same seed must produce the same shop, seeded runs depend on it.
+    state.rng = window.Game.RNG.create('shop-odds-determinism');
+    const rollA = window.Wordbound.Game._rollShopOptions();
+    state.rng = window.Game.RNG.create('shop-odds-determinism');
+    const rollB = window.Wordbound.Game._rollShopOptions();
+    check('shop consumable odds: the same seed produces an identical shop roll', rollA.join(',') === rollB.join(','));
+
+    state.rng = savedRng;
+    state.player.items = savedItems;
+  }
+
   // FUN OVERHAUL 5/8: the shop's premium variant-tile offer. It lives in its
   // own state field (state.shopTileOffer, a Tile object) rather than in
   // shopOptions -- which stays a flat array of string ids so every consumer

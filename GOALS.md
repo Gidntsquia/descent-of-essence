@@ -1306,7 +1306,7 @@ Rules for the routine:
       what jsdom can't confirm (shake/animation timing), consistent with
       house rules on animation claims. `npm run test:mobile`. Version bump.
 
-- [ ] BALANCE, small (orchestrator, from the 14:52Z QA pass): FUN OVERHAUL
+- [x] BALANCE, small (orchestrator, from the 14:52Z QA pass): FUN OVERHAUL
       4/8's eight new items diluted the shop's item:consumable pool ratio
       from 15:3 to 23:3, so shops now roll consumables noticeably less
       often -- the exact "shops never seem to have consumables" feel an
@@ -1321,6 +1321,26 @@ Rules for the routine:
       VERIFICATION: npm test with an added assertion that N simulated
       shop rolls (e.g. 50 via seeded rng) each contain >= 1 consumable
       (or hit the restored odds within tolerance); npm run test:qa.
+      FIXED 2026-08-20T18:16Z:
+      took the PINNED-SLOT option, not the reweight one. `rollShopOptions`
+      (js/wordbound/game.js) now draws one id from the consumable pool
+      first, fills the remaining 3 slots from the combined pool minus that
+      pick, then shuffles the final 4 so the guaranteed consumable isn't
+      always the first row. Pool sizes untouched per the ticket's own "do
+      NOT reduce the number of items in the pool." Chose pinning over
+      weighting because it's a hard guarantee (a weight only restores
+      average odds and still leaves consumable-free shops) and because it's
+      one deterministic extra rng draw, which keeps seeded runs
+      reproducible -- verified by an added same-seed-twice assertion.
+      New `Game._rollShopOptions()` test hook so the odds can be asserted
+      without standing up a real shop node. `npm test` 340/340 (+5 new:
+      all 50 seeded rolls contain >= 1 consumable; every roll is still 4
+      distinct string ids -- the flat-string-array contract renderShop and
+      the balance sim's shopping bot both rely on; rolls still offer
+      non-consumables; the pinned consumable lands in slot 0 only
+      sometimes; same seed -> identical roll). `npm run test:qa` ALL PASSED
+      (real Chromium, zero console/page errors). Version bumped
+      v0.27 -> v0.28 (user-facing: shop contents change).
 
 - [x] BUG, small (review B4): every fight opens with a doubled article --
       "A The Consonant Constrictor appears!" (js/wordbound/game.js line 371:

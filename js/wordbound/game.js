@@ -130,6 +130,7 @@
   Game._reorderStagedTile = function (tileId, dropIndex) { return reorderStagedTile(tileId, dropIndex); }; // MOBILE INPUT 2/3 Phase 2: exposed so tests can exercise reorder state logic without simulating pointer events (jsdom can't)
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate
   Game._celebrateHit = function (damage, magnificent) { return celebrateHit(damage, magnificent); }; // FUN OVERHAUL 8/8: exposed so tests can assert the CRUSHING/MAGNIFICENT DOM appends (jsdom can't verify the animation timing)
+  Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
 
   function $(id) { return document.getElementById(id); }
 
@@ -323,8 +324,22 @@
     });
     var consumablePool = Wordbound.Consumables ? Object.keys(Wordbound.Consumables.CONSUMABLE_DEFS).map(function (id) { return 'c:' + id; }) : [];
     var combined = itemPool.concat(consumablePool);
-    var shuffled = state.rng.shuffle(combined);
-    return shuffled.slice(0, 4);
+
+    // Pin one slot to the consumable pool: FUN OVERHAUL 4/8's eight new items
+    // diluted the item:consumable ratio from 15:3 to 23:3, which without this
+    // left ~59% of shop rolls with zero consumables (see GOALS.md balance
+    // ticket). Guaranteeing one restores the pre-4/8 "shops usually have a
+    // consumable" feel without touching the pool size.
+    var options = [];
+    if (consumablePool.length > 0) {
+      options.push(state.rng.shuffle(consumablePool)[0]);
+    }
+    var remainingPool = combined.filter(function (id) {
+      return options.indexOf(id) === -1;
+    });
+    var shuffledRemaining = state.rng.shuffle(remainingPool);
+    options = options.concat(shuffledRemaining.slice(0, 4 - options.length));
+    return state.rng.shuffle(options);
   }
 
   // Rolled ONCE when the shop is entered and stored on state, not derived at
