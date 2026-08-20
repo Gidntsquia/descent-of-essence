@@ -952,7 +952,7 @@ Rules for the routine:
       drag-and-drop; and a human's feel for whether the gambles are
       actually tense -- Jaxon's playtest. Version bumped v0.19 -> v0.20.
 
-- [ ] DESIGN FIX, small (DIRECT FROM JAXON, 2026-08-20 ~11:15 ET -- do this
+- [x] DESIGN FIX, small (DIRECT FROM JAXON, 2026-08-20 ~11:15 ET -- do this
       FIRST, before 8/8 and the consumable ticket): "You should not be able
       to skip the final boss fight for the win." Currently the Empty Shelf
       event's "Sit and breathe" choice (js/wordbound/events.js:130 sets
@@ -992,6 +992,28 @@ Rules for the routine:
       boss fight and skips the next regular combat on the following
       floor; (d) event choice text contains the new wording. npm run
       test:qa stays 26/26. Version bump per house convention.
+      DONE (see PROGRESS.md for timestamp): implemented exactly as spec'd.
+      enterCurrentNode's combat branch now special-cases node.type==='boss'
+      inside the pending-skip check: it startCombat()s the boss, logs
+      "The <boss name> will not be avoided." and KEEPS
+      pendingEventSkipNextCombat true (so the paid-for skip carries to the
+      next regular combat). The old advanceFloor()-on-skipped-boss branch
+      and its stale rationale comment (game.js:234-239) are removed --
+      unreachable for bosses now. events.js:127 choice text now reads
+      "...skip the next fight (bosses will not be avoided)". Elite nodes
+      untouched (still skippable -- the boss special-case only triggers on
+      node.type==='boss'). VERIFIED: npm test 256 checks pass incl. 15 new
+      boss-skip assertions covering (a) regular skip still works + clears
+      flag, (b) boss node with pending skip STARTS combat / flag survives
+      entry / flavor line logged / final-boss kill still triggers VICTORY,
+      (c) flag survives a non-final (floor-1) boss fight and then skips the
+      next regular combat on floor 2 and is consumed there, (d) event text
+      contains the new wording -- all driven through the real
+      enterCurrentNode -> startCombat -> submitWord -> reward -> advanceFloor
+      paths, zero console errors. npm run test:qa 26/26. Bumped v0.20 ->
+      v0.21. (jsdom can't render the visible log line in a real browser, but
+      the full state/flow is confirmed; the log message is a plain string
+      push, no audio/drag involved.)
 
 - [ ] FUN OVERHAUL 8/8 -- celebration juice for the new systems (do LAST,
       after 1/8-7/8). Small, scoped, no new mechanics: combo chip pops on

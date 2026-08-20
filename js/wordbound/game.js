@@ -228,18 +228,20 @@
     if (node.type === 'combat' || node.type === 'elite' || node.type === 'boss') {
       // Check if an event (like Empty Shelf) skipped this combat
       if (state.pendingEventSkipNextCombat) {
+        if (node.type === 'boss') {
+          // Bosses are the identity fights and cannot be skipped (Jaxon's
+          // ruling, GOALS.md 2026-08-20). Start the boss fight normally and
+          // KEEP the skip flag pending so it applies to the next regular
+          // combat instead -- the player paid an event choice for it, so
+          // don't silently void it.
+          startCombat(node);
+          log('The ' + state.monster.name + ' will not be avoided.');
+          render();
+          return;
+        }
         state.pendingEventSkipNextCombat = false;
         log('You skip the next encounter.');
         node.cleared = true;
-        if (node.type === 'boss') {
-          // The boss is always the floor's last node (see floor.js), so a bare
-          // index bump here walks past the end of the array and strands the
-          // run with no current node -- route through the same floor-advance
-          // a real boss kill ends in. No tile/item reward on this path: the
-          // boss wasn't actually defeated, so no kill loot is granted.
-          advanceFloor();
-          return;
-        }
         state.currentNodeIndex += 1;
         render();
         return;

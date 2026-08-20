@@ -1486,6 +1486,94 @@ async function main() {
     check('elite defeat: log flags the 1.5x elite gold', state.messages.some((m) => /1\.5x/.test(m)));
   }
 
+  // DESIGN FIX (GOALS.md, 2026-08-20, Jaxon's ruling): bosses cannot be
+  // skipped via the Empty Shelf "sit and breathe" event. A pending skip must
+  // still be honored for a regular combat, but a boss node starts the fight
+  // anyway and KEEPS the flag pending so it applies to the next regular combat
+  // on the following floor. Runs last -- the victory sub-check ends the run.
+  {
+    const Tiles = window.Wordbound.Tiles;
+
+    // (d) the event choice text carries the new "bosses will not be avoided" wording.
+    const emptyShelf = window.Wordbound.Events.EVENT_DEFS.empty_shelf;
+    check('boss-skip: empty_shelf "sit and breathe" text warns bosses will not be avoided',
+      emptyShelf.choices[0].text.indexOf('bosses will not be avoided') !== -1);
+
+    // (a) pending skip + a REGULAR combat node: fight is skipped, flag cleared,
+    // node cleared, no combat starts.
+    state.screen = 'RUN';
+    state.combatActive = false;
+    state.pendingEventSkipNextCombat = true;
+    const regDefId = Object.keys(window.Wordbound.Monsters.MONSTER_DEFS)[0];
+    const regNode = { id: 'skip-test-combat', type: 'combat', defId: regDefId, cleared: false };
+    state.floor.nodes.push(regNode);
+    state.currentNodeIndex = state.floor.nodes.length - 1;
+    window.Wordbound.Game.enterCurrentNode();
+    await new Promise((r) => setTimeout(r, 60));
+    check('boss-skip: a regular combat with a pending skip does NOT start combat', state.combatActive === false);
+    check('boss-skip: a regular skip consumes the flag', state.pendingEventSkipNextCombat === false);
+    check('boss-skip: a regular skip marks the node cleared', regNode.cleared === true);
+
+    // Helper: drive a boss node to defeat from a pending-skip entry, asserting
+    // the boss fight actually STARTS and the skip flag survives it. Returns
+    // after the run has either advanced a floor or reached VICTORY.
+    async function enterAndKillBoss(floorNumber, bossDefId, labelPrefix) {
+      state.screen = 'RUN';
+      state.combatActive = false;
+      state.floorNumber = floorNumber;
+      state.pendingEventSkipNextCombat = true;
+      const bossNode = { id: 'skip-test-boss-' + floorNumber, type: 'boss', defId: bossDefId, cleared: false };
+      state.floor.nodes.push(bossNode);
+      state.currentNodeIndex = state.floor.nodes.length - 1;
+      window.Wordbound.Game.enterCurrentNode();
+      await new Promise((r) => setTimeout(r, 60));
+      check(labelPrefix + ': a boss node with a pending skip STARTS combat (not skipped)', state.combatActive === true);
+      check(labelPrefix + ': the boss fight is against the boss', state.monster && state.monster.isBoss === true && state.monster.defId === bossDefId);
+      check(labelPrefix + ': the skip flag survives boss entry (still pending)', state.pendingEventSkipNextCombat === true);
+      check(labelPrefix + ': a flavor line explains the boss cannot be avoided', state.messages.some((m) => /will not be avoided/.test(m)));
+
+      // Deterministic one-shot kill: plain trait, 1 HP, harmless intent.
+      state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+      state.monster.hp = 1;
+      state.monster.maxHp = 1;
+      state.monster.intent = { type: 'attack', value: 0 };
+      state.hexedTileId = null;
+      state.player.hp = state.player.maxHp;
+      state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+      window.Wordbound.Game.submitWord('CAT');
+      // Killing blow runs onMonsterDefeated after TILE_PLAY_ANIM_MS (220) +
+      // MONSTER_DEATH_BEAT_MS (500).
+      await new Promise((r) => setTimeout(r, 800));
+      // Drive through the boss's tile-reward, then its item-reward, screens.
+      if (state.screen === 'TILE_REWARD') window.Wordbound.Game.skipTileReward();
+      if (state.bossRewardOptions) window.Wordbound.Game.skipBossItemReward();
+    }
+
+    // (c) a NON-final boss (floor 1): the fight happens, the flag survives it,
+    // and then skips the first regular combat on the following floor.
+    await enterAndKillBoss(1, 'boss_vowelmaw', 'boss-skip/floor1');
+    check('boss-skip/floor1: beating the boss advanced to floor 2', state.floorNumber === 2 && state.screen === 'RUN');
+    check('boss-skip/floor1: the skip flag is STILL pending after the boss fight', state.pendingEventSkipNextCombat === true);
+    // The next regular combat on floor 2 is now skipped by the surviving flag.
+    state.combatActive = false;
+    const followDefId = Object.keys(window.Wordbound.Monsters.MONSTER_DEFS)[0];
+    const followNode = { id: 'skip-test-follow-combat', type: 'combat', defId: followDefId, cleared: false };
+    state.floor.nodes.push(followNode);
+    state.currentNodeIndex = state.floor.nodes.length - 1;
+    window.Wordbound.Game.enterCurrentNode();
+    await new Promise((r) => setTimeout(r, 60));
+    check('boss-skip/floor1: the surviving flag skips the next regular combat', state.combatActive === false && followNode.cleared === true);
+    check('boss-skip/floor1: the flag is finally consumed by that regular skip', state.pendingEventSkipNextCombat === false);
+
+    // (b) the FINAL boss (floor 3): the fight happens and beating it still
+    // triggers VICTORY (the skipped-boss advanceFloor branch was removed, so
+    // this confirms the real kill path still wins the run).
+    await enterAndKillBoss(window.Wordbound.Floor.TOTAL_FLOORS, 'boss_sovereign', 'boss-skip/floor3');
+    check('boss-skip/floor3: beating the final boss triggers VICTORY', state.screen === 'VICTORY');
+    check('boss-skip: the whole boss-skip flow produced zero errors', errors.length === 0);
+    if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+  }
+
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 }

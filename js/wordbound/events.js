@@ -124,7 +124,7 @@
       text: 'The shelves here gape empty, library dust thick and undisturbed. Something feels... restful.',
       choices: [
         {
-          text: 'Sit and breathe: Recover 3 HP, skip the next fight',
+          text: 'Sit and breathe: Recover 3 HP, skip the next fight (bosses will not be avoided)',
           effect: function (state) {
             state.player.hp = Math.min(state.player.maxHp, state.player.hp + 3);
             state.pendingEventSkipNextCombat = true;
