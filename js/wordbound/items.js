@@ -280,7 +280,7 @@
     shopPrice: 45,
     hooks: {
       onWordPlayed: function (ctx) {
-        var unusedCount = (ctx.player.rack || []).length - ctx.tilesUsed.length;
+        var unusedCount = (ctx.player.rack || []).length;
         if (unusedCount > 0) Items.applyBonusDamage(ctx, unusedCount);
       }
     }
