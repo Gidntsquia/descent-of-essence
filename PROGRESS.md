@@ -9658,3 +9658,94 @@ guardrails ("if the queue is empty, don't invent busywork -- note that you're
 idle and stop"), stopping here rather than manufacturing work. Next run: if
 Jaxon has added tickets to GOALS.md or the ROADMAP gaps, pick those up;
 otherwise idle again.
+
+## 2026-08-20T19:29Z -- Stuck mid-drag bug fixed (v0.28 -> v0.29)
+
+**Task:** GOALS.md's first unchecked item -- the high-priority BUG from Jaxon's
+real iPhone/Safari playtest of v0.28: a staged tile froze mid-drag, wedged on
+top of its neighbor (his screenshot: tile O1 stuck overlapping N1). Playwright
+touch emulation had passed clean, so this was a real-glass edge. Completed
+fully, box checked, committed e5e0f10, pushed to main.
+
+**Housekeeping:** started on a detached HEAD at 10eef5f. `git fetch origin`
+showed origin/main had been FORCE-updated 115e324 -> 10eef5f (same commit I was
+on), so no divergence -- `git checkout -B main 10eef5f` and worked from there.
+No concurrent session work to reconcile.
+
+**Root cause (ticket path (a) confirmed, plus (c) and (d)):** the staged-tile
+drag (Pointer Events) bound move/up/cancel PER-TILE, and NO terminating event
+except pointerup/pointercancel-on-the-tile was covered. When iOS Safari steals
+a gesture it fires `touchcancel` (and the drag's own `pointercancel` may target
+the tile, but a render can already have replaced that element) -- nothing ran a
+teardown, so `state.stagingDrag` stayed live and the ghost's inline
+`transform` stayed frozen on the tile. A finger lifted off the tile likewise
+never reached the tile-bound `pointerup`.
+
+**Fix (js/wordbound/game.js only):**
+1. One shared teardown: `abortStagingDrag()` -> `releaseStagingCapture` +
+   `clearStagingDragStyling` (strips `staging-drag-ghost`/`staging-drag-out`
+   classes and inline transform/transition off the dragged tile AND its
+   siblings, removes the container's `staging-dragging` class). Run by
+   `pointercancel`, `touchcancel`, `window blur`, and a NEW `pointerdown` that
+   finds a drag still live (belt-and-braces for a stolen/second-finger gesture).
+2. Staged-tile drag `pointermove`/`pointerup`/`pointercancel` now bound ONCE at
+   the **document** level in `Game.init` (not per-tile), so a pointer released
+   anywhere -- off the tile, outside the viewport, over a re-rendered element --
+   still ends the drag. All are no-ops when no drag is live.
+3. `render()` runs `sweepStagingDragArtifacts()`: a render fired mid-drag (e.g.
+   the killing-blow death beat) rebuilds `#staging-area`'s innerHTML and
+   destroys the dragged node, orphaning the drag (no pointerup can reach a
+   detached element). The sweep detects the dragged el is no longer in the DOM,
+   drops the drag state, and wipes any stray transform -- so a stuck tile can
+   never survive a re-render (the ticket's explicit "make render() defensive"
+   ask).
+4. Multi-touch identity (path d): BOTH drag machines now track the owning
+   pointer/finger. Staged drag stores `e.pointerId` and ignores foreign-pointer
+   move/up/cancel (`isForeignPointer`). Rack touch-reorder stores the touch
+   `identifier`, ignores extra fingers (`ownTouch`), was made a non-passive
+   touchmove listener, and now handles `touchcancel` (via the new shared
+   `cancelTouchReorder`).
+5. `endStagingDrag` clears the drag styling up front so every release branch
+   -- including the no-op reorder-in-place path that `reorderStagedTile`
+   returns from WITHOUT rendering -- leaves a clean DOM. (Latent pre-existing
+   bug: a same-slot drop used to leave the ghost transform; now cleared.)
+
+**Verified:**
+- `npm test` **359/359** (was 340; +19 new jsdom assertions). New "stuck-drag"
+  block drives every interruption path with faked pointer/touch events and
+  asserts the state machine resets AND the DOM has zero drag artifacts:
+  touchcancel mid-drag, a second pointerdown mid-drag (Jaxon's exact
+  frozen-overlap shape), pointerup dispatched away from the tile, window blur,
+  a mid-drag re-render orphan sweep + a stray move after it, multi-touch
+  identity (foreign finger's release ignored, owning finger's honored), and the
+  rack machine's full reset on touchcancel + second-finger rejection.
+- **NEW `npm run test:drag-interrupt`** (test/verify-drag-interrupt.js, real
+  Chromium with hasTouch): starts a genuine PointerEvent drag on a staged tile,
+  confirms the ghost lifts with a live inline transform, then fires
+  `touchcancel` / `window blur` mid-drag and asserts NO ghost/out/transform
+  survives, the container class is cleared, and no tiles are lost; plus a
+  stray-move-after-cancel check and a clean-drop happy-path guard. **12/12 OK,
+  zero page errors.** This is the real-engine proxy jsdom can't give.
+- `npm run test:qa` **26/26** (real Chromium, zero console/page errors).
+- `npm run test:mobile` **clean** (375/414px, no overflow; touch-mode intact).
+
+**NOT verified (honest caveat -- audio/drag-and-drop can't be fully confirmed
+headless, and this is drag):** true real-glass confirmation on Jaxon's physical
+iPhone that the wedge is gone. jsdom and Playwright synthesize the interruption
+events, but neither reproduces WebKit's exact gesture-theft timing and
+hit-testing on real hardware. The touchcancel + blur repros are the strong
+proxy the ticket itself names; a physical-phone retry is Jaxon's to do. No
+audio surface touched.
+
+**State:** committed (e5e0f10) + pushed to main. Box checked. v0.28 -> v0.29.
+
+**What's next:** the next unchecked GOALS.md item is the FEATURE "drag staged
+tiles BACK TO THE RACK to unstage them." Its ticket explicitly notes it sits in
+the exact drag code this bug touched and should reuse this run's cleanup
+rework -- I deliberately scoped THIS run to the bug only (it's high-priority and
+game-breaking-feel) and left the feature for the next run so the fix ships and
+gets verified on its own rather than tangled with new behavior. The document-
+level pointer handlers + shared teardown this run added are the right
+foundation for it: the drag-to-rack drop zone just needs the rack container's
+rect added as a release target routing to `unstageTile`, using the same
+`pointerOutsideStaging`-style hit-test already in `endStagingDrag`.
