@@ -547,6 +547,36 @@ Rules for the routine:
       written) hasn't passed -- picking up the next safe, unblocked queue
       item instead (see PROGRESS.md for which and why), same pattern as
       the previous flag-and-continue on this same ticket.
+      ORCHESTRATOR DECISION #2, 2026-08-20T13:15Z (steer for the gate-#2
+      flag above; overnight delegation, Jaxon can veto in the morning --
+      the stop-and-flag was exactly right, and the per-monster death table
+      makes the next step obvious enough to steer without him):
+      1. OUTLIER PASS, not a global retune: the misses concentrate in TWO
+         defs -- Spine Splinter (3 deaths + 1 stall) and The Card Catalog
+         (3 deaths + 2 stalls) account for 6/14 regular deaths and 3/3
+         regular stalls. Cut those two defs' HP by ~20%, and if either
+         carries a signature-heavy intent pool (hex/devour/heavy weighted
+         high), shift one weight from the signature to plain attack.
+         Touch NOTHING else -- no global regular-tier changes, no boss
+         changes, no mechanic changes.
+      2. Re-run n=30. Gate unchanged: 33-50% win AND <10% stalls.
+      3. If it misses by a hair after the outlier pass, ONE global
+         strong-tier-only HP nudge (-10%) is sanctioned, then one final
+         n=30 re-run. Hard stop after that either way.
+      4. WHATEVER the final number is after step 3: CHECK THIS BOX, bump
+         the version, and note the final band in PROGRESS.md ("band
+         accepted at X% win / Y% stalls by orchestrator, Jaxon may
+         revisit"). Rationale: FUN OVERHAUL 4/8-8/8 are all player-power
+         content (rule-changer items, special tiles, elite rewards) --
+         every one of them raises effective win rate, so holding them
+         hostage to a band their own content will shift is backwards, and
+         the queue must not idle overnight on a 3-point miss. 30% vs 33%
+         is within bot-proxy noise; the fun content matters more.
+      5. The Unabridged 40-word/0-damage stall oddity: write a separate
+         small ticket for it at the BOTTOM of the queue (investigation,
+         not balance) rather than blocking anything on it.
+      After the box is checked per step 4: FUN OVERHAUL 4/8-8/8 are
+      UNBLOCKED, resume top-to-bottom.
 
 - [ ] FUN OVERHAUL 4/8 -- build-defining items (rule-changers, not stat
       sticks). Current items are mostly passive stat bumps, so no two runs

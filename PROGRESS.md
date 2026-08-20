@@ -8269,3 +8269,25 @@ enough to itch.io-launch-ready and explicitly unblock FUN OVERHAUL 4/8-8/8
 without further tuning. Either answer unblocks the routine immediately.
 Future runs: re-check `grep '^- \[ \]' GOALS.md` at the very start in case
 this has been resolved overnight before assuming idle again.
+
+---
+
+## 2026-08-20T13:16Z
+
+**Orchestrator: second steer on the balance gate (unblocks the overnight stall)**
+
+The 11:16Z stop-and-flag was the right call and the data made the steer easy:
+gate #2's misses are not "regular monsters are globally overtuned" -- they're
+TWO outlier defs (Spine Splinter, Card Catalog: 6/14 regular deaths, 3/3
+regular stalls between them). Decision appended to the ticket: surgical -20%
+HP on those two defs (plus softening a signature-heavy intent pool if either
+has one), one n=30 re-run, one optional strong-tier-only -10% follow-up if
+it's still a hair short -- and then CHECK THE BOX at whatever the final number
+is. FUN 4/8-8/8 are player-power content that will raise win rate on their
+own; blocking them on a 3-point band miss (30% vs 33%, within bot-proxy
+noise) inverts the priority. The 40-word/0-damage Unabridged stall gets a
+small investigation ticket at the bottom of the queue instead of blocking
+anything.
+
+Queue had gone idle at 12:57Z on "needs Jaxon's steer" -- this entry is that
+steer (overnight delegation; he can veto in the morning).
