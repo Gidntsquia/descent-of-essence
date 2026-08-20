@@ -9222,3 +9222,94 @@ killing-blow death-beat window). Then 3/3 (input-feel juice), FUN OVERHAUL 8/8
 (celebration juice), and the small shop-consumable-odds BALANCE ticket. Note
 for 2/3: `stagedWord()` and `state.blankAssignments` from this ticket are the
 staging source of truth it will build the reorder/remove mechanics on top of.
+
+---
+
+## 2026-08-20T16:53Z
+
+**Task:** MOBILE INPUT 2/3 (first unchecked GOALS.md item) -- make tile play
+physically interactive. This is a large ticket (6 spec items, flagged large by
+Jaxon and by the ticket text itself). Did **Phase 1** this run: the tap/mouse
+interaction model + the FLIP slide animation. **Box left UNCHECKED** -- the
+drag mechanics (spec items 4 drag-reorder-in-play-area, 5 drag-out-to-remove,
+6 drag-ghost-follow) are Phase 2 for the next run.
+
+**Housekeeping first:** started on a detached HEAD at origin/main's tip; local
+`main` was a stale shallow branch (behind 54). Unshallowed, reset `main` to
+`origin/main`, worked from there. No lost work (local `main` only held the 3
+initial-history commits, all ancestors of origin/main).
+
+**What shipped (v0.23 -> v0.24):**
+- **Rack keeps its shape (spec 2).** A staged tile now renders as an empty
+  outlined slot (`.rack-slot-empty`, same 46x46 footprint) in its rack
+  position instead of a dimmed-in-place `.selected` tile. The tile visually
+  "lives" in the staging area below while staged; the rack no longer reflows
+  when you stage/unstage.
+- **Unstage from every path routes through one `unstageTile(tileId)` (spec 3).**
+  Tap the empty rack slot, tap the staged tile in the play area, or (touch-mode
+  blank) tap either -- all unstage identically. `selectTileForWord`'s staged
+  branches now delegate to it too.
+- **FLIP slide animation (spec 1, + spec 6's reduced-motion gate).** New
+  `flipTile(fromRect, toEl)`: capture the source element's `getBoundingClientRect`
+  BEFORE the render, then translate the destination element from the delta back
+  to 0 over ~200ms ease-out (transform-only, no layout thrash). Applied on both
+  stage (rack tile -> staging area) and unstage (staging area -> rack). Gated on
+  `prefersReducedMotion()` (matches the house convention -- screen/floater
+  anims gate on the same media query, just in CSS; a JS-measured FLIP can't
+  live in CSS). No-ops cleanly where rAF / getBoundingClientRect are absent
+  (jsdom), so callers invoke it unconditionally.
+- **Cleanup:** removed the now-dead `.letter-tile.selected` CSS rule and its
+  className branch (staged tiles are empty slots now, never dimmed tiles);
+  confirmed nothing else references `.selected`.
+
+**Desktop unaffected:** desktop players type (selectedTileIds stays empty -> no
+empty slots, staging area empty), so the existing typing flow is untouched.
+The empty-slot model only appears when tiles are click/tap-staged, which works
+identically for mouse and touch (same `selectTileForWord`/`unstageTile` code,
+mode-agnostic).
+
+**Verified:**
+- `npm test` **298 checks, ALL PASSED.** Rewrote the pre-existing "tile click"
+  toggle checks (they asserted the old `.selected`-on-the-rack-tile model,
+  which no longer exists) to the empty-slot model, and added assertions:
+  staging leaves a `.rack-slot-empty` + no `.letter-tile` for that id + the
+  tile appears in `#staging-area`; unstage via the empty slot returns it;
+  unstage via tapping the staged tile returns it; no empty slot lingers.
+- `npm run test:qa` **26/26** (desktop combat path, zero console/page errors).
+- `npm run test:mobile` **clean at 375/414px** (empty-slot badges don't break
+  layout; the touch-mode section still passes).
+- `npm run test:itch-build` **ALL CHECKS PASSED** (zip 1.41 MB; no new JS file).
+- **Throwaway real-Chromium script (written, run, deleted):** forced touch-mode
+  at 375px in BOTH a `reducedMotion: 'no-preference'` and a `reducedMotion:
+  'reduce'` browser context; entered a real fight; tapped a rack tile ->
+  confirmed the empty slot appears, the tile lives in the staging area, and (a)
+  in normal motion a non-identity transform is present mid-flight (the slide
+  actually happens) then settles to `none`, (b) under reduced motion NO
+  transform is ever applied (instant); then unstaged via the empty slot AND via
+  tapping the staged tile, both returning the tile to the rack. **Zero
+  console/page errors across both passes.** This closes the jsdom blind spot
+  (jsdom's getBoundingClientRect returns zeros, so it can't exercise a real
+  FLIP delta) -- the animation and reduced-motion gate are confirmed in a real
+  browser.
+
+**NOT verified / not done (honest scope):** the drag mechanics (Phase 2) are
+NOT implemented -- no drag-reorder within the play area, no drag-out-to-remove,
+no pointer-following ghost. Those are the parts that genuinely need careful
+pointer-event plumbing and a real browser to verify, and they build ON this
+run's `unstageTile`/`selectedTileIds`/empty-slot model rather than needing it
+rewritten.
+
+**What's next (Phase 2 of MOBILE INPUT 2/3):** implement drag by generalizing
+the rack's existing threshold-drag pattern (`getTileAtPosition` currently
+hardcodes `#rack-display`; `startTouchReorder`/`updateTouchReorder`/
+`endTouchReorder` in game.js ~1560+) to also operate over the staging
+container, mutating `selectedTileIds` order (spec 4); add drag-out-to-remove
+when the pointer is released >~30px outside the staging container's rect (spec
+5); and a transform ghost that follows the finger/pointer with a gap at the
+origin (spec 6). Heed the ticket's two hazards: (a) `render()` rebuilds via
+innerHTML -- track the active drag in state and re-render ONCE on release, not
+mid-gesture (follow the rack pattern); (b) the ~720ms killing-blow death beat
+keeps `combatActive` true with the rack in a transient state -- gestures
+landing in that window must no-op safely. Then check the box and bump the
+version again. After 2/3 fully lands: 3/3 (input-feel juice), FUN OVERHAUL 8/8
+(celebration juice), and the small shop-consumable-odds BALANCE ticket remain.
