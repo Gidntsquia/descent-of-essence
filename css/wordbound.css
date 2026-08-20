@@ -152,24 +152,34 @@ h2 {
   width: 32px;
 }
 
+#music-volume {
+  accent-color: #f0d789;
+}
+
 .run-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 14px;
   font-size: 1.1rem;
   margin-bottom: 8px;
+}
+.run-header > .hp-display,
+.run-header > .gold-display,
+.run-header > .floor-label {
+  flex-shrink: 0;
 }
 
 @keyframes playerDamageFlash {
   0% { color: #ff6060; }
   100% { color: #e08a8a; }
 }
-.hp-display { color: #e08a8a; font-weight: bold; }
+.hp-display { color: #e08a8a; font-weight: bold; white-space: nowrap; }
 .hp-display.take-damage {
   animation: playerDamageFlash 0.4s ease-out;
 }
-.gold-display { color: #f0d789; font-weight: bold; }
-.floor-label { color: #b8ac8a; }
+.gold-display { color: #f0d789; font-weight: bold; white-space: nowrap; }
+.floor-label { color: #b8ac8a; white-space: nowrap; }
 
 .items-owned {
   display: flex;
@@ -200,6 +210,10 @@ h2 {
   margin-bottom: 16px;
 }
 .message-log div { margin-bottom: 3px; }
+.message-log-placeholder {
+  color: #6b6247;
+  font-style: italic;
+}
 
 .node-map {
   display: flex;

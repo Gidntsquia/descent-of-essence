@@ -737,7 +737,7 @@ Rules for the routine:
       selectors, wrapped in `prefers-reduced-motion: no-preference`. `npm
       test` 98/98, `npm run test:qa` 26/26, `npm run test:mobile` clean.
 
-- [ ] POLISH batch, small (review F4) -- four cheap visual fixes, one run:
+- [x] POLISH batch, small (review F4) -- four cheap visual fixes, one run:
       (1) the stock blue range slider (#music-volume) clashes with the
       parchment/gold palette everywhere -- `accent-color: #f0d789` (or
       similar) in css/wordbound.css;
@@ -758,6 +758,44 @@ Rules for the routine:
       mandatory), `npm test` 16/16, and desktop-width screenshots
       (900-1024px) confirming the header no longer wraps -- the mobile gate
       doesn't cover desktop, say what was eyeballed.
+      DONE 2026-08-20T11:40Z: all four fixes exactly as specified.
+      `#music-volume { accent-color: #f0d789; }` added. Run-header fix
+      needed one thing beyond the ticket's own suggestion: `white-space:
+      nowrap` + `flex-shrink: 0` on .hp-display/.gold-display/.floor-label
+      stopped the WRAP, but at 900px exposed a worse legibility bug (no
+      wrapping means justify-content:space-between's leftover-space gaps
+      shrink toward zero when content is tight, so "HP 20 / 20" + "0" ran
+      together as "20/200" with the coin icon squeezed in) -- fixed by
+      adding `gap: 14px` to `.run-header` as a spacing floor that
+      space-between distributes on top of; confirmed pre-fix state was
+      genuinely broken too (measured header height 42px = actual 2-line
+      wrap at 900px, not just an eyeballed guess) via a scratch Playwright
+      script (git-stashed the fix, screenshotted, restored) rather than
+      assuming the ticket's description was accurate. Message-log empty
+      state: added `state.messages.length` check in `renderRun()`,
+      renders `.message-log-placeholder` ("The Stacks are quiet.",
+      THEME.md-voiced, faint italic) instead of an empty panel -- went
+      with the placeholder option over the min-height option since the
+      ticket offered either. Damage numbers: `animateDamage()` now adds a
+      ±25px random offset via `left`/`top` (kept the existing `transform:
+      translate(-50%,-50%)` centering untouched rather than folding the
+      offset into `transform`, since the `.damage-number` CSS animation
+      (`floatDamage`) also animates `transform` for the float-up motion --
+      putting jitter there would fight the animation) and scales
+      font-size `1 + damage/60` capped at 1.6x. Uses plain `Math.random()`
+      per the ticket's own explicit instruction, does not touch
+      `state.rng`. VERIFICATION: `npm test` 110/110 (ALL CHECKS PASSED,
+      unchanged pass count -- no jsdom assertions target this ticket's
+      specific visuals, the existing damage-number-presence checks still
+      pass with the new offset/scale in place). `npm run test:mobile`
+      clean at 375/414 (main menu + combat, before and after). Desktop
+      screenshots at 900px and 1024px (scratch Playwright script, not
+      committed) confirm single-line header, gold slider, and the
+      placeholder line, with zero horizontal overflow at either width --
+      images inspected directly, not inferred from computed styles alone.
+      No version bump (cosmetic-only polish batch, no new mechanic or
+      balance change; matches the no-bump precedent set by the F2/F3
+      tickets immediately above).
 
 - [ ] POLISH, small (review F4.5): tile-reward options render as three
       full-width bars each containing one small letter -- while the rack

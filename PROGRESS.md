@@ -7630,3 +7630,101 @@ CSS/visual fixes -- slider accent color, run-header wrap, empty
 message-log placeholder, randomized damage-number offset). That's a
 CSS-layout task, so `npm run test:mobile` is mandatory before checking
 its box, same standard as everything else.
+
+---
+
+### 2026-08-20T11:40Z -- housekeeping note + POLISH batch F4 (4 small visual fixes), checked off
+
+**Housekeeping note, unrelated to game content:** this run started with the
+local checkout's `main` branch pointed at a stale, unrelated 3-commit
+history (`bbf3169`/`30a3bec`/`115e324`, dated 2026-08-18, "Initial commit"
+/ "Wire up Slay the Spire-style deck rework" / "Write theme bible and queue
+7 new feature requests" -- no shared ancestor with the real 56+-commit
+project history). `git fetch origin main` showed the live `origin/main` was
+actually already at the correct, current history (matching everything in
+this file); reset local `main` to `origin/main` before doing anything else
+(safe -- the working tree already matched, only the branch pointer was
+stale, and this never touched the remote). Flagging this in case it
+recurs: it looks like a stale/pre-warmed local git cache in this
+particular container, not an actual rewrite of the real history, but
+worth a glance if a future run sees the same "diverged, unrelated
+histories" symptom.
+
+**Balance ticket (top of queue):** picked this up first, but a concurrent
+session had already landed `f9a99cf` (sim gate #2 result + stop-and-flag
+decision) by the time I'd finished my own independent sim gate #2 run
+(same code, n=30: my numbers were win 40%/stall 17%/Sovereign 4.8
+words -- the concurrent run measured win 30%/stall 13%/Sovereign 1.7
+words on the identical committed code, confirming the sim is
+run-to-run-noisy as expected since it isn't seeded; both runs agree on
+the conclusion though: floor-3 boss criterion passes solidly, win rate is
+close-ish, stall rate is the persistent miss, and the per-run death/stall
+breakdown in both cases shows bosses are no longer the bottleneck --
+80%+ of deaths/stalls are non-boss 'strong'-tier monsters, outside this
+ticket's boss-HP-only sanctioned knob). Reset to `origin/main` to take
+their (more complete) writeup rather than duplicate it with my own
+redundant commit. Box stays unchecked, flagged for Jaxon, exactly as they
+left it -- did not spend more time re-litigating an already-answered
+question.
+
+**Picked up POLISH batch (review F4) instead** -- the next safe, unblocked
+queue item, matching the concurrent run's own stated intent for "what's
+next." All four fixes, verified as CSS/JS-layout-affecting per GOALS.md's
+mandatory-test rule:
+
+1. `#music-volume { accent-color: #f0d789; }` -- one-line CSS fix, slider
+   thumb/track now match the parchment/gold palette instead of stock
+   browser blue.
+2. Run-header wrap fix: `white-space: nowrap` + `flex-shrink: 0` on
+   `.hp-display`/`.gold-display`/`.floor-label` per the ticket's own
+   suggestion. Confirmed the wrap was real and not just an eyeballed
+   guess -- measured `.run-header` height at 900px BEFORE the fix via a
+   scratch Playwright script (git-stashed my changes, screenshotted,
+   restored): **42px** (a genuine 2-line wrap, "HP 20 /" breaking onto
+   its own line under "20", exactly as described), vs. **21-30px**
+   (single line) after. Found and fixed a second issue the ticket didn't
+   call out but the fix exposed: killing the wrap without also giving the
+   three labels breathing room made `justify-content: space-between`'s
+   leftover-space gaps shrink toward zero at tight-but-not-wrapping
+   widths, so "HP 20 / 20" ran directly into the gold count and read as
+   "20/200" -- added `gap: 14px` to `.run-header` as a spacing floor.
+   Screenshots at 900px and 1024px (not committed, scratch-only) confirm
+   the final result: single line, clearly legible, zero horizontal
+   overflow at either width.
+3. Empty message-log: `renderRun()` now renders a themed placeholder
+   (`.message-log-placeholder`, "The Stacks are quiet.", faint italic)
+   when `state.messages` is empty instead of leaving the panel blank.
+4. `animateDamage()`: added a ±25px random `left`/`top` offset per hit
+   (plain `Math.random()`, confirmed NOT touching `state.rng` --
+   seeded-run determinism preserved) and font-size scaling
+   (`1 + damage/60`, capped at 1.6x). Deliberately left the existing
+   `transform: translate(-50%, -50%)` centering alone and put the jitter
+   on `left`/`top` instead of folding it into `transform`, because
+   `.damage-number`'s `floatDamage` CSS animation also animates
+   `transform` (for the float-up motion) -- an inline `transform` jitter
+   would have been silently overridden by the animation's own keyframes
+   for the animation's whole duration.
+
+**Verification:** `npm test` **110/110**, ALL CHECKS PASSED (unchanged
+count -- no existing jsdom assertions specifically target these visuals,
+but the existing damage-number-presence checks still pass cleanly with
+the new offset/scale code path exercised). `npm run test:mobile` clean at
+375px/414px on both main menu and combat screens, before and after.
+Desktop-width verification (the ticket's own explicit ask, since the
+mobile gate doesn't cover it) via a scratch Playwright script measuring
+computed layout + screenshots at 900px/1024px -- both clean, no wrap, no
+overflow; images inspected directly rather than inferring from computed
+sizes alone. Scratch verification script and screenshots were NOT
+committed (temp files only, deleted after use).
+
+**Not touched:** F4.5 (tile-reward tile styling), N6 (stats screen), B6
+(cleanup) below F4 in the queue -- left for a future run. No version bump
+(cosmetic-only, matches the no-bump precedent from the F2/F3 tickets
+immediately above this one in GOALS.md).
+
+**What's next:** the balance ticket at the top of the queue is still
+unchecked, flagged for Jaxon, blocking FUN OVERHAUL 4/8 onward. The next
+safe, unblocked queue item is F4.5 (review F4.5, tile-reward restyling) --
+also a CSS/rendering task, `npm run test:mobile` + `npm test` + `npm run
+test:qa` all mandatory before checking its box per its own VERIFICATION
+line.

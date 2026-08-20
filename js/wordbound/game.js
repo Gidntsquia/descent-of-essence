@@ -835,8 +835,14 @@
     else if (damage < 5) dmgNum.classList.add('weak');
     else dmgNum.classList.add('normal');
     dmgNum.textContent = damage;
-    dmgNum.style.left = '50%';
-    dmgNum.style.top = '50%';
+    // Cosmetic-only jitter and scale -- plain Math.random is fine here, this
+    // must NOT consume state.rng (would break seeded-run determinism).
+    var offsetX = Math.round((Math.random() - 0.5) * 2 * 25);
+    var offsetY = Math.round((Math.random() - 0.5) * 2 * 25);
+    var scale = Math.min(1.6, 1 + damage / 60);
+    dmgNum.style.left = 'calc(50% + ' + offsetX + 'px)';
+    dmgNum.style.top = 'calc(50% + ' + offsetY + 'px)';
+    dmgNum.style.fontSize = (1.5 * scale) + 'rem';
     dmgNum.style.transform = 'translate(-50%, -50%)';
     monsterInfo.appendChild(dmgNum);
     setTimeout(function () { dmgNum.remove(); }, 1000);
@@ -1280,7 +1286,9 @@
     $('run-seed-display').textContent = 'Seed: ' + state.runSeed;
     renderItemsOwned();
     var log_ = $('message-log');
-    log_.innerHTML = state.messages.map(function (m) { return '<div>' + escapeHtml(m) + '</div>'; }).join('');
+    log_.innerHTML = state.messages.length
+      ? state.messages.map(function (m) { return '<div>' + escapeHtml(m) + '</div>'; }).join('')
+      : '<div class="message-log-placeholder">The Stacks are quiet.</div>';
     log_.scrollTop = log_.scrollHeight;
 
     $('deck-viewer-panel').classList.toggle('hidden', !state.deckViewerOpen);
