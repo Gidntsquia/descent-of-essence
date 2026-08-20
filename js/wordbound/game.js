@@ -1056,7 +1056,7 @@
     }
   }
 
-  function endTouchReorder(tappedTile) {
+  function endTouchReorder(tappedTile, e) {
     if (state.draggedTileId === null) {
       state.touchStartX = null;
       return;
@@ -1068,7 +1068,10 @@
         state.touchCurrentIndex !== state.touchStartIndex) {
       reorderRackOnDrop(state.touchCurrentIndex);
     } else if (!state.touchDragThresholdCrossed && tappedTile) {
-      // No drag happened: treat as a tap and play the letter
+      // No drag happened: treat as a tap and play the letter. Suppress the
+      // browser's synthesized post-touchend click, or it lands on the
+      // freshly-rendered replacement tile and plays the same letter twice.
+      if (e && e.cancelable) e.preventDefault();
       selectTileForWord(tappedTile);
     }
 
@@ -1468,8 +1471,8 @@
           }
         }
       });
-      btn.addEventListener('touchend', function () {
-        endTouchReorder(tile);
+      btn.addEventListener('touchend', function (e) {
+        endTouchReorder(tile, e);
       });
 
       rack.appendChild(btn);

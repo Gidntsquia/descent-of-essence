@@ -4882,3 +4882,134 @@ exhausted. The ROADMAP.md update above is still accurate on its own terms
 (the gaps it lists as resolved really are resolved); it just doesn't
 account for the two brand-new GOALS.md tickets, which are a separate,
 freshly-discovered thing, not a known-gap-list item.
+
+---
+
+## 2026-08-20T04:59Z (hourly routine)
+
+**Task:** first unchecked GOALS.md item -- the touchscreen tap-to-play
+double-fire bug (each real tap on a rack tile appended its letter TWICE and
+pushed the same tile id into `state.selectedTileIds` twice).
+
+**Fix applied (exactly as GOALS.md's own root-cause analysis specified):**
+in `js/wordbound/game.js`, `endTouchReorder()` (~line 1059) now takes the
+originating `touchend` event as a second parameter and calls
+`e.preventDefault()` (guarded on `e.cancelable`) immediately before
+`selectTileForWord(tappedTile)` in the no-drag/tap branch. The `touchend`
+listener that builds each rack tile (~line 1471) now passes its event
+through: `endTouchReorder(tile, e)`. This suppresses the browser's
+synthesized post-touchend `click` for a plain tap, which was the actual
+double-fire mechanism (an un-prevented tap's synthesized click landed on
+the freshly re-rendered replacement tile element in the same rack slot --
+`render()` rebuilds `#rack-display` from scratch on every
+`selectTileForWord` call -- and fired `selectTileForWord` a second time for
+the same tile). Went with the ticket's primary suggested fix
+(explicit `preventDefault()`) over its listed alternative (dropping the
+direct `selectTileForWord` call and relying solely on the synthesized
+click) since it's less timing-dependent and easier to verify deterministically.
+
+**Test tightened per the ticket's own instruction** (its existing assertion,
+`afterTapValue.length > 0`, was the reason the original regression shipped
+silently -- a doubled letter also has `length > 0`):
+rewrote `test/verify-touch-tap-fix.js` to assert exact values instead of
+truthiness -- `afterTapValue === expectedLetter` (reading the tapped tile's
+actual letter off its DOM text node beforehand, not hardcoded) and
+`state.selectedTileIds.length === 1` with the one entry equal to the tapped
+tile's id (read via `Game._state`, which game.js already exposes at line
+109 "for headless/browser test inspection only"). Added a real
+pass/fail counter and `process.exitCode`, since the old script never set a
+non-zero exit code on failure (would print ✗ to stdout but still exit 0 --
+silently non-blocking in any CI/npm-run context). Also added a genuine
+touch-drag-reorder check (dispatching real `TouchEvent`/`Touch` objects --
+`touchstart` + 5 `touchmove` steps past the 10px threshold + `touchend` at a
+different tile's position) to positively confirm dragging still reorders
+the rack AND still does not also append a letter, closing out the "must
+stay mutually exclusive" half of the ticket's verification requirement that
+the previous script only asserted in a code comment, never actually tested.
+
+**Opportunistic side-fix (scoped to this one file only, not the other two
+scripts in the separate TEST-INFRA ticket below it in the queue):** while
+rewriting the assertions, applied the same hardcoded-cloud-path fix that
+ticket describes (`fs.existsSync('/opt/pw-browsers/chromium') ?
+{executablePath:...} : {}` instead of an unconditional hardcoded
+`executablePath`, and a `path.join(__dirname, '..', 'wordbound.html')`
+`file://` URL instead of a hardcoded `/home/user/descent-of-essence/...`
+absolute path) so this script can actually run on a normal local checkout
+too, not just this cloud sandbox. Chose to do this now rather than leave it
+broken for the next hour because I needed to actually RUN this script
+repeatedly to verify the fix (per this project's own "don't just reason
+about it, execute it" standing rule) and the hardcoded absolute path
+happened to accidentally match this sandbox's real path, which made it easy
+to fix while already in the file. The other two scripts named in the
+TEST-INFRA ticket (`verify-keyboard-playable.js`, `measure-wordlist-load.js`)
+were NOT touched -- still open, unchanged, left for that ticket.
+
+**Bug found and fixed IN THE TEST SCRIPT while first trying to run it
+(not a game.js bug):** the rewritten script initially failed ALL its
+assertions -- `page.touchscreen.tap()` produced zero events of any kind on
+the target tile (confirmed by attaching throwaway `touchstart`/`touchend`/
+`click` listeners directly to the tile element: none fired). Root cause:
+this exact class of bug already found and fixed once for `npm run test:qa`
+(see the 2026-08-20T04:45Z entry above) -- a fresh Playwright browser
+context has no localStorage, so the "How to Play" overlay auto-shows on the
+very first combat entry and (confirmed via `page.isVisible('#howto-overlay')`
+returning `true`) sits on top of the rack with pointer-events enabled,
+silently swallowing the tap before it ever reaches the tile. Fixed the same
+way `test:qa` was fixed: check `page.isVisible('#howto-overlay')` right
+after entering combat and click `#btn-close-howto` first if so. After that
+one-line-equivalent fix, every assertion passed cleanly. This is now the
+SECOND test script this overlay has silently broken since it shipped
+(2026-08-20T03:48Z) -- worth Jaxon knowing that any future Playwright script
+that drives combat needs this same guard; might be worth adding a shared
+test helper for it if a third script hits the same issue, but two data
+points felt too early to force an abstraction on it now.
+
+**Verification, in order:**
+1. Reverted only `js/wordbound/game.js` (`git stash push`) and re-ran the
+   rewritten test against the OLD (buggy) code first, to prove the new
+   assertions actually catch the regression rather than just always
+   passing: got exactly the expected failure --
+   `word-input gains exactly the tapped letter once (got "AA", expected "A")`
+   and `selectedTileIds has exactly one entry (got ["tile1","tile1"])` both
+   FAIL, 2/8 checks failed. This confirms the test is a real regression
+   guard, not a tautology.
+2. Restored the fix (`git stash pop`) and re-ran: `ALL CHECKS PASSED`, 8/8,
+   exit code 0 -- exact single-letter append, exactly one
+   `selectedTileIds` entry matching the tapped tile, `.selected` class
+   present, AND the separate real-touch-drag reorder still works and still
+   does not append a letter.
+3. `npm test`: 16/16 clean (mouse-click path unaffected, as expected --
+   this fix only touches the touch-event path).
+4. `npm run test:qa`: 24/24 clean (full scripted playthrough through two
+   boss fights, tile/boss-item rewards, floor advance -- confirms this
+   touch-path change didn't regress anything on the click-driven combat
+   flow the orchestrator QA script exercises).
+Not a CSS-layout-touching task, so `npm run test:mobile` wasn't required by
+GOALS.md's own mandate and wasn't run separately (test:qa's own 375px
+viewport checks, which passed, cover the closest adjacent ground).
+
+**What's still NOT verified:** a real physical touchscreen device, per this
+ticket's own acknowledgment that Playwright's touch emulation (CDP-level
+synthetic `Touch`/`TouchEvent` objects and `page.touchscreen.tap()`) is the
+strongest check available from this sandbox but isn't a substitute for
+real hardware. The fix's mechanism (suppressing a synthesized click via
+`preventDefault()` on `touchend`) is standard, well-documented browser
+behavior, not something emulation is likely to get subtly wrong, but
+flagging per this project's "say what's actually confirmed" standard.
+
+**Version:** not bumped -- a bug fix restoring previously-broken (in a more
+confusing way than before) functionality to actually working, not a new
+feature or major polish pass, per GOALS.md's version convention (patch-only
+bump would be optional here; judged not worth it for an invisible-to-most
+players mobile-only fix that was never fully functional in the first place).
+
+Checked off in GOALS.md.
+
+**Current state:** v0.10, all `npm test`/`npm run test:qa` green. Next
+unchecked GOALS.md item: the TEST-INFRA ticket for
+`verify-keyboard-playable.js` and `measure-wordlist-load.js` (the two
+remaining scripts with hardcoded cloud-sandbox-only chromium paths --
+`verify-touch-tap-fix.js`, the third script that ticket named, was already
+fixed above as a side-effect of this run, so that ticket's remaining scope
+is now smaller than originally filed; worth noting in the next run so it
+doesn't re-fix the same file).

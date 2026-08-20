@@ -51,11 +51,16 @@ Rules for the routine:
 
 ## Queue
 
-- [ ] BUG, high priority: the touchscreen tap-to-play fix (commit a486e06,
+- [x] BUG, high priority: the touchscreen tap-to-play fix (commit a486e06,
       2026-08-20T00:59Z, "Fix touchscreen tap bug") double-fires on every
       tap -- each tapped rack tile's letter gets appended TWICE to
       `#word-input` and the same tile id gets pushed twice into
-      `state.selectedTileIds`, corrupting the word being formed. Found
+      `state.selectedTileIds`, corrupting the word being formed. FIXED
+      2026-08-20T04:59Z: see PROGRESS.md for the fix, the exact-assertion
+      test rewrite, and one unrelated pre-existing bug found and fixed in
+      the test script along the way (the How to Play overlay silently
+      blocking all touch/click input on a fresh browser context, the same
+      class of issue already found once for `npm run test:qa`). Found
       2026-08-20 during a real-browser Playwright QA pass using actual touch
       emulation (`browser.newContext({ hasTouch: true })` +
       `page.touchscreen.tap()` / `locator.tap()`, NOT a mouse `.click()` --
