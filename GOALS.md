@@ -51,6 +51,147 @@ Rules for the routine:
 
 ## Queue
 
+- [ ] BUILD/LAUNCH, highest priority: produce a packaged, itch.io-ready build of
+      Wordbound. Queued 2026-08-20 by the orchestrator from ROADMAP.md's known-gaps
+      list (now the top remaining launch blocker -- everything else on the old list
+      is resolved or ticketed below).
+      CONTEXT: itch.io's HTML5 upload takes a zip whose ROOT contains `index.html`
+      as the entry point. This repo's `index.html` is Descent of Essence, a
+      DIFFERENT game -- Wordbound lives at `wordbound.html`. So the build must
+      stage files into a temp dir with wordbound.html RENAMED to index.html, plus
+      exactly its dependencies, then zip that. Wordbound's full dependency list
+      (verified 2026-08-20 against wordbound.html's actual tags, lines 7 and
+      126-140): `css/wordbound.css`, `js/core/namespace.js`, `js/core/rng.js`, and
+      all of `js/wordbound/*.js`. Nothing else -- no images/fonts/audio files exist
+      by design (CSS-only visuals, Web Audio synthesis).
+      FIX: add a small build script (`build-itch.sh` or a no-dependency node
+      script, your call -- document it) that stages those files (preserving the
+      css/ and js/ subdirectory structure so the relative paths inside the HTML
+      keep working), renames wordbound.html -> index.html, and zips the staging
+      dir's CONTENTS (index.html at zip root, not nested inside a folder -- a
+      common itch upload mistake). Output to `dist/wordbound-itch.zip`; add
+      `dist/` to .gitignore (build artifact, not source). Add an npm script
+      (`build:itch`). The `zip` binary exists in this sandbox but don't assume it
+      everywhere -- fail with a clear message if missing.
+      VERIFICATION: unzip to a scratch dir and (1) assert index.html is at the
+      root, (2) run the equivalent of test/dom-check.js against the UNZIPPED copy
+      (point jsdom at the staged index.html -- the script currently hardcodes
+      wordbound.html's path, parameterize or copy it) and get 16/16, proving the
+      staged file set is complete and paths resolve. Also load it once via a real
+      browser from the unzipped dir over a local static server (same pattern as
+      test/verify-mobile-layout.js) and confirm zero 404s on subresources. Note
+      the final zip size in PROGRESS.md (wordlist.js is 2.5MB raw; the zip should
+      compress well under itch's limits either way). What CAN'T be verified from
+      the sandbox: the actual upload and itch's iframe embed behavior -- say so in
+      PROGRESS.md and leave the upload step to Jaxon.
+
+- [ ] UX/ONBOARDING, high priority: the first five minutes teach the player
+      nothing -- there is no how-to-play anywhere in the game (verified 2026-08-20:
+      zero matches for tutorial/how-to-play across wordbound.html, js/, css/).
+      ROADMAP.md ranks the in-game first five minutes as the highest-leverage
+      presentation work left. A new player currently lands in combat with a rack
+      of tiles, an input box saying "Type or click letters...", and no explanation
+      of the loop (spell a word from your rack -> damage scales with the word ->
+      match the monster's stated weakness for bonus damage -> whole rack recycles
+      after every word -- that last one especially is non-obvious and unique to
+      this game vs. Scrabble intuition).
+      FIX (bounded scope -- this is a panel + a flag, not a step-by-step tutorial
+      engine): add a compact "How to Play" panel reachable from a small button on
+      the main menu, reusing the existing `.treasure-panel` visual pattern like
+      deck-viewer/item-inspector already do. 4-6 short lines in THEME.md's voice
+      covering: play real words from your rack; longer/rarer letters hit harder;
+      every monster shows a weakness -- match it for bonus damage; your whole rack
+      refreshes after every word, so spend freely; bonus tiles and items stack up
+      across a run. ALSO show this panel automatically the very first time a
+      player ever starts combat (localStorage flag, e.g.
+      'wordbound_seen_howto' -- follow the existing key naming in
+      achievements.js/game.js), dismissible with one click/tap, never shown
+      automatically again after. Do NOT pause or gate anything behind it beyond
+      that one dismissal; returning players must be able to ignore it entirely.
+      VERIFICATION: `npm test` 16/16 plus new assertions in the same style: panel
+      opens from the menu button, auto-shows exactly once on first combat (flag
+      unset -> visible; flag set -> stays hidden), dismiss sets the flag. It's a
+      new panel, so run `npm run test:mobile` too and confirm no overflow at
+      375/414px with the panel open. Real-browser click check per the standing
+      mandate.
+
+- [ ] UX/MOBILE: fix the two standing real findings from `npm run test:mobile`
+      (flagged 2026-08-20 during the test-infra hardening, deliberately left
+      unfixed there as out of scope; ticketing now so they stop being loose ends):
+      (1) the Deck and Consumables buttons in the run header render 30px tall at
+      375/414px -- under the ~36-44px comfortable-tap floor for touch; (2) 8 text
+      elements render below 12px at those widths.
+      FIX: in css/wordbound.css's existing narrow-viewport media query (the
+      mobile-overflow fix added one around ~420px -- extend it, don't add a
+      competing breakpoint), bump the run-header buttons' vertical padding/height
+      to reach >=36px tall and raise the smallest text sizes to >=12px. The
+      run-header row is width-tight (that's what caused the overflow bug) --
+      taller is safe, wider is what overflowed before, so grow vertically and
+      re-verify. If the 8 small-text elements include intentionally-tiny
+      decorative text, use judgment and document what was left as-is and why.
+      VERIFICATION: `npm run test:mobile` with ZERO button-size warnings and zero
+      (or documented-acceptable) text-size warnings, zero overflow/clipping at
+      both widths -- plus `npm test` 16/16 as always.
+
+- [ ] PRESENTATION: record a real gameplay GIF for the README (its screenshot
+      section has had a "TODO: needs a real screen recording" placeholder since
+      2026-08-19) and for Jaxon's itch.io page. This IS automatable from the
+      sandbox, contrary to what the README TODO assumed: Playwright records
+      .webm video natively (`browser.newContext({ recordVideo: { dir, size } })`),
+      and ffmpeg ships in this sandbox at /opt/pw-browsers/ffmpeg-1011 (also on
+      PATH inside Playwright). Script a real playthrough segment (the
+      orchestrator QA script test/orchestrator-qa-boss-reward.js already drives
+      real fights with real typed words -- reuse its word-finder), record ~15-30s
+      covering: typing a word, the damage animation, a tile reward pick, and
+      ideally a boss entrance. Convert webm -> gif with ffmpeg (palettegen/
+      paletteuse two-pass for quality; target under ~8MB, 480-640px wide, 10-15
+      fps -- GitHub READMEs won't render giant GIFs well). Commit the gif under
+      docs/ (e.g. docs/gameplay.gif), wire it into README.md replacing the TODO,
+      and ALSO keep the source .webm/.mp4 under docs/ for Jaxon's itch page
+      (itch accepts video better than gif for store pages). Add whatever
+      recording script you write under test/ or tools/ so it's re-runnable after
+      visual changes.
+      VERIFICATION: the gif file exists, is under ~8MB, plays (verify frame count
+      /duration via ffprobe), README references it at the right path. Whether it
+      LOOKS good is Jaxon's call -- describe in PROGRESS.md exactly what segment
+      got recorded so he can judge without digging.
+
+- [ ] FEATURE/REPLAYABILITY: surface seeded runs. The RNG is already fully
+      seeded under the hood (js/core/rng.js: mulberry32, string-hashable seeds,
+      the instance exposes `.seed`; verified 2026-08-20) -- game.js line ~123 just
+      calls `RNG.create(RNG.randomSeed())`, so this is surfacing, not rebuilding.
+      FIX: (1) display the current run's seed unobtrusively (run screen footer or
+      the game-over/victory screens -- game-over is the moment someone wants to
+      share "try this seed"); (2) let a player enter a seed when starting a new
+      run -- a small optional text input on the character-select screen ("Seed
+      (optional)"), empty = random as today. Accept any string (RNG.create
+      already hashes strings). Same seed + same character + same achievement-
+      unlock state must reproduce the same floors/monsters/rewards -- note in the
+      UI-adjacent code (comment) that unlock state can shift item pools between
+      players, so identical runs are only guaranteed at identical unlock state;
+      don't try to fix that beyond documenting it (it's an acceptable v1 caveat).
+      One trap: don't consume RNG calls conditionally on UI state before floor
+      generation, or the same seed will diverge -- check the startRun path stays
+      deterministic from seed to first floor.
+      VERIFICATION: `npm test` 16/16, plus a determinism check (jsdom or
+      Playwright): start two runs with the same typed seed + same character and
+      assert identical floor node sequences and first-fight monster; two runs
+      with different seeds differ. It's a character-select UI change, so
+      `npm run test:mobile` too.
+
+- [ ] POLISH, small: neither wordbound.html nor index.html has a favicon (browser
+      tabs show the default globe; verified 2026-08-20 -- also why the
+      orchestrator QA script has to exempt a /favicon.ico 404). This project is
+      no-external-assets by design, so use an inline SVG emoji data-URI favicon,
+      e.g. `<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">`
+      -- 📖 for Wordbound (matches the tier-glyph language already in the game);
+      pick something distinct for index.html (Descent of Essence) so the two tabs
+      differ. One line per file, no new assets.
+      VERIFICATION: `npm test` still 16/16 (it loads wordbound.html); confirm in
+      a real browser that the tab icon renders and the /favicon.ico 404 stops
+      appearing (then remove the QA script's favicon exemption if it's now moot,
+      or leave it with a note -- either is fine, say which).
+
 - [x] BUG, high priority: tapping a rack tile on a touchscreen does not play the
       letter at all. Reported 2026-08-20 by Jaxon ("make sure clicking on letters
       actually plays them"), verified by reading the event-listener wiring (real

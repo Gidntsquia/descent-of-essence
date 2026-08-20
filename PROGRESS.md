@@ -3813,3 +3813,60 @@ Next: the boss-kill bonus-item-choice FEATURE ticket (extra permanent-item choic
 screen after defeating a boss, on top of the normal tile reward) -- the queue's
 last remaining unchecked item before ROADMAP.md's known-gaps section.
 
+---
+
+## 2026-08-20T02:50Z (orchestrator pass, not the hourly routine)
+
+Jaxon asked for an orchestrator pass after the hourly routine emptied the GOALS.md
+queue (boss-reward feature, v0.8, landed at 02:15Z). Three deliverables this pass:
+
+**1. Real-browser QA of v0.8 -- CLEAN, 24/24 checks.** The boss-reward feature had
+only jsdom verification; this project's history says that's not sufficient evidence.
+Wrote test/orchestrator-qa-boss-reward.js (now `npm run test:qa`): headless Chromium
+via Playwright with REAL actionability-checked clicks and real typed words (a
+page-side anagram-index word finder drives actual fights). Coverage: organic
+main-menu -> character-select -> node-map -> first-combat play; boss kill -> tile
+reward (real click) -> boss item reward panel (asserted rare/legendary-only options:
+got legendary,rare,rare) -> real click claims item -> chip appears, floor 1->2;
+panels asserted strictly sequential (never stacked, never leaking into the node
+map); skip path on floor 2's boss at a 375px viewport with zero horizontal
+overflow, panel fully inside the viewport, all three panel buttons >=40px tall;
+floor 2->3 on skip. Zero substantive console/page errors. (One exempted: the
+browser's implicit /favicon.ico 404 against the test's static server -- the game
+has no favicon, which became a small ticket, see below.) Also re-ran `npm test`
+(16/16), `npm run test:mobile` (clean, same 2 known small-button/small-text
+warnings), and verify-touch-tap-fix.js (tap fix holds). Test scaffolding honesty:
+the QA script tops up player HP via Game._state before boss fights so QA never
+flakes on a legitimate death, and jumps the node index to reach bosses quickly --
+setup only; every asserted interaction is a real click/keystroke on visible UI.
+
+**2. ROADMAP.md staleness review.** Marked the touch/mobile gap and the
+never-browser-verified gap RESOLVED (with what's still pending: a real
+physical-device test and a human feel-playtest, neither possible from the
+sandbox). Updated the replayability entry (characters/achievements/unlockables
+exist now; seeded/daily hook doesn't -- ticketed). Promoted the packaged itch.io
+build to "top remaining launch blocker" with the key trap documented (itch wants
+index.html at zip root; this repo's index.html is the OTHER game). Fixed a real
+store-copy bug: the draft description advertised "some only take damage from
+palindromes... one's just allergic to vowels" -- mechanics deliberately retired in
+the 2026-08-19/20 balance passes. Rewrote to match the shipped bonus-on-match
+design and left a copy note explaining why, so it doesn't regress.
+
+**3. New GOALS.md queue, 6 tickets, launch-priority order:** (1) packaged
+itch.io zip build with staging/rename and unzip-and-verify requirements;
+(2) first-five-minutes onboarding -- a compact How to Play panel + auto-show-once
+flag (verified there is currently NO how-to-play anywhere in the game);
+(3) the two standing mobile findings (30px-tall Deck/Consumables buttons, 8
+sub-12px text elements); (4) gameplay GIF -- discovered this IS automatable
+(Playwright records webm natively, ffmpeg ships in the sandbox), which un-blocks
+the README's screenshot TODO; (5) seeded runs -- verified the RNG is already
+seed-based end to end so this is surfacing, not rebuilding; (6) inline-SVG emoji
+favicon for both games' tabs.
+
+**What was verified vs. not:** everything in the QA list above ran green in a real
+browser this pass. NOT verified from here: physical-device touch, audio quality,
+animation feel, itch.io's actual upload/embed behavior -- all flagged in their
+tickets/ROADMAP rather than claimed.
+
+**Current state:** repo healthy, v0.8, queue has 6 unchecked tickets, top of queue
+is the itch build. Next hourly run starts there.

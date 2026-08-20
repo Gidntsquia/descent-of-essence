@@ -4,7 +4,8 @@
   "description": "Dev-only tooling for the Wordbound/Descent of Essence static game. The game itself has no build step -- just open index.html or wordbound.html.",
   "scripts": {
     "test": "node test/dom-check.js",
-    "test:mobile": "node test/verify-mobile-layout.js"
+    "test:mobile": "node test/verify-mobile-layout.js",
+    "test:qa": "node test/orchestrator-qa-boss-reward.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
