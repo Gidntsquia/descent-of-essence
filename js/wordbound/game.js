@@ -284,19 +284,7 @@
     } else if (node.type === 'event') {
       startEvent(node);
     } else if (node.type === 'rest') {
-      // Floor 1 heal ratio 0.5 -> 0.25 (2026-08-20 rebalance ROUND 3b):
-      // round 3's first attempt gave floor 1 a full-strength (50%) rest
-      // node identical to floors 2-3's, and it badly overshot -- win rate
-      // jumped to 73% (target 35-50%) and the floor-1 boss dropped to a
-      // literal 0% kill rate (was a reasonable 11% in round 2), because a
-      // 12-HP mid-floor refill on a floor whose total damage output is
-      // modest amounts to nearly resetting the floor. A quarter-strength
-      // heal still gives floor-1 SOME checkpoint recovery (the original
-      // goal -- players weren't arriving at floor 2 fully spent) without
-      // re-trivializing the floor. Floors 2-3 keep the full 0.5 ratio,
-      // unchanged.
-      var restRatio = state.floorNumber === 1 ? 0.25 : 0.5;
-      var healed = Math.round(state.player.maxHp * restRatio);
+      var healed = Math.round(state.player.maxHp * 0.5);
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + healed);
       log('You rest and recover ' + healed + ' HP.');
       node.cleared = true;

@@ -77,17 +77,22 @@
   Floor.generateFloor = function (floorNumber, rng) {
     var nodeCount = rng.randInt(6, 8);
     var hasElite = Floor.ELITE_FLOOR_NUMBERS.indexOf(floorNumber) !== -1;
-    // floorNumber >= 2 -> >= 1 (2026-08-20 rebalance ROUND 3, GOALS.md
-    // "BALANCE, high priority"): balance-simulation.js data showed several
-    // floor-2 deaths were 1-word, single-digit-damage kills -- the player
-    // arrived at floor 2 already critical from floor-1 attrition (floor 1
-    // had NO checkpoint heal at all), so floor2's death-share numbers were
-    // partly floor 1's damage landing a floor late. This is the "heal
-    // availability" player-economy lever the ticket's hard constraints
-    // explicitly sanction, applied via the existing rest-node mechanism
-    // rather than a new one -- floor 1 simply gets the same guaranteed
-    // checkpoint floor 2/3 already had.
-    var hasRest = floorNumber >= 1;
+    // REVERTED (2026-08-20 rebalance ROUND 3, then reverted as 3c): tried
+    // giving floor 1 a guaranteed rest node (same as floors 2-3) to ease
+    // floor-2's death-share numbers, on the theory that some floor-2
+    // deaths were really floor-1 damage landing a floor late. Tried at both
+    // full (50% maxHp) and quarter (25%) heal strength -- BOTH overshot the
+    // win-rate band badly (73% and 67% respectively, target 35-50%), and
+    // fully re-trivialized the floor-1 boss both times (0/29 kills). Turns
+    // out the heal amount wasn't the only lever: with nodeCount fixed at
+    // 6-8, adding 'rest' to floor 1's specials list also TRADES AWAY one of
+    // its filler combat encounters (see fillerCount below), so even the
+    // diluted version was cutting both floor-1 damage exposure AND healing
+    // it at the same time -- a much stronger combined effect than intended.
+    // See PROGRESS.md for the full round-3/3b/3c trail. Reverted to the
+    // original floor2+ threshold; pursuing floor2/floor3 balance through
+    // monster/boss stats instead (round 2's approach, which landed in-band).
+    var hasRest = floorNumber >= 2;
     var hasShop = true;
     var hasEvent = floorNumber >= 1; // events on all floors
 

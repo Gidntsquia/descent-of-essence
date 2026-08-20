@@ -10403,3 +10403,38 @@ rest-node assertions exist yet to update). Balance-simulation n=30
 re-running in the background with this dialed-back version; next entry has
 the result and, if it lands in band on enough targets, the
 checkpoint/checkbox decision.
+
+**UPDATE 5 -- round 3b (quarter-strength floor-1 rest) STILL overshot.
+Reverting the rest-node idea entirely (ROUND 3c).**
+
+n=30 sim on the diluted (25%-heal) floor-1 rest node: win rate **67%**
+(20/30) -- still way past the top of the band, and floor-1 boss still
+**0/29 kills**. The heal-amount dial-back wasn't enough because heal
+strength wasn't the only variable in play: `Floor.generateFloor`'s node
+count is fixed at `randInt(6,8)` regardless of floor, so adding `'rest'` to
+floor 1's `specials` list also TRADES AWAY one of its filler *combat*
+encounters (`fillerCount = nodeCount - 1 - specials.length`) -- meaning
+even the quarter-strength version was simultaneously cutting floor-1's
+total damage exposure (one fewer fight) AND healing what remained, a
+much stronger combined effect than the heal ratio alone suggested. Two
+independent attempts at this lever (50% and 25%) both missed by a wide
+margin in the same direction, which is a clear enough signal to stop
+tuning this specific dial rather than trying a third smaller number.
+
+**REVERTED** `js/wordbound/floor.js`'s `hasRest` change back to
+`floorNumber >= 2` (floor 1 has no guaranteed rest node again) and
+`js/wordbound/game.js`'s rest-heal branch back to the flat `0.5` ratio for
+all floors (no floor-dependent branch). The underlying diagnosis (some
+floor-2 deaths are floor-1 damage landing a floor late) may still be true,
+but a rest-node-based fix isn't the right lever for it -- it's entangled
+with the floor's combat-encounter count in a way that makes it too blunt
+to tune precisely. Not pursuing an alternative for this specific
+sub-problem further this run; floor2's death-SHARE target may end up the
+one target that doesn't fully converge (see the final summary below).
+`boss_sovereign` KEEPS round 3's maxHp 65 -- that change is independent of
+the rest-node experiment and still addresses target 4 (the final boss was
+a 0%-kill non-event before it).
+
+Effectively back to round 2's monster/player tuning plus the floor-3-boss
+buff. `npm test` **ALL CHECKS PASSED**. Balance-simulation n=30 running in
+the background to confirm this combination lands in band.
