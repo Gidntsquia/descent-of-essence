@@ -5190,3 +5190,30 @@ numbers before/after rather than trusting this.
 
 **Current state:** v0.10, all suites green, no game-code changes this run.
 Next unchecked GOALS.md item: the B3/F1 kill-blow-feedback ticket.
+
+---
+
+## 2026-08-20T05:58Z
+
+**Orchestrator: FUN OVERHAUL queue (direct feedback from Jaxon: "The game is
+boring, make it more fun")**
+
+Diagnosis, building on the 05:xx review's N1-N3 finding (regular fights can't
+touch a competent player): even after that tuning lands, the game has no
+moment-to-moment spice -- spamming your best word is never punished, variety
+is never rewarded, enemies telegraph nothing, items are stat sticks that don't
+change how you play, tile rewards are all plain, elites don't differ, and
+events are flat value. Challenge (queued balance ticket) fixes the floor;
+these 8 tickets build the fun on top of it.
+
+Queued FUN OVERHAUL 1/8 - 8/8 immediately after the balance ticket (order
+matters: novelty/combo and intents are meaningless while fights end in one
+word): (1) word novelty penalty + combo streaks, (2) monster intents, (3)
+boss multi-phase arcs (relocated review-N4 ticket, same text), (4) eight
+rule-changer items, (5) special tile variants, (6) elites as risk/reward,
+(7) gamble events, (8) celebration juice. Each ticket carries exact numbers
+and verification requirements so implementing runs don't have to make product
+calls.
+
+No game code touched this entry -- queue + log only, per the orchestrator
+split.

@@ -168,6 +168,178 @@ Rules for the routine:
       caps tolerate that), balance-simulation before/after numbers in
       PROGRESS.md.
 
+- [ ] FUN OVERHAUL 1/8 -- word novelty + combo streaks (do AFTER the balance
+      ticket above; with today's numbers fights end in 1 word and none of
+      this can trigger). Direct order from Jaxon 2026-08-20: "The game is
+      boring, make it more fun." Diagnosis this ticket addresses: once
+      fights last 2-4 words, the optimal play is still "find your best word
+      and repeat it" -- spam is never punished and variety is never
+      rewarded, which wastes the entire fantasy of a word game.
+      MECHANIC (exact numbers, don't soften them without simulating):
+      - Track `usedWords` (a Set) on combat state, reset in startCombat.
+        Submitting a word already in the set this fight: damage x0.4
+        (rounded), log a THEME.md-voiced line (e.g. "The Archive has heard
+        that one before."), and it resets the combo to 0. Do NOT block the
+        word -- weak repeat is a fallback, not an error.
+      - Combo: consecutive DISTINCT valid words this fight. Each stack adds
+        +12% damage, cap +60% (5 stacks). Order of operations:
+        round(score.total * traitMult * (1 + 0.12*min(combo,5))), then the
+        x0.4 repeat penalty if applicable (a repeat both gets x0.4 and
+        resets combo for the next word).
+      - UI: a combo chip in the monster-info area ("Combo x3 · +36%"),
+        rising SFX pitch per stack (reuse the existing word-play synth,
+        scale frequency by combo), combo reset is visually obvious (chip
+        clears).
+      SIM CHECK: re-run test/balance-simulation.js with the bot playing
+      distinct words (it already scans the wordlist; make it avoid repeats)
+      -- if win rate leaves the band the balance ticket established, nudge
+      regular monster HP up to +10% rather than reopening full tuning.
+      VERIFICATION: `npm test` 16/16 plus targeted jsdom assertions (three
+      distinct words -> multiplier grows each turn; repeat -> x0.4 and
+      combo resets); `npm run test:qa` (its word-finder may repeat words --
+      update it to prefer unused words so it exercises the combo path).
+      Version bump -- this is the core-loop feel change of the overhaul.
+
+- [ ] FUN OVERHAUL 2/8 -- monster intents (telegraphed next actions).
+      Fights are reactive damage races with no reads or answers; Slay the
+      Spire's single most load-bearing mechanic is showing what the enemy
+      does next. MECHANIC:
+      - Each monster def gets an `intents` list; the game pre-rolls the
+        NEXT action at fight start and after each monster action, and
+        renderCombat displays it above the monster ("Next: Attack 8",
+        "Next: Heavy Blow 15", "Next: Hex -- a tile will be bound").
+      - Regular (non-weak) monsters: Attack (weight 3) and Heavy Blow
+        (1.6x attack, weight 1). WEAK-TIER monsters always plain Attack --
+        keep floor 1 welcoming, no intents UI needed for them beyond the
+        plain attack line.
+      - Elites and bosses additionally roll one signature from a shared
+        pool (implement all four, each def picks 1-2): Hex (locks a random
+        rack tile for the player's next turn -- greyed out, unusable),
+        Devour (if the player's word this turn deals < 12 damage, eats a
+        random rack tile for the rest of the fight), Mend (heals 15% max
+        HP, once per fight), Enrage (+2 attack permanently, stacks).
+      The fun beat is the clutch answer: a telegraphed Heavy Blow or Devour
+      makes THIS turn's word choice matter. Keep state minimal: intent =
+      {type, value} on combat state; monsterAct() executes it; no new
+      screens.
+      VERIFICATION: `npm test` + targeted jsdom checks (intent is displayed
+      before the monster acts and matches what then happens; Hex actually
+      prevents using the locked tile for one turn; Devour skips when the
+      word dealt >= 12). `npm run test:qa` full pass. Version bump.
+
+- [ ] DESIGN/BALANCE (review N4), FUN OVERHAUL 3/8 -- do AFTER the balance
+      ticket above lands: restore boss fight arcs via multi-phase traits.
+      The phase system (traits.js activeTraitForHpRatio, monsters.js
+      traitPhases) is built, tested, and documented but unused -- all three
+      bosses now have a single phase, so a boss fight is "repeat your best
+      word category 2-4 times." Give each boss 2 phases built ONLY from
+      simple (bonus-on-match, 1x baseline) traits -- e.g. Vowelmaw:
+      vowelHungry above 50%, doubled below; Unabridged Terror: lengthy then
+      rareSeeker; Sovereign: silentE then lengthy -- flavor picks are the
+      implementing run's call, note them in PROGRESS.md. Do NOT reuse the
+      four resistance traits (vowelless/palindromic/shortFuse/alphabetic,
+      0.3x floor) -- they were removed from bosses deliberately (see the
+      2026-08-19/20 balance history in this file). Also update
+      monsters.js's header comment, which still advertises multi-phase
+      bosses that don't exist, and make sure the in-combat weakness line
+      updates when the phase flips (renderCombat already recomputes from hp
+      ratio -- verify, don't assume; the node-map hint shows phase[0] only,
+      which is fine, note it).
+      VERIFICATION: `npm test` 16/16; `npm run test:qa` 24/24 (drives two
+      real boss fights); a targeted check that the displayed weakness text
+      changes when a boss crosses its threshold. Re-run
+      balance-simulation.js to confirm boss win rates stay in the band the
+      balance ticket established. Version bump -- player-facing feature.
+
+- [ ] FUN OVERHAUL 4/8 -- build-defining items (rule-changers, not stat
+      sticks). Current items are mostly passive stat bumps, so no two runs
+      PLAY differently; the fun of a roguelike is assembling a build that
+      warps your decisions. Add EXACTLY these 8 items to items.js (names
+      adjustable to THEME.md voice, mechanics not):
+      1. Illuminated Initial (rare): your word starts with the same letter
+         as your previous word -> +40% damage.
+      2. Errant Footnote (rare): every 3rd word you play each fight deals
+         x2.
+      3. Vowel Reliquary (rare): vowels score triple their letter value.
+      4. Consonant Cluster (uncommon): +2 damage per consonant in the word.
+      5. Long-S Ligature (rare): 6+ letter words deal +25% and heal 1 HP.
+      6. Cursed Quill (rare): every word deals +10 flat damage; you take 2
+         self-damage per word played (can kill you -- that's the deal).
+      7. Gilded Bookmark (uncommon): your first word each fight deals x2.
+      8. Palimpsest (rare): your word shares 3+ distinct letters with your
+         previous word -> +30%.
+      Wire them into the same treasure/boss-item/shop pools existing items
+      use (boss-item pool should favor these rares). When one procs, say so
+      in the log ("Gilded Bookmark: x2!") -- silent modifiers don't create
+      builds. All 8 hook the single word-damage site; if the Foreword bug
+      ticket above (review B2) hasn't landed yet, fix that hook first as
+      part of this.
+      VERIFICATION: `npm test` + one targeted jsdom assertion per item
+      (drive two words, assert exact damage/HP/gold math). `npm run
+      test:qa`. Version bump.
+
+- [ ] FUN OVERHAUL 5/8 -- special tile variants in rewards/shop. Tile
+      rewards are the most frequent decision in the game and every option
+      is plain. Add 4 variants: Gilded (+2 gold when played), Charged (+4
+      flat damage when played), Vampiric (heal 1 HP when played), Volatile
+      (letter scores x2; after each play, 25% chance it cracks -- unusable
+      for the rest of the fight, returns next fight). Roughly 25% of
+      tile-reward offers roll a variant; the shop occasionally sells one at
+      a premium. Distinct CSS badge per variant following the existing
+      bonus-tile class pattern (bonus-flat/bonus-mult-* classes) so they
+      read at a glance in rack, staging, and deck viewer.
+      VERIFICATION: `npm test` + targeted checks (force-add each variant
+      tile to state, play it, assert the gold/damage/heal/crack effect
+      actually happens; cracked tile is unplayable then returns next
+      fight). `npm run test:mobile` (new badges must not break 375px).
+      Version bump.
+
+- [ ] FUN OVERHAUL 6/8 -- elites as opt-in risk/reward. Elite nodes exist
+      as a type but don't meaningfully differ. Make an elite: one
+      RESISTANCE trait (vowelless, shortFuse, or alphabetic -- one per
+      elite def; these were removed from regular monsters/bosses for being
+      too punishing UNTELEGRAPHED, which is exactly what makes them right
+      for a labeled elite) + a guaranteed drop from the FUN OVERHAUL 4/8
+      rule-changer pool + 1.5x gold. REQUIREMENT for using resistance
+      traits: the node map must warn BEFORE entry (map pill styling + the
+      existing weakness-hint mechanism, e.g. "Elite -- it devours vowels")
+      so the player walks in informed. VERIFY first whether the floor path
+      lets a player route around elites; if elites turn out to be
+      unavoidable AND the pre-entry warning can't be made clear, fall back
+      to: simple trait + elite intents (Hex/Devour from 2/8) + higher
+      stats, same guaranteed drop -- and say which branch you took in
+      PROGRESS.md.
+      VERIFICATION: `npm test`; targeted check that an elite fight grants
+      the guaranteed item + boosted gold; `npm run test:qa`. Version bump.
+
+- [ ] FUN OVERHAUL 7/8 -- gamble events. Current events are mostly flat
+      value; no memorable "do I dare" moments. Add 3 (THEME.md voice, each
+      with a walk-away option):
+      1. Forbidden Tome: gain a random rule-changer item (4/8 pool), take
+         damage equal to 20% of max HP (min 5, cannot kill -- floor at 1
+         HP).
+      2. The Shredder: choose up to 2 tiles from your deck to destroy
+         permanently (deck-thinning -- reuse the deck-viewer list UI for
+         picking).
+      3. Wager with the Stacks: stake 30 gold; win the NEXT fight without
+         repeating a single word -> get 90 gold; repeat a word or lose the
+         fight -> stake gone. (Depends on 1/8's usedWords tracking.)
+      VERIFICATION: `npm test` + targeted checks per event (state before/
+      after each choice, including the cannot-kill floor and the wager
+      resolving both ways). Version bump.
+
+- [ ] FUN OVERHAUL 8/8 -- celebration juice for the new systems (do LAST,
+      after 1/8-7/8). Small, scoped, no new mechanics: combo chip pops on
+      each stack (scale transform, ~150ms); damage >= 25 in one word ->
+      brief screen shake + "CRUSHING!" floater; 7+ letter word ->
+      "MAGNIFICENT!" banner + 5 bonus gold (log it); rule-changer item
+      procs flash the item's chip in the items strip. ALL of it respects
+      prefers-reduced-motion (existing convention from the visual-polish
+      pass -- check how damage floaters already handle it and match).
+      VERIFICATION: `npm test`; manual-reasoning note in PROGRESS.md for
+      what jsdom can't confirm (shake/animation timing), consistent with
+      house rules on animation claims. `npm run test:mobile`. Version bump.
+
 - [ ] BUG, small (review B4): every fight opens with a doubled article --
       "A The Consonant Constrictor appears!" (js/wordbound/game.js line 371:
       `log('A ' + state.monster.name + ' appears!')` while nearly every
@@ -273,31 +445,6 @@ Rules for the routine:
       VERIFICATION: `npm run test:mobile` clean (375/414 -- three tiles
       side by side must not overflow; wrap if needed), `npm test` 16/16,
       `npm run test:qa` 24/24 (it clicks these buttons).
-
-- [ ] DESIGN/BALANCE (review N4), do AFTER the balance ticket above lands:
-      restore boss fight arcs via multi-phase traits. The phase system
-      (traits.js activeTraitForHpRatio, monsters.js traitPhases) is built,
-      tested, and documented but unused -- all three bosses now have a
-      single phase, so a boss fight is "repeat your best word category 2-4
-      times." Give each boss 2 phases built ONLY from simple (bonus-on-
-      match, 1x baseline) traits -- e.g. Vowelmaw: vowelHungry above 50%,
-      doubled below; Unabridged Terror: lengthy then rareSeeker; Sovereign:
-      silentE then lengthy -- flavor picks are the implementing run's call,
-      note them in PROGRESS.md. Do NOT reuse the four resistance traits
-      (vowelless/palindromic/shortFuse/alphabetic, 0.3x floor) -- they were
-      removed from bosses deliberately (see the 2026-08-19/20 balance
-      history in this file). Also update monsters.js's header comment,
-      which still advertises multi-phase bosses that don't exist, and make
-      sure the in-combat weakness line updates when the phase flips
-      (renderCombat already recomputes from hp ratio -- verify, don't
-      assume; the node-map hint shows phase[0] only, which is fine, note
-      it).
-      VERIFICATION: `npm test` 16/16; `npm run test:qa` 24/24 (drives two
-      real boss fights); a targeted check that the displayed weakness text
-      changes when a boss crosses its threshold. Re-run
-      balance-simulation.js to confirm boss win rates stay in the band the
-      balance ticket established. Version bump (v0.12 or next) -- this is a
-      player-facing feature.
 
 - [ ] FEATURE (review N6): end-of-run stats screen. Victory/game-over
       currently show one static line + the seed -- nothing to share or
