@@ -1015,6 +1015,138 @@ Rules for the routine:
       the full state/flow is confirmed; the log message is a plain string
       push, no audio/drag involved.)
 
+- [ ] BUG (DIRECT FROM JAXON, 2026-08-20 ~11:20 ET, hit live on his phone
+      -- do this SECOND, right after the boss-skip fix; it's small):
+      common words are rejected -- he staged Z,I,T,S from real rack tiles
+      and got '"ZITS" is not playable'. Orchestrator verified: WORDLIST
+      (js/wordbound/wordlist.js) has 497,871 words but is missing ZITS,
+      ZIT, SNIT, LUTZ (while ZAGS/QUIZ/ADZE/WHIZ are present) -- the
+      source list seems to omit informal/newer words, exactly the ones
+      players try. FIX: union a public-domain Scrabble-legal list into
+      WORDLIST -- ENABLE1 (public domain, ~173k words, contains all four
+      missing probes) is the safe choice; fetch it, uppercase, filter to
+      the existing 2..15 length range, merge + dedupe + sort into
+      wordlist.js. STRICTLY ADDITIVE: zero words removed. Note the source
+      URL + added-word count in PROGRESS.md. Check how
+      Lexicon.isValidWord consumes WORDLIST (set membership?) so the
+      merge covers both validation and the QA scripts' word search.
+      VERIFICATION: npm test with new regression probes (ZITS, ZIT,
+      SNIT, LUTZ all valid; a few pre-existing words still valid; list
+      strictly grew); npm run test:itch-build still passes its size
+      checks -- if the union pushes the build over a size limit, report
+      the numbers in PROGRESS.md and prefer trimming NOTHING (raise the
+      limit if it's our own arbitrary threshold). Version bump.
+
+- [ ] MOBILE INPUT 1/3 (DIRECT FROM JAXON, 2026-08-20 ~11:15 ET): on
+      touch devices there must be NO typing option -- the soft keyboard
+      popping up/down on every tap is the single biggest mobile
+      annoyance. Tapping letters becomes the ONLY mobile input.
+      Root cause of the keyboard pops: selectTileForWord calls
+      $('word-input').focus() after every tap (js/wordbound/game.js:1401)
+      and btn-clear-word refocuses too (game.js:2120).
+      SPEC:
+      1. Touch detection: `window.matchMedia('(pointer: coarse)')` at
+         init (+ listen for changes); when coarse, add a `touch-mode`
+         class to <body>. All behavior below keys off that one flag.
+         Desktop behavior must be 100% unchanged.
+      2. touch-mode: hide the #word-input element (wordbound.html:67)
+         entirely via CSS (.touch-mode #word-input { display:none }) --
+         keep Play Word / Clear buttons. NEVER call .focus() on it in
+         touch-mode (audit every focus() call site).
+      3. Submission source: extract the existing selectedTileIds -> word
+         mapping (game.js:1397-1400) into a helper (e.g. stagedWord());
+         in touch-mode, btn-submit-word submits stagedWord() instead of
+         input.value; Clear empties selectedTileIds without focusing.
+         (Desktop keeps typing + Enter exactly as today,
+         game.js:2106-2122.)
+      4. Blank tiles: tap-selecting a blank is currently blocked
+         (game.js:1382-1385, "type the word instead") -- that dead-ends
+         blanks on mobile once typing is gone. Add a letter picker: in
+         touch-mode, tapping a '?' tile opens a small A-Z grid overlay
+         (reuse the existing panel/overlay pattern, e.g. consumables
+         panel); picking a letter stages that blank AS the chosen
+         letter; tapping the staged blank unstages it. BEFORE wiring:
+         read how Lexicon.canFormFromRack resolves blanks
+         (js/wordbound/lexicon.js ~70-90, prefers exact tiles over '?')
+         and route the chosen letter through that same path -- do not
+         build a parallel resolution mechanism. If the resolver prefers
+         a real tile over the staged blank when both exist, that's
+         fine (player-favorable) -- just note it in PROGRESS.md.
+      5. Update any player-facing copy that says "type" (input
+         placeholder is hidden anyway, but check the How-to-Play
+         overlay) to tap-first wording in touch-mode.
+      VERIFICATION: npm test with matchMedia mocked coarse: input
+      hidden, no focus() calls (spy), submit uses stagedWord(), blank
+      picker stages/unstages correctly; desktop-mode tests unchanged;
+      npm run test:mobile at 375/414px (row hidden, no layout jump);
+      npm run test:qa 26/26 (desktop path untouched). Version bump.
+
+- [ ] MOBILE INPUT 2/3 (DIRECT FROM JAXON, same message): make tile
+      play physically interactive. Today staged tiles are inert display
+      divs (renderStagingArea, game.js:2033-2060) and only the RACK
+      supports drag-reorder (desktop HTML5 drag game.js:1988-2004,
+      touch drag with 10px threshold game.js:1424-1475). Jaxon wants,
+      verbatim: tiles "slide from where they're tapped to the lower
+      area", are "rearrangeable once in the play area", and can be
+      dragged "out of the play area to remove them from being played".
+      SPEC (all of it works with BOTH touch and mouse):
+      1. Slide animation (FLIP): on stage, capture the rack tile's
+         getBoundingClientRect before render, the staged tile's rect
+         after, and animate transform from the delta to 0 (~200ms,
+         ease-out, transform-only -- no layout thrash). Reverse
+         animation on unstage. Under prefers-reduced-motion: instant,
+         no animation (existing house convention -- match how damage
+         floaters gate it).
+      2. Rack keeps its shape: a staged tile's rack slot renders as an
+         empty outlined slot (same width -- the rack must not reflow),
+         so the tile visually LIVES in the play area while staged.
+         Tapping the empty slot unstages that tile back into it (the
+         current tap-rack-tile-again-to-deselect path,
+         game.js:1386-1390, becomes tapping the slot).
+      3. Tap a staged tile in the play area -> unstage (slides home).
+         (Except staged blanks in touch-mode, which 1/3 already
+         handles.)
+      4. Drag-reorder within the play area: generalize the rack's
+         existing threshold-drag pattern (getTileAtPosition,
+         game.js:1405-1422, currently hardcodes #rack-display) to work
+         over the staging container, mutating selectedTileIds order;
+         show a gap/drop indicator at the insertion point. Reordering
+         updates the word (and any score preview) immediately on drop.
+      5. Drag-out-to-remove: if a staged tile is dragged and released
+         with the pointer outside the staging container's rect (>~30px
+         tolerance), unstage it. While outside, dim the dragged ghost
+         so the player can feel "this will remove".
+      6. The dragged tile follows the finger/pointer (transform ghost);
+         its origin shows a gap.
+      IMPLEMENTATION WARNING: render() rebuilds DOM subtrees with
+      innerHTML -- an active drag must not be destroyed mid-gesture.
+      Follow the rack pattern: track drag in state, re-render once on
+      release, not during. Also mind the ~720ms killing-blow death beat
+      (combatActive stays true, rack in transient state) -- gestures
+      landing in that window must no-op safely.
+      VERIFICATION: npm test for all state logic (stage/unstage via
+      every path, reorder mutations, drag-out removal, blank
+      interaction); real-Chromium script: tap -> tile in play area +
+      rack slot emptied, synthesized touch drag reorders (stagedWord()
+      changes), drag past container bounds removes, reduced-motion
+      path instant, zero page errors; npm run test:mobile. Version
+      bump.
+
+- [ ] MOBILE INPUT 3/3 (same directive, "more interactive in general"
+      -- input-feel juice, deliberately separate from FUN OVERHAUL
+      8/8's combat juice; no overlap): pressed state on every tile
+      (:active scale ~0.93), staged tiles get a subtle lift/shadow so
+      the play area reads as "picked up", a short settle animation
+      (<=120ms) when a tile lands in rack or play area, animated
+      gap-open/close during reorder, and optional light haptics
+      (navigator.vibrate(8) on stage/unstage/submit, feature-checked,
+      silently absent on iOS). ALL of it (haptics included) disabled
+      under prefers-reduced-motion. Keep it restrained -- tactile, not
+      carnival; this is polish on 2/3's mechanics, do it after.
+      VERIFICATION: npm test; npm run test:mobile; PROGRESS.md note for
+      what jsdom can't confirm (animation feel/timing) per house rules
+      on animation claims. Version bump.
+
 - [ ] FUN OVERHAUL 8/8 -- celebration juice for the new systems (do LAST,
       after 1/8-7/8). Small, scoped, no new mechanics: combo chip pops on
       each stack (scale transform, ~150ms); damage >= 25 in one word ->

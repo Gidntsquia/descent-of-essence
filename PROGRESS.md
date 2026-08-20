@@ -8991,3 +8991,24 @@ and applies to the next regular combat instead, event copy updated, stale
 design-note comment at game.js:234-239 removed. Elites deliberately out of
 scope. This overrules the earlier run's "skipping the floor-3 boss wins the
 game" design note. Full spec + verification criteria in the ticket.
+
+## 2026-08-20T15:35Z -- Orchestrator: Jaxon morning directives -> 4 new tickets
+
+Jaxon is playing the deployed build on his phone and sent two directives:
+
+1. Mobile input overhaul (3 tickets, MOBILE INPUT 1/3-3/3): no typing on
+   touch devices (root cause of keyboard popping: word-input .focus() at
+   game.js:1401 and :2120), tap-to-play as the only mobile input with a
+   blank-tile letter picker; FLIP slide animations rack<->play area; staged
+   tiles reorderable by drag; drag-out-to-remove; input-feel juice pass.
+   Orchestrator verified current model first: selectedTileIds is already
+   the staging source of truth, staging area renders inert divs, rack
+   already has a proven threshold touch-drag to generalize from.
+
+2. Wordlist gaps (1 ticket, do second): "ZITS" rejected live on his phone.
+   Verified: 497,871-word list is missing ZITS/ZIT/SNIT/LUTZ while
+   ZAGS/QUIZ/ADZE are present -- informal/newer words omitted by the
+   source list. Fix = strictly-additive union of ENABLE1 (public domain).
+
+Queue order now: boss-skip DESIGN FIX -> wordlist -> MOBILE 1/3 -> 2/3 ->
+3/3 -> FUN 8/8 -> consumable-odds.
