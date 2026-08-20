@@ -3348,3 +3348,19 @@ ear/eye. Documented limitations in PROGRESS.md entries for both tasks.
 
 **Next steps:** Human playtest to confirm the voice improvements feel more hand-crafted and less AI-generated.
 
+---
+
+## 2026-08-20T00:16Z -- ROUTINE CHECK-IN (IDLE CONFIRMED)
+
+**Status:** GOALS.md queue is empty (all 48 tasks checked off).
+**Tests:** npm test passes all 16 checks (0 failures).
+**ROADMAP.md known gaps:** All automatable items are resolved. Remaining gaps require human intervention:
+  - Real browser playtest (outside automation scope)
+  - itch.io page creation (requires Jaxon's account)
+  - Gameplay GIF recording (requires screen recording/real browser)
+  - Community promotion (requires Jaxon's direct action)
+
+**Game status:** Feature-complete, all tests passing, ready for launch. No work items remain for the hourly routine.
+
+**Routine entering idle state.** No new tasks in queue. Awaiting additions to GOALS.md to resume.
+
