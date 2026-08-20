@@ -314,12 +314,82 @@ async function main() {
       console.log(`  ${hasIssues ? '⚠️  ' : '✓ '}Layout OK\n`);
     }
 
+    // MOBILE INPUT 1/3 (GOALS.md, Jaxon 2026-08-20), real-browser touch-mode
+    // check: on coarse-pointer devices the typing box must be CSS-hidden (no
+    // soft keyboard) and the tap-only blank-letter picker must fit small
+    // screens. jsdom can't compute display:none from the stylesheet or lay out
+    // the grid, so this is the piece only a real browser can confirm. Force
+    // touch-mode by mocking matchMedia coarse in-page and re-deriving the mode
+    // (independent of whether headless Chromium reports a coarse pointer).
+    console.log('Testing touch-mode input (coarse pointer):\n');
+    let touchModeOK = true;
+    {
+      await page.goto(`http://localhost:${PORT}/wordbound.html`, { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => window.Wordbound?.Game, { timeout: 15000 });
+      await page.setViewportSize({ width: 375, height: 800 });
+      await page.evaluate(() => {
+        window.matchMedia = (q) => ({
+          matches: /coarse/.test(q), media: q,
+          addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+        });
+        window.Wordbound.Game.applyTouchModeFromMedia();
+      });
+      await page.waitForTimeout(100);
+
+      const touchState = await page.evaluate(() => {
+        const input = document.getElementById('word-input');
+        const cs = window.getComputedStyle(input);
+        return {
+          bodyHasClass: document.body.classList.contains('touch-mode'),
+          inputHidden: cs.display === 'none',
+          submitVisible: window.getComputedStyle(document.getElementById('btn-submit-word')).display !== 'none',
+          clearVisible: window.getComputedStyle(document.getElementById('btn-clear-word')).display !== 'none',
+        };
+      });
+      console.log('  <body>.touch-mode:', touchState.bodyHasClass, '| #word-input display:none:', touchState.inputHidden);
+      console.log('  Play Word visible:', touchState.submitVisible, '| Clear visible:', touchState.clearVisible);
+      if (!touchState.bodyHasClass || !touchState.inputHidden || !touchState.submitVisible || !touchState.clearVisible) {
+        console.log('  ⚠️  touch-mode input row not in the expected state');
+        touchModeOK = false;
+      }
+
+      // Open the blank-letter picker and confirm its A-Z grid fits 375px with
+      // no horizontal overflow. The picker renders from state alone (no combat
+      // needed), so force it open and re-render.
+      await page.evaluate(() => {
+        const s = window.Wordbound.Game._state;
+        s.blankPickerOpen = true;
+        s.blankPickerTileId = 'layout-probe';
+        window.Wordbound.Game.openDeckViewer();
+        window.Wordbound.Game.closeDeckViewer();
+      });
+      await page.waitForTimeout(100);
+      const picker = await page.evaluate(() => {
+        const overlay = document.getElementById('blank-picker-overlay');
+        const grid = document.getElementById('blank-picker-grid');
+        const letters = grid ? grid.querySelectorAll('.blank-picker-letter') : [];
+        const gridRect = grid ? grid.getBoundingClientRect() : null;
+        return {
+          overlayShown: overlay && !overlay.classList.contains('hidden'),
+          letterCount: letters.length,
+          gridRight: gridRect ? Math.round(gridRect.right) : null,
+          docOverflow: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+        };
+      });
+      console.log('  Blank picker shown:', picker.overlayShown, '| A-Z letters:', picker.letterCount, '| doc overflow:', picker.docOverflow + 'px');
+      if (!picker.overlayShown || picker.letterCount !== 26 || picker.docOverflow > 0) {
+        console.log('  ⚠️  blank picker layout issue at 375px');
+        touchModeOK = false;
+      }
+      console.log(`  ${touchModeOK ? '✓ ' : '⚠️  '}Touch-mode input OK\n`);
+    }
+
     await page.close();
     await browser.close();
 
     // Summary
     console.log('=== SUMMARY ===');
-    const hasIssues = results.some(r => r.checks.overflowX || r.checks.elementsClipped.length > 0);
+    const hasIssues = results.some(r => r.checks.overflowX || r.checks.elementsClipped.length > 0) || !touchModeOK;
 
     if (!hasIssues) {
       console.log('✅ Mobile layout appears responsive and functional');

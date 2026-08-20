@@ -1060,7 +1060,7 @@ Rules for the routine:
       list, so the itch build 404'd on it and combat would break in the
       deployed build. Added the one missing manifest line; build now clean.
 
-- [ ] MOBILE INPUT 1/3 (DIRECT FROM JAXON, 2026-08-20 ~11:15 ET): on
+- [x] MOBILE INPUT 1/3 (DIRECT FROM JAXON, 2026-08-20 ~11:15 ET): on
       touch devices there must be NO typing option -- the soft keyboard
       popping up/down on every tap is the single biggest mobile
       annoyance. Tapping letters becomes the ONLY mobile input.
@@ -1103,6 +1103,50 @@ Rules for the routine:
       picker stages/unstages correctly; desktop-mode tests unchanged;
       npm run test:mobile at 375/414px (row hidden, no layout jump);
       npm run test:qa 26/26 (desktop path untouched). Version bump.
+      DONE 2026-08-20 (v0.22 -> v0.23): implemented all 5 spec items.
+      (1) Touch detection: Game.applyTouchModeFromMedia() reads
+      matchMedia('(pointer: coarse)') at init and on 'change', toggling a
+      `touch-mode` class on <body>; all JS keys off state.touchMode.
+      Feature-checked so matchMedia-less envs (jsdom) stay desktop. (2) CSS
+      `.touch-mode #word-input { display:none }` hides the typing box; Play
+      Word / Clear stay. Every .focus() call site (selectTileForWord,
+      btn-clear-word) now gated on !state.touchMode -- the two focus()
+      calls that popped the keyboard. (3) New stagedWord() helper (the
+      selectedTileIds->word mapping, extracted); touch-mode btn-submit
+      plays stagedWord() not input.value; Clear empties selectedTileIds +
+      blankAssignments without focusing. Desktop typing+Enter path
+      untouched. (4) Blank picker: new #blank-picker-overlay (A-Z grid,
+      same overlay pattern as how-to-play); tapping a '?' tile in
+      touch-mode opens it, picking a letter assigns it via a new
+      state.blankAssignments map and stages the tile; tapping a staged
+      blank unstages it. The chosen letter feeds the word STRING that
+      Combat.playWord re-resolves through Lexicon.canFormFromRack, which
+      already prefers a real matching tile over a blank -- so if the player
+      also holds that real letter, it's used instead (player-favorable,
+      per the ticket's own allowance). (5) How-to-Play blank tip swaps to
+      tap-first wording in touch-mode (applyTouchModeCopy).
+      VERIFIED: `npm test` 292 checks (ALL PASSED; ~24 new touch-mode
+      assertions: touch-mode class applied under mocked-coarse matchMedia,
+      stagedWord reflects tapped tiles, submit reads staged word not the
+      input via a submitWord-arg spy, focus() never called while
+      staging/clearing/submitting via a focus spy, blank picker
+      opens/assigns/unstages, and the whole thing reverts cleanly to
+      desktop; desktop tests unchanged). `npm run test:mobile` clean at
+      375/414px PLUS a new real-browser touch-mode section confirming
+      #word-input is actually display:none, Play Word/Clear stay visible,
+      and the A-Z picker grid (26 letters) fits 375px with 0 overflow --
+      the CSS bits jsdom can't compute. `npm run test:qa` 26/26 (desktop
+      combat path untouched). `npm run test:itch-build` clean. Also ran a
+      throwaway real-Chromium end-to-end (deleted): forced touch-mode,
+      entered a real fight, TAPPED a word's tiles, hit Play Word -> monster
+      took real damage (57->54) and the log showed the played word +
+      counterattack, staging cleared, input stayed hidden; then tapped a
+      blank -> picker opened -> picked K -> staged as K. Zero page errors.
+      NOT independently verifiable here (honest caveat): whether the soft
+      keyboard actually stays down on a physical phone -- that's the whole
+      point of hiding the input + killing focus(), and both are confirmed
+      present, but only Jaxon's real device can prove the OS keyboard
+      never appears. No audio/drag surface touched.
 
 - [ ] MOBILE INPUT 2/3 (DIRECT FROM JAXON, same message): make tile
       play physically interactive. Today staged tiles are inert display

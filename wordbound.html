@@ -13,7 +13,7 @@
   <div id="screen-main-menu" class="screen">
     <div class="panel main-menu-panel">
       <h1 class="game-title">WORDBOUND</h1>
-      <p class="version-info">v0.22</p>
+      <p class="version-info">v0.23</p>
       <div id="dictionary-loading-indicator" class="dictionary-loading-indicator">
         <div class="loading-spinner"></div>
         <p>Loading dictionary...</p>
@@ -139,6 +139,15 @@
     </div>
   </div>
 
+  <div id="blank-picker-overlay" class="blank-picker-overlay hidden">
+    <div class="blank-picker-panel panel">
+      <h2>Choose a letter</h2>
+      <p class="blank-picker-hint">This ★ blank becomes the letter you pick.</p>
+      <div id="blank-picker-grid" class="blank-picker-grid"></div>
+      <button id="btn-cancel-blank-picker" class="btn btn-secondary" style="margin-top: 14px;">Cancel</button>
+    </div>
+  </div>
+
   <div id="howto-overlay" class="howto-overlay hidden">
     <div class="howto-panel panel">
       <h2>How to Play</h2>
@@ -148,7 +157,7 @@
         <li>Every Loose Word shows a <strong>Weakness</strong> — match it for bonus damage.</li>
         <li>Your whole Rack refreshes after every word, played tiles and leftovers alike. Spend freely.</li>
         <li>Tile rewards and items pile up as you descend — a stacked Rack is the whole point by floor 3.</li>
-        <li>★ blanks: just type any word — they fill in automatically.</li>
+        <li id="howto-blank-tip">★ blanks: just type any word — they fill in automatically.</li>
       </ul>
       <button id="btn-close-howto" class="btn btn-primary">Got it</button>
     </div>

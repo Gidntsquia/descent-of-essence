@@ -814,6 +814,155 @@ async function main() {
     window.Wordbound.Game.closeDeckViewer();
   }
 
+  // MOBILE INPUT 1/3 (GOALS.md, Jaxon 2026-08-20): on coarse-pointer (touch)
+  // devices there must be NO typing -- tapping tiles is the only input, and
+  // .focus() must never fire on the (hidden) word-input (that's what pops the
+  // soft keyboard). jsdom has no matchMedia, so it's mocked coarse here, then
+  // Game.applyTouchModeFromMedia() re-derives the mode after boot. jsdom can't
+  // compute display:none from the external stylesheet, so the input's actual
+  // visual hiding is asserted in npm run test:mobile (real browser); here we
+  // assert the body.touch-mode class the CSS keys off, plus every behavioral
+  // consequence (no focus, staged-word submit source, blank picker). Restores
+  // desktop mode at the end so the later checks (which assume typing) are
+  // unaffected.
+  {
+    const Game = window.Wordbound.Game;
+    const input = document.getElementById('word-input');
+    const realMatchMedia = window.matchMedia;
+
+    // Spy on focus() so we can prove it's never called in touch-mode.
+    let focusCalls = 0;
+    const realFocus = input.focus.bind(input);
+    input.focus = function () { focusCalls++; return realFocus(); };
+
+    // --- enter touch-mode ---
+    window.matchMedia = (q) => ({
+      matches: /coarse/.test(q), media: q,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+    });
+    Game.applyTouchModeFromMedia();
+    check('mobile 1/3: state.touchMode is true under a coarse pointer', state.touchMode === true);
+    check('mobile 1/3: <body> gets the touch-mode class', document.body.classList.contains('touch-mode'));
+    check('mobile 1/3: How-to-Play blank tip switches to tap-first wording',
+      /tap the blank/i.test(document.getElementById('howto-blank-tip').textContent));
+
+    // clean staging slate
+    state.selectedTileIds = [];
+    state.blankAssignments = {};
+    input.value = '';
+    Game.openDeckViewer(); Game.closeDeckViewer();
+
+    const rackBtns = () => Array.from(document.querySelectorAll('#rack-display .letter-tile'));
+    const nonBlank = () => rackBtns().filter((b) => {
+      const t = state.player.rack.find((rt) => rt.id === b.getAttribute('data-tile-id'));
+      return t && t.letter !== '?' && t.id !== state.hexedTileId;
+    });
+
+    // --- tapping two rack tiles stages them WITHOUT focusing the input, and
+    // clicking Play Word submits the STAGED word (not the hidden, empty input).
+    // The real submitWord is stubbed to capture its argument, so this proves
+    // the submit SOURCE (stagedWord vs input.value) without actually playing a
+    // word -- which keeps the in-progress fight pristine for the later variant/
+    // stats checks. (End-to-end submitWord damage is already covered elsewhere
+    // via the input path; the only touch-specific concern is the source.) ---
+    focusCalls = 0;
+    let cand = nonBlank();
+    if (cand.length < 2) {
+      console.log('SKIP mobile-1/3 tap checks -- fewer than 2 non-blank rack tiles (unexpected)');
+    } else {
+      const aId = cand[0].getAttribute('data-tile-id');
+      const aLetter = state.player.rack.find((t) => t.id === aId).letter;
+      cand[0].dispatchEvent(new window.Event('click', { bubbles: true }));
+      cand = nonBlank();
+      const bBtn = cand.find((b) => b.getAttribute('data-tile-id') !== aId);
+      const bLetter = state.player.rack.find((t) => t.id === bBtn.getAttribute('data-tile-id')).letter;
+      bBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('mobile 1/3: tapping tiles in touch-mode stages them (2 selected)', state.selectedTileIds.length === 2);
+      check('mobile 1/3: stagedWord() reflects the two tapped letters', Game._stagedWord() === aLetter + bLetter);
+      check('mobile 1/3: no focus() call on the input while staging (soft keyboard suppressed)', focusCalls === 0);
+
+      // Prove submit reads the staged word, not the input. Stub submitWord to
+      // capture its argument; the input is deliberately given a DIFFERENT value
+      // so a regression that read input.value would be caught.
+      const realSubmit = Game.submitWord;
+      let submittedWith = null;
+      Game.submitWord = function (w) { submittedWith = w; };
+      input.value = 'ZZZZ'; // would-be word if the handler wrongly read the input
+      document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+      Game.submitWord = realSubmit;
+      check('mobile 1/3: Play Word submitted the staged word, not the input value', submittedWith === aLetter + bLetter);
+      check('mobile 1/3: submitting never focused the input', focusCalls === 0);
+
+      state.selectedTileIds = [];
+      input.value = '';
+      Game.openDeckViewer(); Game.closeDeckViewer();
+    }
+
+    // --- blank letter picker: tap a blank -> picker opens -> pick -> staged as that letter ---
+    state.selectedTileIds = [];
+    state.blankAssignments = {};
+    input.value = '';
+    focusCalls = 0;
+    const blank = { id: 'test-touch-blank', letter: '?' };
+    state.player.rack.push(blank);
+    Game.openDeckViewer(); Game.closeDeckViewer();
+    const blankBtn = document.querySelector('[data-tile-id="test-touch-blank"]');
+    check('mobile 1/3: a blank tile renders in the rack for the picker check', !!blankBtn);
+    if (blankBtn) {
+      blankBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      const overlay = document.getElementById('blank-picker-overlay');
+      check('mobile 1/3: tapping a blank in touch-mode opens the letter picker', state.blankPickerOpen === true && overlay && !overlay.classList.contains('hidden'));
+      check('mobile 1/3: the picker targets the tapped blank', state.blankPickerTileId === 'test-touch-blank');
+      const gridBtns = Array.from(document.querySelectorAll('#blank-picker-grid .blank-picker-letter'));
+      check('mobile 1/3: the picker renders a full A-Z grid (26 letters)', gridBtns.length === 26);
+      const qBtn = gridBtns.find((b) => b.getAttribute('data-blank-letter') === 'Q');
+      qBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('mobile 1/3: picking a letter closes the picker', state.blankPickerOpen === false);
+      check('mobile 1/3: the blank is now staged', state.selectedTileIds.indexOf('test-touch-blank') !== -1);
+      check('mobile 1/3: the blank was assigned the chosen letter', state.blankAssignments['test-touch-blank'] === 'Q');
+      check('mobile 1/3: stagedWord() spells the chosen letter for the blank', Game._stagedWord() === 'Q');
+      check('mobile 1/3: opening/using the picker never focused the input', focusCalls === 0);
+
+      // tapping the staged blank again unstages it and forgets its letter
+      const blankBtn2 = document.querySelector('[data-tile-id="test-touch-blank"]');
+      blankBtn2.dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('mobile 1/3: tapping the staged blank unstages it', state.selectedTileIds.indexOf('test-touch-blank') === -1);
+      check('mobile 1/3: unstaging the blank forgets its assigned letter', !('test-touch-blank' in state.blankAssignments));
+    }
+    state.player.rack = state.player.rack.filter((t) => t.id !== 'test-touch-blank');
+
+    // --- Clear in touch-mode empties staging without focusing ---
+    state.selectedTileIds = ['x'];
+    state.blankAssignments = { x: 'A' };
+    focusCalls = 0;
+    document.getElementById('btn-clear-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+    check('mobile 1/3: Clear empties selectedTileIds in touch-mode', state.selectedTileIds.length === 0);
+    check('mobile 1/3: Clear empties blankAssignments in touch-mode', Object.keys(state.blankAssignments).length === 0);
+    check('mobile 1/3: Clear never focused the input in touch-mode', focusCalls === 0);
+
+    // --- back to desktop: mode flips off, class removed, typing/focus return ---
+    window.matchMedia = (q) => ({
+      matches: false, media: q,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+    });
+    Game.applyTouchModeFromMedia();
+    check('mobile 1/3: leaving coarse pointer clears touch-mode', state.touchMode === false);
+    check('mobile 1/3: <body> loses the touch-mode class off touch', !document.body.classList.contains('touch-mode'));
+    check('mobile 1/3: How-to-Play blank tip reverts to type-first wording',
+      /just type/i.test(document.getElementById('howto-blank-tip').textContent));
+
+    // restore harness state for the later (desktop-assuming) checks. This
+    // block never plays a real word (submitWord is stubbed during the one
+    // submit test), so there's no fight state to rewind -- only the input
+    // spy, the matchMedia mock, and the transient staging need clearing.
+    input.focus = realFocus;
+    window.matchMedia = realMatchMedia;
+    state.selectedTileIds = [];
+    state.blankAssignments = {};
+    input.value = '';
+    Game.openDeckViewer(); Game.closeDeckViewer();
+  }
+
   // Multi-phase boss traits (GOALS.md "FUN OVERHAUL 3/8"), live-DOM check:
   // force the in-progress fight's monster onto the Vowelmaw boss's 2-phase
   // traitPhases and confirm the rendered ".monster-weakness" text actually

@@ -109,6 +109,10 @@
     touchStartX: null, // track initial touch X position for drag threshold detection
     touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
     selectedTileIds: [], // tiles selected for staging (in click order)
+    blankAssignments: {}, // MOBILE INPUT 1/3: tileId -> chosen letter, for blanks staged via the touch-mode letter picker (desktop stages blanks by typing, never populates this)
+    touchMode: false, // MOBILE INPUT 1/3: true on coarse-pointer devices -- no typing, tap-to-play only. Set from matchMedia('(pointer: coarse)') at init; desktop behavior is unchanged when false
+    blankPickerOpen: false, // MOBILE INPUT 1/3: true while the touch-mode A-Z blank-letter picker overlay is showing
+    blankPickerTileId: null, // MOBILE INPUT 1/3: which blank tile the open picker is choosing a letter for
     comboState: { combo: 0, usedWords: new Set() }, // word novelty + combo streaks, reset in startCombat
     previousWordThisFight: null, // GOALS.md "FUN OVERHAUL 4/8": word played immediately before the current one this fight, reset in startCombat, fed to item hooks via ctx.previousWord
     wordsPlayedThisFightCount: 0, // 1-based once incremented; ===1 on the fight's first word, includes repeats -- reset in startCombat, fed to item hooks via ctx.wordsPlayedThisFight
@@ -117,6 +121,7 @@
   };
   Game._state = state; // exposed for headless/browser test inspection only
   Game._getMusicMode = function () { return currentMusicMode; }; // exposed for headless/browser test inspection only (review F2)
+  Game._stagedWord = function () { return stagedWord(); }; // MOBILE INPUT 1/3: exposed for test inspection of the staged-tiles word
 
   function $(id) { return document.getElementById(id); }
 
@@ -503,6 +508,10 @@
     state.wordsPlayedThisFightCount = 0;
     state.repeatedWordThisFight = false;
     state.hexedTileId = null;
+    state.selectedTileIds = [];
+    state.blankAssignments = {};
+    state.blankPickerOpen = false;
+    state.blankPickerTileId = null;
     Items.runHook('onRunStart', { player: state.player, pileState: state.pile }, state.player);
     refillRack();
     ensureRackIsPlayable();
@@ -657,6 +666,7 @@
 
     // Clear staging area since word was submitted
     state.selectedTileIds = [];
+    state.blankAssignments = {};
 
     // Flag the played tiles' existing DOM elements right away, before anything
     // else touches the rack -- render() rebuilds rack-display's innerHTML
@@ -1375,16 +1385,51 @@
     render();
   }
 
-  // Touch reordering support for mobile/tablet
+  // MOBILE INPUT 1/3: the word being built from the staged tiles, in click
+  // order. selectedTileIds is the source of truth; a staged blank contributes
+  // whatever letter the touch-mode picker assigned it (blankAssignments),
+  // every other tile contributes its own letter. This is what the touch-mode
+  // submit path plays, and what the (hidden-in-touch) word-input mirrors on
+  // desktop.
+  function stagedWord() {
+    return state.selectedTileIds.map(function (id) {
+      var t = state.player.rack.find(function (rt) { return rt.id === id; });
+      if (!t) return '';
+      if (t.letter === '?') return state.blankAssignments[id] || '';
+      return t.letter;
+    }).join('');
+  }
+
+  // Keep the desktop typing box in sync with the staged tiles WITHOUT focusing
+  // it -- focusing is what pops the soft keyboard on mobile (MOBILE INPUT 1/3),
+  // so the focus() call is gated on desktop mode at every call site instead.
+  function syncWordInput() {
+    $('word-input').value = stagedWord();
+  }
+
   function selectTileForWord(tile) {
     // A Hex'd tile (monster intent, "FUN OVERHAUL 2/8") is locked for this
     // turn -- greyed out in the rack (see renderCombat) and a no-op here so
     // neither a click nor a touch tap can stage it.
     if (tile.id === state.hexedTileId) return;
-    // A blank has no letter to append -- clicking one has nothing to do, so
-    // leave it unselected rather than visibly "selecting" a tile that stages
-    // an empty string. Type the word instead; blanks fill in automatically.
-    if (tile.letter === '?') return;
+    if (tile.letter === '?') {
+      // Desktop: a blank has no letter to append on click, so tapping one is a
+      // no-op -- the player types the word and blanks fill in automatically.
+      if (!state.touchMode) return;
+      // Touch-mode: typing is gone, so a blank needs a letter chosen for it.
+      // If it's already staged, tapping it again unstages it (and forgets its
+      // chosen letter); otherwise open the A-Z picker to assign one.
+      var stagedIdx = state.selectedTileIds.indexOf(tile.id);
+      if (stagedIdx !== -1) {
+        state.selectedTileIds.splice(stagedIdx, 1);
+        delete state.blankAssignments[tile.id];
+        syncWordInput();
+        render();
+      } else {
+        openBlankPicker(tile.id);
+      }
+      return;
+    }
     var existingIndex = state.selectedTileIds.indexOf(tile.id);
     if (existingIndex !== -1) {
       // Already staged -- clicking again deselects it instead of appending
@@ -1396,11 +1441,45 @@
     // The selection array is the source of truth; rebuild the input from it
     // rather than surgically edit the string, so removals from the middle
     // work correctly too.
-    $('word-input').value = state.selectedTileIds.map(function (id) {
-      var t = state.player.rack.find(function (rt) { return rt.id === id; });
-      return t ? t.letter : '';
-    }).join('');
-    $('word-input').focus();
+    syncWordInput();
+    if (!state.touchMode) $('word-input').focus();
+    render();
+  }
+
+  // MOBILE INPUT 1/3: the touch-mode blank-letter picker. Opening it just
+  // flags state and re-renders (render() toggles/populates the overlay, same
+  // pattern as the how-to-play overlay); picking a letter assigns it to the
+  // blank and stages the tile, routing the chosen letter through the exact
+  // same word-string path a real tile uses -- Combat.playWord re-resolves the
+  // whole word against the rack via Lexicon.canFormFromRack, which already
+  // prefers an exact-letter tile over a blank, so if the player also holds the
+  // real letter that tile gets used instead (player-favorable; noted in
+  // PROGRESS.md).
+  function openBlankPicker(tileId) {
+    state.blankPickerOpen = true;
+    state.blankPickerTileId = tileId;
+    render();
+  }
+
+  function closeBlankPicker() {
+    state.blankPickerOpen = false;
+    state.blankPickerTileId = null;
+    render();
+  }
+
+  function assignBlankLetter(letter) {
+    var tileId = state.blankPickerTileId;
+    if (!tileId) { closeBlankPicker(); return; }
+    var tile = state.player.rack.find(function (t) { return t.id === tileId; });
+    // Guard against a stale picker (tile cycled away): just close it.
+    if (!tile || tile.letter !== '?') { closeBlankPicker(); return; }
+    state.blankAssignments[tileId] = letter;
+    if (state.selectedTileIds.indexOf(tileId) === -1) {
+      state.selectedTileIds.push(tileId);
+    }
+    state.blankPickerOpen = false;
+    state.blankPickerTileId = null;
+    syncWordInput();
     render();
   }
 
@@ -1486,6 +1565,7 @@
 
   function render() {
     $('howto-overlay').classList.toggle('hidden', !state.howToPlayOpen);
+    renderBlankPicker();
     if (state.screen === 'MAIN_MENU') { show('screen-main-menu'); renderMainMenu(); return; }
     if (state.screen === 'CHARACTER_SELECT') { show('screen-character-select'); renderCharacterSelect(); return; }
     if (state.screen === 'GAME_OVER') { show('screen-game-over'); renderGameOver(); return; }
@@ -2032,6 +2112,30 @@
     renderStagingArea();
   }
 
+  // MOBILE INPUT 1/3: the touch-mode blank-letter picker overlay. Toggled and
+  // rebuilt every render (same pattern as the how-to-play overlay). Only ever
+  // opens in touch-mode, but the render is mode-agnostic -- it just reflects
+  // state.blankPickerOpen.
+  var BLANK_PICKER_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  function renderBlankPicker() {
+    var overlay = $('blank-picker-overlay');
+    if (!overlay) return;
+    overlay.classList.toggle('hidden', !state.blankPickerOpen);
+    if (!state.blankPickerOpen) return;
+    var grid = $('blank-picker-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    BLANK_PICKER_LETTERS.forEach(function (letter) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'blank-picker-letter';
+      btn.textContent = letter;
+      btn.setAttribute('data-blank-letter', letter);
+      btn.addEventListener('click', function () { assignBlankLetter(letter); });
+      grid.appendChild(btn);
+    });
+  }
+
   function renderStagingArea() {
     var stagingArea = $('staging-area');
     if (!stagingArea) return;
@@ -2054,7 +2158,11 @@
       stageTile.className = 'staged-tile' + bonusClass;
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       var stagedVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
-      stageTile.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + stagedVal + '</sub>';
+      // MOBILE INPUT 1/3: a blank staged via the touch picker shows the letter
+      // the player chose for it (so the built word is legible), not a bare ★.
+      // A blank's letter value is 0 either way.
+      var stagedGlyph = tile.letter === '?' ? (state.blankAssignments[tile.id] || '★') : tile.letter;
+      stageTile.innerHTML = stagedGlyph + '<sub>' + stagedVal + '</sub>';
       if (tile.variant) stageTile.title = Tiles.describeVariant(tile.variant);
       else if (tile.bonus) stageTile.title = Tiles.describeBonus(tile.bonus);
       stagingArea.appendChild(stageTile);
@@ -2107,7 +2215,10 @@
 
     $('btn-submit-word').addEventListener('click', function () {
       var input = $('word-input');
-      Game.submitWord(input.value);
+      // MOBILE INPUT 1/3: in touch-mode the input is hidden and typing is
+      // disabled, so the staged tiles are the only word source.
+      var word = state.touchMode ? stagedWord() : input.value;
+      Game.submitWord(word);
       input.value = '';
     });
     $('word-input').addEventListener('keydown', function (e) {
@@ -2119,7 +2230,8 @@
     $('btn-clear-word').addEventListener('click', function () {
       $('word-input').value = '';
       state.selectedTileIds = [];
-      $('word-input').focus();
+      state.blankAssignments = {};
+      if (!state.touchMode) $('word-input').focus();
       render();
     });
 
@@ -2144,6 +2256,52 @@
       loadingIndicator.classList.add('hidden');
     }
 
+    // MOBILE INPUT 1/3: cancel button for the touch-mode blank-letter picker
+    // (its A-Z grid buttons are wired per-render in renderBlankPicker).
+    var blankCancelBtn = $('btn-cancel-blank-picker');
+    if (blankCancelBtn) blankCancelBtn.addEventListener('click', closeBlankPicker);
+
+    // MOBILE INPUT 1/3: detect coarse-pointer (touch) devices and switch to
+    // tap-only input. Feature-checked so environments without matchMedia
+    // (e.g. jsdom) simply stay in desktop mode. The media query is live --
+    // re-evaluate on change so plugging in / unplugging a mouse, or a device
+    // that reports both, flips modes without a reload.
+    Game.applyTouchModeFromMedia();
+    if (window.matchMedia) {
+      var coarseMql = window.matchMedia('(pointer: coarse)');
+      var onPointerChange = function () { Game.applyTouchModeFromMedia(); };
+      if (coarseMql.addEventListener) coarseMql.addEventListener('change', onPointerChange);
+      else if (coarseMql.addListener) coarseMql.addListener(onPointerChange); // older Safari
+    }
+
     render();
   };
+
+  // MOBILE INPUT 1/3: apply (or clear) touch-mode from the current
+  // pointer-coarse media state. Exposed so tests can mock window.matchMedia
+  // and re-derive the mode after the page has already booted. Toggling the
+  // <body> class is what CSS keys off (hidden #word-input, tap-first copy);
+  // all JS behavior keys off state.touchMode.
+  Game.applyTouchModeFromMedia = function () {
+    var coarse = false;
+    if (window.matchMedia) {
+      var mql = window.matchMedia('(pointer: coarse)');
+      coarse = !!(mql && mql.matches);
+    }
+    state.touchMode = coarse;
+    if (document.body) document.body.classList.toggle('touch-mode', coarse);
+    applyTouchModeCopy(coarse);
+  };
+
+  // MOBILE INPUT 1/3, spec item 5: swap player-facing "type" copy for
+  // tap-first wording in touch-mode (the input placeholder is hidden anyway;
+  // the How-to-Play blank tip is the copy that actually matters).
+  function applyTouchModeCopy(coarse) {
+    var tip = $('howto-blank-tip');
+    if (tip) {
+      tip.innerHTML = coarse
+        ? '★ blanks: tap the blank tile, then pick any letter from the grid.'
+        : '★ blanks: just type any word — they fill in automatically.';
+    }
+  }
 })();
