@@ -82,7 +82,8 @@
     combatActive: false,
     messages: [],
     treasureOptions: null,
-    shopOptions: null,
+    shopOptions: null, // array of string ids ('itemId' or 'c:consumableId') -- deliberately kept a flat string array, see shopTileOffer
+    shopTileOffer: null, // FUN OVERHAUL 5/8: the shop's premium variant tile, a Tile OBJECT. Held separately rather than mixed into shopOptions so every consumer of that array (renderShop, test/balance-simulation.js's shopping bot, anything future) can keep assuming it's all string ids
     tileRewardOptions: null,
     bossRewardOptions: null, // rare/legendary item choices offered after a boss kill, see rollBossRewardOptions
     pendingAfterTileReward: null, // 'bossItemReward' | 'nextNode'
@@ -244,6 +245,7 @@
     } else if (node.type === 'shop') {
       state.screen = 'SHOP';
       state.shopOptions = rollShopOptions();
+      state.shopTileOffer = rollShopTileOffer();
       render();
     } else if (node.type === 'event') {
       startEvent(node);
@@ -289,6 +291,9 @@
     render();
   };
 
+  var SHOP_VARIANT_TILE_CHANCE = 0.4; // FUN OVERHAUL 5/8: "occasionally sells one at a premium"
+  var VARIANT_TILE_SHOP_PRICE = 45; // in line with a rare item's shopPrice (items.js)
+
   function rollShopOptions() {
     var owned = state.player.items;
     var itemPool = Object.keys(Items.ITEM_DEFS).filter(function (id) {
@@ -298,6 +303,14 @@
     var combined = itemPool.concat(consumablePool);
     var shuffled = state.rng.shuffle(combined);
     return shuffled.slice(0, 4);
+  }
+
+  // Rolled ONCE when the shop is entered and stored on state, not derived at
+  // render time: a tile carries per-instance data (letter + variant) that no
+  // static def lookup can reconstruct, so re-rolling it on every render would
+  // make the offer change under the player's cursor and break seeded runs.
+  function rollShopTileOffer() {
+    return state.rng.chance(SHOP_VARIANT_TILE_CHANCE) ? Tiles.rollVariantTile(state.rng) : null;
   }
 
   Game.buyItem = function (itemId) {
@@ -329,11 +342,31 @@
     render();
   };
 
+  // FUN OVERHAUL 5/8: buys the shop's premium variant tile. Kept separate
+  // from Game.buyItem since a tile isn't looked up from a static *_DEFS table
+  // like every other purchasable thing -- it's an instance held on state.
+  Game.buyShopTile = function () {
+    var offer = state.shopTileOffer;
+    if (!offer) return;
+    if (state.player.gold < VARIANT_TILE_SHOP_PRICE) {
+      log('Not enough gold! Need ' + VARIANT_TILE_SHOP_PRICE + ', have ' + state.player.gold + '.');
+      return;
+    }
+    state.player.gold -= VARIANT_TILE_SHOP_PRICE;
+    state.deck.push(offer);
+    log('You bought a ' + Tiles.describeVariant(offer.variant) + ' tile for ' + VARIANT_TILE_SHOP_PRICE + ' gold.');
+    // Re-roll so the sold tile isn't left on the shelf as a dead, already-
+    // owned option (same reason Game.buyItem re-rolls its own list).
+    state.shopTileOffer = rollShopTileOffer();
+    render();
+  };
+
   Game.leaveShop = function () {
     currentNode().cleared = true;
     state.currentNodeIndex += 1;
     state.screen = 'RUN';
     state.shopOptions = null;
+    state.shopTileOffer = null;
     render();
   };
 
@@ -377,6 +410,12 @@
     // instance here so Intents.rollIntent knows whether the def's signature
     // pool (hex/devour/mend/enrage) is actually live for this fight.
     state.monster.isElite = node.type === 'elite';
+    // FUN OVERHAUL 5/8: a Volatile tile that cracked last fight is only
+    // "unusable for the rest of the fight" -- clear the flag on every deck
+    // tile (the persistent tile objects, not just this fight's pile) so it's
+    // back in the draw pool for this new fight, same "fight-scoped, not
+    // permanent" pattern Devour's tile removal already uses.
+    state.deck.forEach(function (t) { t.crackedThisFight = false; });
     state.pile = { drawPile: Tiles.shuffleIntoDrawPile(state.deck, state.rng), discardPile: [] };
     state.player.rack = [];
     state.comboState = { combo: 0, usedWords: new Set() };
@@ -446,8 +485,15 @@
       state.pile.discardPile = state.pile.discardPile.concat(unusedTiles);
     }
 
-    // Always discard the used tiles
-    state.pile.discardPile = state.pile.discardPile.concat(tilesUsed);
+    // Always discard the used tiles -- EXCEPT a Volatile tile that just
+    // cracked (FUN OVERHAUL 5/8, flagged by submitWord right after playWord
+    // resolves): a cracked tile is "unusable for the rest of the fight," so
+    // it must not re-enter a pile that could reshuffle it back into the draw
+    // pile. Leaving it out of both piles is enough -- startCombat clears the
+    // flag on the underlying deck tile at the start of the next fight, so
+    // nothing here touches the persistent deck.
+    var stillActive = tilesUsed.filter(function (t) { return !t.crackedThisFight; });
+    state.pile.discardPile = state.pile.discardPile.concat(stillActive);
 
     // Clear the rack
     if (state.player.skipDiscardNextTurn) {
@@ -480,6 +526,9 @@
 
   var TILE_PLAY_ANIM_MS = 220; // matches .tile-played's animation-duration in wordbound.css
   var MONSTER_DEATH_BEAT_MS = 500; // matches .monster-defeated's animation-duration in wordbound.css
+  var VOLATILE_CRACK_CHANCE = 0.25; // FUN OVERHAUL 5/8: rolled once per Volatile tile actually played
+  var GILDED_GOLD_PER_TILE = 2;
+  var VAMPIRIC_HEAL_PER_TILE = 1;
 
   function markTilesPlayed(tilesUsed) {
     var rack = $('rack-display');
@@ -547,6 +596,36 @@
     Items.runHook('onWordPlayed', ctx, state.player);
     state.previousWordThisFight = result.word;
     ctx.messages.forEach(function (msg) { log(msg); });
+
+    // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20): special tile variants.
+    // Charged (+4 damage) and Volatile (letters score x2) are already folded
+    // into result.damage via Lexicon.scoreWord -- only Gilded's gold and
+    // Vampiric's heal need resolving here (side effects on player state, not
+    // part of the word's score), plus Volatile's own crack roll, which only
+    // applies to tiles that were actually played this turn. Summed across
+    // all matching tiles in the word (consistent with how Charged/Foreword
+    // already stack per tile) and logged once per effect type so playing two
+    // Gilded tiles doesn't spam two near-identical lines.
+    var variantGold = 0, variantHeal = 0, crackedCount = 0;
+    result.tilesUsed.forEach(function (tile) {
+      if (tile.variant === Tiles.VARIANTS.GILDED) variantGold += GILDED_GOLD_PER_TILE;
+      else if (tile.variant === Tiles.VARIANTS.VAMPIRIC) variantHeal += VAMPIRIC_HEAL_PER_TILE;
+      else if (tile.variant === Tiles.VARIANTS.VOLATILE && state.rng.chance(VOLATILE_CRACK_CHANCE)) {
+        tile.crackedThisFight = true;
+        crackedCount += 1;
+      }
+    });
+    if (variantGold > 0) {
+      state.player.gold += variantGold;
+      log('Gilded tile' + (variantGold > GILDED_GOLD_PER_TILE ? 's' : '') + ': +' + variantGold + ' gold!');
+    }
+    if (variantHeal > 0) {
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp + variantHeal);
+      log('Vampiric tile' + (variantHeal > VAMPIRIC_HEAL_PER_TILE ? 's' : '') + ': healed ' + variantHeal + ' HP.');
+    }
+    if (crackedCount > 0) {
+      log('A Volatile tile cracks' + (crackedCount > 1 ? ' (x' + crackedCount + ')' : '') + ' -- gone for the rest of the fight.');
+    }
 
     var tag = result.multiplier === 0 ? ' -- no effect!' : result.multiplier > 1 ? ' -- weak point!' : '';
     log('You play "' + result.word + '" for ' + result.damage + ' damage' + tag);
@@ -746,8 +825,8 @@
     state.tileRewardOptions.forEach(function (t) { if (t.id === tileId) chosen = t; });
     if (chosen) {
       state.deck.push(chosen);
-      var bonusDesc = Tiles.describeBonus(chosen.bonus);
-      log('Added ' + chosen.letter + (bonusDesc ? ' (' + bonusDesc + ')' : '') + ' to your deck.');
+      var modDesc = Tiles.describeVariant(chosen.variant) || Tiles.describeBonus(chosen.bonus);
+      log('Added ' + chosen.letter + (modDesc ? ' (' + modDesc + ')' : '') + ' to your deck.');
     }
     resolveTileReward();
   };
@@ -1523,6 +1602,27 @@
       }
       el.appendChild(btn);
     });
+
+    // FUN OVERHAUL 5/8: the premium variant-tile offer (a Tile object on
+    // state, not a string id in shopOptions) renders as its own row below the
+    // item/consumable list.
+    if (state.shopTileOffer) {
+      var tile = state.shopTileOffer;
+      var tileCanAfford = state.player.gold >= VARIANT_TILE_SHOP_PRICE;
+      var tileBtn = document.createElement('button');
+      tileBtn.className = 'treasure-choice variant-' + tile.variant + (tileCanAfford ? '' : ' shop-unavailable');
+      tileBtn.style.opacity = tileCanAfford ? '1' : '0.6';
+      tileBtn.disabled = !tileCanAfford;
+      var tilePriceColor = tileCanAfford ? '#f0d789' : '#8b7355';
+      var shopDisplayLetter = tile.letter === '?' ? '★' : tile.letter;
+      tileBtn.innerHTML = '<strong>Premium Tile: ' + escapeHtml(shopDisplayLetter) + '</strong><span style="font-size: 0.8rem; color: #9a8b6f;"> [Tile]</span><br>' +
+        escapeHtml(Tiles.describeVariant(tile.variant)) + '<br><span style="color: ' + tilePriceColor + ';">Cost: ' + VARIANT_TILE_SHOP_PRICE + ' 🪙</span>';
+      if (tileCanAfford) {
+        tileBtn.addEventListener('click', function () { Game.buyShopTile(); });
+      }
+      el.appendChild(tileBtn);
+    }
+
     var leaveBtn = document.createElement('button');
     leaveBtn.className = 'btn btn-secondary';
     leaveBtn.textContent = 'Leave Shop';
@@ -1537,15 +1637,20 @@
     state.tileRewardOptions.forEach(function (tile) {
       var btn = document.createElement('button');
       var bonusClass = '';
-      if (tile.bonus) {
+      if (tile.variant) {
+        bonusClass = ' has-bonus variant-' + tile.variant;
+      } else if (tile.bonus) {
         bonusClass = ' has-bonus';
         if (tile.bonus.type === 'flatOnPlay') bonusClass += ' bonus-flat';
         else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
         else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
       }
       btn.className = 'treasure-choice treasure-choice-tile' + bonusClass;
-      var bonusDesc = Tiles.describeBonus(tile.bonus);
+      var bonusDesc = Tiles.describeVariant(tile.variant) || Tiles.describeBonus(tile.bonus);
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
+      // Same doubled value the rack will show once this tile is in play --
+      // otherwise the reward screen understates what the player is picking.
+      if (tile.variant === Tiles.VARIANTS.VOLATILE) val *= 2;
       var displayLetter = tile.letter === '?' ? '★' : tile.letter;
       btn.innerHTML = '<span class="tile-reward-letter">' + escapeHtml(displayLetter) + '<sub>' + val + '</sub></span>' +
         (bonusDesc ? '<span class="tile-reward-bonus">' + escapeHtml(bonusDesc) + '</span>' : '');
@@ -1579,8 +1684,9 @@
     });
     sorted.forEach(function (tile) {
       var div = document.createElement('div');
-      div.className = 'treasure-choice';
-      var bonusDesc = Tiles.describeBonus(tile.bonus);
+      var deckVariantClass = tile.variant ? ' variant-' + tile.variant : '';
+      div.className = 'treasure-choice' + deckVariantClass;
+      var bonusDesc = Tiles.describeVariant(tile.variant) || Tiles.describeBonus(tile.bonus);
       div.innerHTML = '<strong>' + escapeHtml(tile.letter) + '</strong>' + (bonusDesc ? '<br>' + escapeHtml(bonusDesc) : '');
       div.style.cursor = 'default';
       el.appendChild(div);
@@ -1677,7 +1783,9 @@
       var isSelected = state.selectedTileIds.indexOf(tile.id) !== -1;
       var isHexed = tile.id === state.hexedTileId;
       var bonusClass = '';
-      if (tile.bonus) {
+      if (tile.variant) {
+        bonusClass = ' has-bonus variant-' + tile.variant;
+      } else if (tile.bonus) {
         bonusClass = ' has-bonus';
         if (tile.bonus.type === 'flatOnPlay') bonusClass += ' bonus-flat';
         else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
@@ -1686,8 +1794,10 @@
       btn.className = 'letter-tile' + bonusClass + (isNewTile ? ' new-tile' : '') + (isSelected ? ' selected' : '') + (isHexed ? ' tile-hexed' : '');
       if (isHexed) btn.disabled = true;
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
-      btn.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
+      var displayVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
+      btn.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + displayVal + '</sub>';
       if (isHexed) btn.title = 'Hexed -- locked for this turn';
+      else if (tile.variant) btn.title = Tiles.describeVariant(tile.variant);
       else if (tile.bonus) btn.title = Tiles.describeBonus(tile.bonus);
       btn.addEventListener('click', function () {
         selectTileForWord(tile);
@@ -1748,7 +1858,9 @@
       if (!tile) return;
       var stageTile = document.createElement('div');
       var bonusClass = '';
-      if (tile.bonus) {
+      if (tile.variant) {
+        bonusClass = ' has-bonus variant-' + tile.variant;
+      } else if (tile.bonus) {
         bonusClass = ' has-bonus';
         if (tile.bonus.type === 'flatOnPlay') bonusClass += ' bonus-flat';
         else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
@@ -1756,8 +1868,10 @@
       }
       stageTile.className = 'staged-tile' + bonusClass;
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
-      stageTile.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + val + '</sub>';
-      if (tile.bonus) stageTile.title = Tiles.describeBonus(tile.bonus);
+      var stagedVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
+      stageTile.innerHTML = (tile.letter === '?' ? '★' : tile.letter) + '<sub>' + stagedVal + '</sub>';
+      if (tile.variant) stageTile.title = Tiles.describeVariant(tile.variant);
+      else if (tile.bonus) stageTile.title = Tiles.describeBonus(tile.bonus);
       stagingArea.appendChild(stageTile);
     });
   }

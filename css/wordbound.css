@@ -507,6 +507,28 @@ h2 {
 .letter-tile.bonus-mult-hold {
   box-shadow: 0 0 0 2px #b8a5d8, 0 0 8px rgba(184, 165, 216, 0.8);
 }
+
+/* Special tile variants (GOALS.md "FUN OVERHAUL 5/8"): each gets its own
+   ring color AND a corner glyph, so they're distinguishable without relying
+   on color alone (the four rings sit close together in hue, and the badges
+   need to read on a 375px screen). The glyph is a ::after pseudo-element so
+   it doesn't disturb the letter/value layout inside the tile. */
+.letter-tile.variant-gilded { box-shadow: 0 0 0 2px #e0b544, 0 0 8px rgba(224, 181, 68, 0.85); }
+.letter-tile.variant-charged { box-shadow: 0 0 0 2px #7fc4e8, 0 0 8px rgba(127, 196, 232, 0.85); }
+.letter-tile.variant-vampiric { box-shadow: 0 0 0 2px #d06a7a, 0 0 8px rgba(208, 106, 122, 0.85); }
+.letter-tile.variant-volatile { box-shadow: 0 0 0 2px #e08a4a, 0 0 8px rgba(224, 138, 74, 0.85); }
+.letter-tile[class*="variant-"]::after {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: 0.55rem;
+  line-height: 1;
+  pointer-events: none;
+}
+.letter-tile.variant-gilded::after { content: '🪙'; }
+.letter-tile.variant-charged::after { content: '⚡'; }
+.letter-tile.variant-vampiric::after { content: '🩸'; }
+.letter-tile.variant-volatile::after { content: '💥'; }
 .letter-tile[draggable="true"] {
   cursor: grab;
 }
@@ -577,6 +599,28 @@ h2 {
   box-shadow: 0 0 8px rgba(184, 165, 216, 0.8), 0 2px 4px rgba(0,0,0,0.3);
   background: #fff4d6;
 }
+
+/* Variant badges in the staging area: same ring + glyph language as the
+   rack, so a staged tile stays recognizable as the one just clicked.
+   position:relative is required here (unlike .letter-tile, which already
+   has it) or the absolutely-positioned glyph would escape the tile. */
+.staged-tile[class*="variant-"] { position: relative; background: #fff4d6; }
+.staged-tile.variant-gilded { box-shadow: 0 0 8px rgba(224, 181, 68, 0.9), 0 2px 4px rgba(0,0,0,0.3); }
+.staged-tile.variant-charged { box-shadow: 0 0 8px rgba(127, 196, 232, 0.9), 0 2px 4px rgba(0,0,0,0.3); }
+.staged-tile.variant-vampiric { box-shadow: 0 0 8px rgba(208, 106, 122, 0.9), 0 2px 4px rgba(0,0,0,0.3); }
+.staged-tile.variant-volatile { box-shadow: 0 0 8px rgba(224, 138, 74, 0.9), 0 2px 4px rgba(0,0,0,0.3); }
+.staged-tile[class*="variant-"]::after {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  font-size: 0.5rem;
+  line-height: 1;
+  pointer-events: none;
+}
+.staged-tile.variant-gilded::after { content: '🪙'; }
+.staged-tile.variant-charged::after { content: '⚡'; }
+.staged-tile.variant-vampiric::after { content: '🩸'; }
+.staged-tile.variant-volatile::after { content: '💥'; }
 
 .word-input-row {
   display: flex;
@@ -692,6 +736,33 @@ h2 {
 .treasure-choice-tile.bonus-mult-hold .tile-reward-letter {
   box-shadow: 0 0 0 2px #b8a5d8, 0 0 8px rgba(184, 165, 216, 0.8);
 }
+
+/* Variant badges on a tile-reward choice: the ring goes on the letter
+   square (matching the bonus classes above), the glyph rides its corner --
+   .tile-reward-letter is already position:relative for its <sub>. */
+.treasure-choice-tile.variant-gilded .tile-reward-letter { box-shadow: 0 0 0 2px #e0b544, 0 0 8px rgba(224, 181, 68, 0.85); }
+.treasure-choice-tile.variant-charged .tile-reward-letter { box-shadow: 0 0 0 2px #7fc4e8, 0 0 8px rgba(127, 196, 232, 0.85); }
+.treasure-choice-tile.variant-vampiric .tile-reward-letter { box-shadow: 0 0 0 2px #d06a7a, 0 0 8px rgba(208, 106, 122, 0.85); }
+.treasure-choice-tile.variant-volatile .tile-reward-letter { box-shadow: 0 0 0 2px #e08a4a, 0 0 8px rgba(224, 138, 74, 0.85); }
+.treasure-choice-tile[class*="variant-"] .tile-reward-letter::after {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: 0.55rem;
+  line-height: 1;
+  pointer-events: none;
+}
+.treasure-choice-tile.variant-gilded .tile-reward-letter::after { content: '🪙'; }
+.treasure-choice-tile.variant-charged .tile-reward-letter::after { content: '⚡'; }
+.treasure-choice-tile.variant-vampiric .tile-reward-letter::after { content: '🩸'; }
+.treasure-choice-tile.variant-volatile .tile-reward-letter::after { content: '💥'; }
+
+/* Deck viewer + shop rows are plain .treasure-choice bars (no letter
+   square), so a variant there gets a left accent stripe instead of a ring. */
+.treasure-choice.variant-gilded { border-left: 3px solid #e0b544; }
+.treasure-choice.variant-charged { border-left: 3px solid #7fc4e8; }
+.treasure-choice.variant-vampiric { border-left: 3px solid #d06a7a; }
+.treasure-choice.variant-volatile { border-left: 3px solid #e08a4a; }
 
 .character-select-panel { max-width: 500px; }
 

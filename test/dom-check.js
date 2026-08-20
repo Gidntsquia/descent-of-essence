@@ -263,6 +263,78 @@ async function main() {
     }
   }
 
+  // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20): special tile variants. The two
+  // SCORING variants (Charged +4 flat, Volatile letter-value x2) resolve in
+  // Lexicon.scoreWord, so they're checked here in isolation against exact
+  // arithmetic; Gilded's gold, Vampiric's heal, and Volatile's crack are
+  // player/fight state rather than score, so those are driven through the
+  // real Game.submitWord in the live-DOM section further down.
+  {
+    const Lexicon = window.Wordbound.Lexicon;
+    const Tiles = window.Wordbound.Tiles;
+    const V = Tiles.VARIANTS;
+
+    // 'CAT' = C(3) + A(1) + T(1) = 5 base, no length/bingo bonus at 3 letters
+    // from a 7-capacity rack. Every variant case below is measured against
+    // that same 5, so any drift in LETTER_VALUES fails loudly rather than
+    // silently rebasing the expected numbers.
+    const plain = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+    const plainScore = Lexicon.scoreWord('CAT', plain, 7);
+    check('variant baseline: plain "CAT" scores 5 with no variant flat bonus', plainScore.total === 5 && plainScore.variantFlat === 0);
+
+    // Charged: +4 flat per charged tile played, additive with a second one.
+    const oneCharged = [Tiles.createTile('C', null, V.CHARGED), Tiles.createTile('A', null), Tiles.createTile('T', null)];
+    const oneChargedScore = Lexicon.scoreWord('CAT', oneCharged, 7);
+    check('Charged tile: +4 flat damage on the played word (5 -> 9)', oneChargedScore.total === 9 && oneChargedScore.variantFlat === 4);
+    const twoCharged = [Tiles.createTile('C', null, V.CHARGED), Tiles.createTile('A', null, V.CHARGED), Tiles.createTile('T', null)];
+    check('Charged tile: two charged tiles stack (+8, 5 -> 13)', Lexicon.scoreWord('CAT', twoCharged, 7).total === 13);
+
+    // Volatile: doubles only ITS OWN letter's value, not the whole word.
+    // C is worth 3, so a Volatile C adds exactly 3 (5 -> 8) -- if this ever
+    // doubled the word total it would read 10 instead.
+    const volatileC = [Tiles.createTile('C', null, V.VOLATILE), Tiles.createTile('A', null), Tiles.createTile('T', null)];
+    check('Volatile tile: doubles only its own letter value (C 3->6, total 5 -> 8)', Lexicon.scoreWord('CAT', volatileC, 7).total === 8);
+    const volatileA = [Tiles.createTile('C', null), Tiles.createTile('A', null, V.VOLATILE), Tiles.createTile('T', null)];
+    check('Volatile tile: doubling a 1-point letter adds exactly 1 (5 -> 6)', Lexicon.scoreWord('CAT', volatileA, 7).total === 6);
+
+    // Gilded/Vampiric are deliberately score-neutral -- their whole effect is
+    // the side effect game.js applies, so a scoring change here would mean
+    // they're double-dipping.
+    const gilded = [Tiles.createTile('C', null, V.GILDED), Tiles.createTile('A', null), Tiles.createTile('T', null)];
+    check('Gilded tile: no effect on the word score (side effect only)', Lexicon.scoreWord('CAT', gilded, 7).total === 5);
+    const vampiric = [Tiles.createTile('C', null, V.VAMPIRIC), Tiles.createTile('A', null), Tiles.createTile('T', null)];
+    check('Vampiric tile: no effect on the word score (side effect only)', Lexicon.scoreWord('CAT', vampiric, 7).total === 5);
+
+    // Every variant needs player-readable text -- the badge colors alone
+    // don't say what a tile does, and describeVariant feeds the rack tooltip,
+    // the tile-reward line, the deck viewer, and the shop offer.
+    const allDescribed = [V.GILDED, V.CHARGED, V.VAMPIRIC, V.VOLATILE].every((v) => {
+      const d = Tiles.describeVariant(v);
+      return typeof d === 'string' && d.length > 0;
+    });
+    check('describeVariant: all four variants have descriptive text', allDescribed);
+    check('describeVariant: null variant describes as null (plain tiles stay plain)', Tiles.describeVariant(null) === null);
+
+    // Roll distribution: variants and legacy bonuses must be MUTUALLY
+    // EXCLUSIVE (one badge per tile, see tiles.js rollRewardOptions), and the
+    // variant rate should land near the ticket's 25%. Uses a fixed seed so
+    // this is a deterministic assertion, not a flaky statistical one.
+    const rng = window.Game.RNG.create(12345);
+    const rolled = [];
+    for (let i = 0; i < 60; i++) rolled.push(...Tiles.rollRewardOptions(rng, 3));
+    const withVariant = rolled.filter((t) => !!t.variant);
+    check('rollRewardOptions: no tile carries both a variant and a legacy bonus', rolled.every((t) => !(t.variant && t.bonus)));
+    check('rollRewardOptions: every rolled variant is one of the four known ids', withVariant.every((t) => Object.keys(V).map((k) => V[k]).indexOf(t.variant) !== -1));
+    check('rollRewardOptions: variant rate is roughly 25% (10-40% over 180 rolls)', withVariant.length / rolled.length > 0.10 && withVariant.length / rolled.length < 0.40);
+    check('rollRewardOptions: all four variants appear across 180 rolls', Object.keys(V).map((k) => V[k]).every((v) => withVariant.some((t) => t.variant === v)));
+    check('rollRewardOptions: fresh tiles start uncracked', rolled.every((t) => t.crackedThisFight === false));
+
+    // The shop's premium offer must never whiff into a plain tile.
+    const shopTiles = [];
+    for (let i = 0; i < 20; i++) shopTiles.push(Tiles.rollVariantTile(rng));
+    check('rollVariantTile: always carries a variant (premium offer never whiffs)', shopTiles.every((t) => !!t.variant && !t.bonus));
+  }
+
   // Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): three
   // distinct words should each get a bigger damage multiplier than the last
   // (+12%/stack off the streak BEFORE that word), and replaying an
@@ -765,6 +837,134 @@ async function main() {
     window.Wordbound.Game.closeDeckViewer();
   }
 
+  // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20), live-DOM check: the three
+  // variant effects that are NOT part of word scoring -- Gilded's gold,
+  // Vampiric's heal, and Volatile's crack -- all resolve inside the real
+  // Game.submitWord against real player/fight state, so they can only be
+  // proven here, not in the isolated Lexicon.scoreWord checks above. Forces
+  // variants onto the specific rack tiles a known-playable word will consume
+  // (rather than hoping a variant rolls naturally), plays that word for
+  // real, and reads the resulting gold/HP/pile state back.
+  //
+  // Volatile's crack is a 25% roll, so state.rng.chance is temporarily
+  // wrapped to force TRUE for exactly p === 0.25 and delegate every other
+  // probability to the real seeded RNG -- deterministic without disabling
+  // randomness wholesale. Confirmed by grep that 0.25 is the only in-fight
+  // chance() probability (events use 0.5, floor gen 0.6, the shop tile 0.4,
+  // and tiles.js's own 0.25 variant roll only runs on monster defeat, which
+  // this survivable word deliberately avoids).
+  let volatileTileRef = null;
+  {
+    const V = window.Wordbound.Tiles.VARIANTS;
+    let variantWord = null, variantTiles = null;
+    for (let i = 0; i < WORDLIST.length; i++) {
+      const w = WORDLIST[i];
+      if (w.length < 3 || w.length > state.player.rack.length) continue;
+      if (!Lexicon.isValidWord(w)) continue;
+      const formed = Lexicon.canFormFromRack(w, state.player.rack);
+      if (!formed.possible) continue;
+      // Distinct tile instances only -- the three variants below are assigned
+      // to tilesUsed[0..2], which must be three different tiles for the
+      // per-effect assertions to be independent of each other.
+      const ids = new Set(formed.tilesUsed.map((t) => t.id));
+      if (ids.size < 3) continue;
+      const score = Lexicon.scoreWord(w, formed.tilesUsed);
+      const mult = trait ? trait.multiplier(w, formed.tilesUsed) : 1;
+      if (Math.round(score.total * mult) > 0) { variantWord = w; variantTiles = formed.tilesUsed; break; }
+    }
+
+    if (!variantWord) {
+      console.log('SKIP variant live-DOM checks -- no damage-dealing 3+-distinct-tile word available from this rack (likely a trait immunity, not a bug)');
+    } else {
+      // The monster MUST survive this word: a kill would end the fight, roll
+      // fresh reward tiles, and bump runStats.monstersDefeated, breaking both
+      // these reads and the later stats checks. Predicting the damage closely
+      // enough to guarantee that is unreliable (the forced Volatile tile
+      // doubles its own letter after the estimate is taken, and the combo
+      // multiplier compounds it), so the monster's HP is temporarily raised
+      // out of reach and restored right after instead of guessed at.
+      const survivalHp = state.monster.hp;
+      const survivalMaxHp = state.monster.maxHp;
+      state.monster.maxHp = 100000;
+      state.monster.hp = 100000;
+
+      variantTiles[0].variant = V.GILDED;
+      variantTiles[1].variant = V.VAMPIRIC;
+      variantTiles[2].variant = V.VOLATILE;
+      volatileTileRef = variantTiles[2];
+      // Give the heal somewhere to land -- at full HP, Vampiric's +1 clamps
+      // to a no-op and the check would pass vacuously.
+      state.player.hp = Math.max(1, state.player.maxHp - 5);
+      const goldBefore = state.player.gold;
+      const hpBefore = state.player.hp;
+
+      window.Wordbound.Game.openDeckViewer(); // forces a real re-render (existing test convention)
+      window.Wordbound.Game.closeDeckViewer();
+
+      // Badges must actually reach the rendered rack -- a variant the player
+      // can't see is a variant that doesn't exist as a decision.
+      const gildedBtn = document.querySelector('[data-tile-id="' + variantTiles[0].id + '"]');
+      check('variant badge: a Gilded rack tile renders with the variant-gilded class', !!gildedBtn && gildedBtn.className.indexOf('variant-gilded') !== -1);
+      check('variant badge: a Gilded rack tile still carries has-bonus (shared glow hook)', !!gildedBtn && gildedBtn.className.indexOf('has-bonus') !== -1);
+      check('variant badge: the rack tile\'s tooltip describes the variant', !!gildedBtn && gildedBtn.title.indexOf('Gilded') !== -1);
+      const volatileBtn = document.querySelector('[data-tile-id="' + variantTiles[2].id + '"]');
+      const volatileVal = Lexicon.LETTER_VALUES[variantTiles[2].letter] || 0;
+      const volatileSub = volatileBtn && volatileBtn.querySelector('sub');
+      check('variant badge: a Volatile rack tile shows its DOUBLED point value', !!volatileSub && volatileSub.textContent.trim() === String(volatileVal * 2));
+
+      const origChance = state.rng.chance;
+      state.rng.chance = function (p) { return p === 0.25 ? true : origChance.call(state.rng, p); };
+
+      document.getElementById('word-input').value = variantWord;
+      document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 300));
+      state.rng.chance = origChance;
+
+      check('variant play: playing variant tiles produces zero errors', errors.length === 0);
+      if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+
+      check('Gilded tile (live): playing it granted exactly +2 gold', state.player.gold === goldBefore + 2);
+      check('Gilded tile (live): the gold gain is logged', state.messages.some((m) => m.indexOf('Gilded tile') !== -1 && m.indexOf('+2 gold') !== -1));
+      // The monster's counterattack lands in the same turn, so HP can't be
+      // compared to hpBefore directly -- assert on the logged heal instead,
+      // plus that HP never exceeded max (the clamp).
+      check('Vampiric tile (live): the 1 HP heal is logged', state.messages.some((m) => m.indexOf('Vampiric tile') !== -1 && m.indexOf('healed 1 HP') !== -1));
+      check('Vampiric tile (live): heal stayed clamped at max HP', state.player.hp <= state.player.maxHp);
+      check('Vampiric tile (live): test setup left real headroom to heal into', hpBefore < state.player.maxHp);
+
+      check('Volatile tile (live): the forced 25% roll cracked the tile', volatileTileRef.crackedThisFight === true);
+      check('Volatile tile (live): the crack is logged', state.messages.some((m) => m.indexOf('Volatile tile cracks') !== -1));
+      // "Unusable for the rest of the fight" == absent from BOTH piles, so no
+      // reshuffle can deal it back. The rack is rebuilt from the draw pile,
+      // so being out of the piles is what keeps it out of the rack.
+      const inDraw = state.pile.drawPile.some((t) => t.id === volatileTileRef.id);
+      const inDiscard = state.pile.discardPile.some((t) => t.id === volatileTileRef.id);
+      const inRack = state.player.rack.some((t) => t.id === volatileTileRef.id);
+      check('Volatile tile (live): a cracked tile is not in the draw pile', !inDraw);
+      check('Volatile tile (live): a cracked tile is not in the discard pile (cannot reshuffle back)', !inDiscard);
+      check('Volatile tile (live): a cracked tile is not in the rack', !inRack);
+      check('Volatile tile (live): the cracked tile is still in the persistent deck (fight-scoped, not destroyed)', state.deck.some((t) => t.id === volatileTileRef.id));
+
+      // The Gilded/Vampiric tiles were consumed by the word and are NOT
+      // cracked, so they must have gone to the discard pile normally --
+      // proves cycleRackAfterWord's crack filter is precise, not a blanket
+      // "drop everything played this turn."
+      const gildedRecycled = state.pile.discardPile.some((t) => t.id === variantTiles[0].id) || state.pile.drawPile.some((t) => t.id === variantTiles[0].id) || state.player.rack.some((t) => t.id === variantTiles[0].id);
+      check('variant play: an uncracked played tile still recycles normally', gildedRecycled);
+
+      // Leave the fight in a clean state for the checks below: strip the
+      // forced variants off any of these tiles still in play (the cracked
+      // one keeps its flag on purpose -- the next-fight reset is asserted at
+      // the very end of this script).
+      variantTiles[0].variant = null;
+      variantTiles[1].variant = null;
+      state.monster.maxHp = survivalMaxHp;
+      state.monster.hp = survivalHp;
+      window.Wordbound.Game.openDeckViewer();
+      window.Wordbound.Game.closeDeckViewer();
+    }
+  }
+
   let word = null;
   for (let i = 0; i < WORDLIST.length; i++) {
     const w = WORDLIST[i];
@@ -946,6 +1146,97 @@ async function main() {
     state.player.consumables = savedConsumables;
     window.Wordbound.Game.openDeckViewer();
     window.Wordbound.Game.closeDeckViewer();
+  }
+
+  // FUN OVERHAUL 5/8: the shop's premium variant-tile offer. It lives in its
+  // own state field (state.shopTileOffer, a Tile object) rather than in
+  // shopOptions -- which stays a flat array of string ids so every consumer
+  // of that array (renderShop's item loop, the balance sim's shopping bot)
+  // can keep assuming strings. renderShop and Game.buyShopTile both read the
+  // separate field; forced here so both are exercised every run.
+  {
+    const savedScreen = state.screen;
+    const savedShopOptions = state.shopOptions;
+    const savedShopTileOffer = state.shopTileOffer;
+    const savedGold = state.player.gold;
+    const savedCombatActive = state.combatActive;
+
+    const premiumTile = window.Wordbound.Tiles.rollVariantTile(state.rng);
+    state.combatActive = false;
+    state.screen = 'SHOP';
+    // A normal (string-id) shop list alongside the tile, to prove the two
+    // render together and the item loop never chokes on the tile object.
+    state.shopOptions = state.shopOptions && state.shopOptions.length ? state.shopOptions : ['thick_skin'];
+    state.shopTileOffer = premiumTile;
+    state.player.gold = 100;
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+
+    const shopButtons = Array.from(document.querySelectorAll('#treasure-choices .treasure-choice'));
+    const tileButton = shopButtons.find((b) => b.textContent.indexOf('Premium Tile') !== -1);
+    check('shop variant tile: the premium tile offer renders as a shop row', !!tileButton);
+    check('shop variant tile: the row is not disabled when affordable', !!tileButton && tileButton.disabled === false);
+    check('shop variant tile: the row names what the variant does', !!tileButton && tileButton.textContent.indexOf(window.Wordbound.Tiles.describeVariant(premiumTile.variant)) !== -1);
+    check('shop variant tile: the row carries the variant accent class', !!tileButton && tileButton.className.indexOf('variant-' + premiumTile.variant) !== -1);
+    check('shop variant tile: the string-id item rows still render alongside it', shopButtons.some((b) => b.textContent.indexOf('Premium Tile') === -1));
+
+    if (tileButton) {
+      const deckBefore = state.deck.length;
+      tileButton.dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('shop variant tile: buying it produces zero errors', errors.length === 0);
+      check('shop variant tile: the bought tile lands in the deck', state.deck.length === deckBefore + 1 && state.deck.some((t) => t.id === premiumTile.id));
+      check('shop variant tile: gold was deducted (45)', state.player.gold === 55);
+      check('shop variant tile: the sold tile is cleared/re-rolled off the offer', state.shopTileOffer === null || state.shopTileOffer.id !== premiumTile.id);
+    }
+
+    // Cannot afford: the row must render disabled rather than allow a
+    // negative-gold purchase.
+    state.player.gold = 5;
+    state.shopTileOffer = premiumTile;
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    const poorButton = Array.from(document.querySelectorAll('#treasure-choices .treasure-choice')).find((b) => b.textContent.indexOf('Premium Tile') !== -1);
+    check('shop variant tile: the row is disabled when the player cannot afford it', !!poorButton && poorButton.disabled === true);
+
+    state.screen = savedScreen;
+    state.shopOptions = savedShopOptions;
+    state.shopTileOffer = savedShopTileOffer;
+    state.player.gold = savedGold;
+    state.combatActive = savedCombatActive;
+    state.deck = state.deck.filter((t) => t.id !== premiumTile.id);
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+  }
+
+  // FUN OVERHAUL 5/8, second half of the Volatile contract: a cracked tile is
+  // gone for the rest of THAT fight only, and comes back for the next one.
+  // Driven through a real second combat (Game.enterCurrentNode on the next
+  // combat node) rather than by calling the reset directly, since startCombat
+  // is module-private and the whole point is that the reset actually happens
+  // on the real fight-start path. Runs last because it starts a new fight and
+  // therefore replaces the monster/rack every check above depends on.
+  if (volatileTileRef) {
+    check('Volatile tile: still flagged cracked before the next fight begins', volatileTileRef.crackedThisFight === true);
+    // Must be an UNCLEARED combat/elite node -- Game.enterCurrentNode returns
+    // early on a cleared one, and an event earlier in the run may have armed
+    // pendingEventSkipNextCombat, which would skip the fight instead of
+    // starting it. Both make the reset silently not run.
+    const nodes = (state.floor && state.floor.nodes) || [];
+    const nextCombatIndex = nodes.findIndex((n, i) => i >= state.currentNodeIndex && !n.cleared && (n.type === 'combat' || n.type === 'elite'));
+    if (nextCombatIndex === -1) {
+      console.log('SKIP volatile next-fight-reset check -- no uncleared combat node left on this floor (layout-dependent, not a bug)');
+    } else {
+      state.currentNodeIndex = nextCombatIndex;
+      state.screen = 'RUN';
+      state.combatActive = false;
+      state.pendingEventSkipNextCombat = false;
+      window.Wordbound.Game.enterCurrentNode();
+      await new Promise((r) => setTimeout(r, 100));
+      check('volatile next-fight reset: entering a new combat node produces zero errors', errors.length === 0);
+      check('volatile next-fight reset: a second fight actually started', state.combatActive === true);
+      check('volatile next-fight reset: the cracked tile is usable again (flag cleared at fight start)', volatileTileRef.crackedThisFight === false);
+      check('volatile next-fight reset: the tile is back in the new fight\'s draw pile or rack', state.pile.drawPile.some((t) => t.id === volatileTileRef.id) || state.player.rack.some((t) => t.id === volatileTileRef.id));
+    }
   }
 
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));

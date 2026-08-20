@@ -23,8 +23,10 @@
 //          tilesUsed by matching `.id` (removes the exact instance played,
 //          not just any tile sharing its letter).
 //   scoreWord(word, tilesUsed, rackCapacity)
-//       -> { base, lengthBonus, bingoBonus, bonusFlat, bonusMult, total }
-//          base = sum of LETTER_VALUES for tilesUsed (blanks contribute 0).
+//       -> { base, lengthBonus, bingoBonus, bonusFlat, bonusMult, variantFlat, total }
+//          base = sum of LETTER_VALUES for tilesUsed (blanks contribute 0;
+//          a Volatile tile's own letter value is doubled here, see tiles.js
+//          VARIANTS -- GOALS.md "FUN OVERHAUL 5/8").
 //          lengthBonus = 2 points per letter beyond the 4th (trimmed from 3
 //          on 2026-08-20, review N1/N2/N3 balance pass -- see PROGRESS.md).
 //          bingoBonus = +15 if tilesUsed.length === rackCapacity (using the
@@ -32,10 +34,14 @@
 //          player's actual capacity from Items.getRackCapacity; rackCapacity
 //          defaults to 7 when omitted, e.g. from callers with no player
 //          reference). bonusFlat/bonusMult roll up each played tile's
-//          on-play bonus (see tiles.js); total =
-//          round((base+lengthBonus+bingoBonus+bonusFlat) * bonusMult).
+//          on-play bonus (see tiles.js BONUS_TYPES); variantFlat rolls up
+//          each played tile's Charged variant (+4 each, see tiles.js
+//          VARIANTS); total =
+//          round((base+lengthBonus+bingoBonus+bonusFlat+variantFlat) * bonusMult).
 //          MULT_ON_HOLD bonuses are NOT included here -- those depend on
-//          tiles left in the rack, which combat.js resolves.
+//          tiles left in the rack, which combat.js resolves. Gilded/Vampiric
+//          variants (gold/heal) aren't part of scoring at all -- game.js
+//          resolves those directly from a played word's tilesUsed.
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -107,24 +113,29 @@
     var base = 0;
     var bonusFlat = 0;
     var bonusMult = 1;
+    var variantFlat = 0;
     for (var i = 0; i < tilesUsed.length; i++) {
       var tile = tilesUsed[i];
-      base += LETTER_VALUES[tile.letter] || 0;
+      var letterValue = LETTER_VALUES[tile.letter] || 0;
+      if (tile.variant === Tiles.VARIANTS.VOLATILE) letterValue *= 2;
+      base += letterValue;
       if (tile.bonus) {
         if (tile.bonus.type === Tiles.BONUS_TYPES.FLAT_ON_PLAY) bonusFlat += tile.bonus.amount;
         else if (tile.bonus.type === Tiles.BONUS_TYPES.MULT_ON_PLAY) bonusMult *= tile.bonus.amount;
       }
+      if (tile.variant === Tiles.VARIANTS.CHARGED) variantFlat += 4;
     }
     var lengthBonus = word.length > 4 ? (word.length - 4) * 2 : 0;
     var capacity = rackCapacity || 7;
     var bingoBonus = tilesUsed.length === capacity ? 15 : 0;
-    var total = Math.round((base + lengthBonus + bingoBonus + bonusFlat) * bonusMult);
+    var total = Math.round((base + lengthBonus + bingoBonus + bonusFlat + variantFlat) * bonusMult);
     return {
       base: base,
       lengthBonus: lengthBonus,
       bingoBonus: bingoBonus,
       bonusFlat: bonusFlat,
       bonusMult: bonusMult,
+      variantFlat: variantFlat,
       total: total
     };
   };

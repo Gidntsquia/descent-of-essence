@@ -755,7 +755,7 @@ Rules for the routine:
       `origin/main`, and picked up FUN OVERHAUL 4/8 fresh from there instead
       of re-litigating an already-closed ticket.
 
-- [ ] FUN OVERHAUL 5/8 -- special tile variants in rewards/shop. Tile
+- [x] FUN OVERHAUL 5/8 -- special tile variants in rewards/shop. Tile
       rewards are the most frequent decision in the game and every option
       is plain. Add 4 variants: Gilded (+2 gold when played), Charged (+4
       flat damage when played), Vampiric (heal 1 HP when played), Volatile
@@ -770,6 +770,61 @@ Rules for the routine:
       actually happens; cracked tile is unplayable then returns next
       fight). `npm run test:mobile` (new badges must not break 375px).
       Version bump.
+      DONE 2026-08-20T14:25Z, v0.17 -> v0.18. All 4 variants implemented
+      end to end. Data model (tiles.js): a tile now carries an optional
+      `variant` (one of Tiles.VARIANTS.GILDED/CHARGED/VAMPIRIC/VOLATILE) and
+      a `crackedThisFight` flag. rollRewardOptions rolls a variant at
+      VARIANT_CHANCE=0.25 BEFORE the legacy bonus roll and mutually
+      exclusive with it (one badge per tile, not a stack of two -- makes the
+      rate exactly 25%, not conditioned on the bonus roll missing first).
+      New rollVariantTile(rng) = guaranteed-variant roll for the shop.
+      SCORING variants resolve in lexicon.js scoreWord (Charged +4 flat via
+      a new `variantFlat` field; Volatile doubles only its own letter's
+      value, not the word). SIDE-EFFECT variants resolve in game.js
+      submitWord after the item hooks: Gilded +2 gold, Vampiric +1 HP
+      (clamped to max), Volatile's 25% crack roll -- summed per matching
+      tile played, each logged once. A cracked tile is filtered out of the
+      discard in cycleRackAfterWord (so no reshuffle deals it back this
+      fight) and its flag is cleared for EVERY deck tile at startCombat, so
+      "returns next fight" works without ever touching the persistent deck.
+      SHOP: state.shopTileOffer (a Tile OBJECT) holds the premium offer,
+      rolled once at shop entry at SHOP_VARIANT_TILE_CHANCE=0.4, priced 45
+      (rare-item tier). Kept in its OWN state field, NOT mixed into
+      shopOptions -- that array stays a flat list of string ids so every
+      consumer (renderShop's item loop, test/balance-simulation.js's
+      shopping bot) can keep assuming strings.
+      REAL BUG the change surfaced (and fixed): my first cut put the tile
+      offer inside shopOptions as a {shopTile} wrapper object;
+      balance-simulation.js's shopping bot does
+      `for (const id of state.shopOptions) ... id.indexOf(...)` and crashed
+      on the object. Fixed by splitting it into shopTileOffer as above --
+      the crash proved the mixed-type array was the wrong design. (This is
+      exactly why running the sim, not just npm test, mattered here.)
+      CSS: distinct ring color + a corner emoji glyph per variant
+      (🪙/⚡/🩸/💥) so they're distinguishable without relying on color alone
+      (the four rings sit close in hue and must read at 375px), applied
+      across rack, staging, tile-reward, deck viewer, and shop rows.
+      Volatile tiles show their DOUBLED point value in rack/staging/reward.
+      VERIFICATION: `npm test` (all pass, 8 consecutive randomized-layout
+      runs clean): isolated Lexicon.scoreWord arithmetic per scoring variant
+      (baseline 5, Charged->9/13, Volatile C->8 / A->6, Gilded/Vampiric
+      score-neutral), describeVariant coverage, roll-distribution
+      (mutual-exclusion, ~25% rate, all four appear, uncracked-at-birth),
+      rollVariantTile-never-whiffs; live-DOM through real Game.submitWord
+      for Gilded gold / Vampiric heal / Volatile crack (crack forced by
+      temporarily wrapping state.rng.chance to return true for p===0.25
+      only -- grep-confirmed 0.25 is the sole in-fight probability),
+      cracked-tile-absent-from-both-piles, next-fight reset driven through a
+      real second Game.enterCurrentNode combat, and the full shop-tile
+      buy/afford/disabled/re-roll path. `npm run test:mobile` clean at
+      375/414. `npm run test:qa` 26/26 real Chromium, zero errors. Real
+      Chromium screenshots confirmed badge/glyph placement in rack,
+      staging, tile-reward, and shop rows. balance-simulation.js n=30
+      "best" strategy: 33% win / 0% stall (in the 33-50% target band; the
+      prior 60% was an easy-side overshoot, so this is better centered) --
+      variants did not break balance. NOT independently verifiable in
+      jsdom, standing caveat: audio (none of these touch sound) and a
+      human's feel for whether the variants are fun -- Jaxon's playtest.
 
 - [ ] FUN OVERHAUL 6/8 -- elites as opt-in risk/reward. Elite nodes exist
       as a type but don't meaningfully differ. Make an elite: one
