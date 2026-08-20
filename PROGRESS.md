@@ -5217,3 +5217,113 @@ calls.
 
 No game code touched this entry -- queue + log only, per the orchestrator
 split.
+
+---
+
+## 2026-08-20T06:04Z -- Killing-blow combat feedback (review B3/F1) FIXED
+
+**Task:** GOALS.md's first unchecked item -- the killing blow produced zero
+feedback (no damage number, no HP-bar flash, no hit sound, no death beat)
+because `Game.submitWord`'s death branch called `onMonsterDefeated(...)` and
+returned immediately, skipping `animateDamage()`/`playCombatSound()`, which
+only ran in the monster-survives branch.
+
+**Fix (js/wordbound/game.js):**
+- Added `MONSTER_DEATH_BEAT_MS = 500` alongside the existing
+  `TILE_PLAY_ANIM_MS`.
+- In the `state.monster.hp <= 0` branch of `submitWord`'s deferred callback:
+  call `render()` first (so `monster-hp-fill`'s width actually reflects 0 --
+  it's still driven off `state.monster.hp`, which is already mutated by
+  `Combat.playWord` at submit time), then `animateDamage(result.damage)` and
+  `playCombatSound(result.damage)` on the freshly-rendered DOM (same
+  ordering rationale as the survive path -- render() rebuilds monster-info
+  wholesale and would otherwise destroy the damage-number element before a
+  paint), then add a `.monster-defeated` class to `#monster-info` and hold
+  it for `MONSTER_DEATH_BEAT_MS` before actually calling
+  `onMonsterDefeated()`.
+- `renderCombat()` now clears `.monster-defeated` from `#monster-info` at
+  the top of every render -- `innerHTML` rebuilds only replace the panel's
+  *children*, not its own class list, so without this the fade would leak
+  into the next monster's (alive) panel after the first kill of the run and
+  never come off.
+- **Re-entrancy guard, not in the ticket text but required by it:** the
+  death beat now holds `state.combatActive === true` for ~720ms
+  (TILE_PLAY_ANIM_MS + MONSTER_DEATH_BEAT_MS) with the word input and submit
+  button still live, so a fast second submission during that window would
+  have called `Combat.playWord` again against an already-dead monster --
+  mutating its (already negative) HP further, double-charging tiles from
+  the rack, and scheduling a second `onMonsterDefeated` call a few hundred
+  ms after the first (double gold/loot, `advanceFloor()` run twice, etc).
+  Added one line at the top of `submitWord`: `if (state.monster.hp <= 0)
+  return;`, right after the existing `combatActive` guard. This didn't
+  exist before because the window it closes didn't exist before (the old
+  code went dead -> `onMonsterDefeated` synchronously in the same tick, so
+  there was no gap for a second submission to land in).
+
+**CSS (css/wordbound.css):** new `.monster-info.monster-defeated` rule --
+a single `monsterDefeatFade` keyframe animation fading the panel's opacity
+from 1 to 0.35 over 0.5s (matches `MONSTER_DEATH_BEAT_MS`). Checked: this
+codebase has no `prefers-reduced-motion` handling anywhere yet (grepped
+both `.css` and `.js`, zero hits) despite a couple of *other* still-queued
+tickets (F3, FUN OVERHAUL 8/8) referring to one as an "existing convention"
+-- it isn't, at least not yet. Didn't add reduced-motion handling here since
+this ticket doesn't ask for it and doing so as a drive-by would be scope
+creep; flagging it since whichever of those later tickets lands first will
+need to actually establish that convention, not just follow it.
+
+**test:qa timing (test/orchestrator-qa-boss-reward.js):** `playOneWord`'s
+post-submit wait was 450ms, sized only for `TILE_PLAY_ANIM_MS` (220ms).
+A killing blow now takes ~720ms before `onMonsterDefeated` fires and the
+screen actually leaves combat, so a 450ms wait risked `fightUntilOver`'s
+next-turn check seeing `combatActive` still `true` mid-beat and submitting
+a second word into an already-dead monster (which the new guard above now
+blocks safely, but would still have broken the test's turn-by-turn logic
+and wasted a whole extra word/tile-cycle). Bumped the wait to 800ms.
+
+**Verification:**
+- `npm test` (jsdom, `test/dom-check.js`): added a new block after the
+  existing survive-path damage checks -- forces the monster to 1 HP (using
+  the same word-finder/trait-multiplier logic the file already uses, so the
+  forced word is guaranteed to deal positive damage), submits a killing
+  word, and asserts mid-beat (400ms in, before the 500ms beat elapses):
+  zero errors, a `.damage-number` element present, `#monster-hp-fill` still
+  exists and has `.flash-damage`, `#monster-info` has `.monster-defeated`,
+  and the screen/combatActive haven't switched away yet -- then waits past
+  the beat and asserts `state.screen === 'TILE_REWARD'`. Ran the full suite
+  5x back to back (randomized racks/monsters/traits each run via the RNG
+  seed) -- 23/23 checks passed every time, zero flakes.
+- `npm run test:qa` (real Chromium/Playwright, `test/orchestrator-qa-boss-reward.js`):
+  ran twice back to back -- 24/24 both times, zero console/page errors,
+  both boss fights (which definitely end in a killing blow) resolved
+  correctly through the new beat into their reward screens, floor advance
+  and item-claim flows unregressed.
+- `npm run test:mobile`: clean at 375px/414px on both main menu and combat
+  screen (this change is opacity/animation-only, no layout properties
+  touched, but ran it anyway since the ticket touches rendering).
+- **NOT verified (can't be, per the ticket's own caveat and the top-of-file
+  audio rule):** the actual sound of `playCombatSound` on a killing blow --
+  jsdom has no Web Audio API. Reasoned from the code: the call site and
+  arguments are identical to the already-working survive-path call, so
+  there's no reason to expect it behaves differently, but that's inference,
+  not confirmation. A real-browser ear check by Jaxon would close this out.
+  Also not independently re-verified: the visual smoothness of the fade
+  itself (opacity transition, timing) -- confirmed the class is applied and
+  removed at the right moments via jsdom's className string, not that it
+  actually looks good, which needs eyes on a real render.
+
+**Checked off in GOALS.md** (`- [x]`), with a `FIXED 2026-08-20T06:04Z` note
+pointing back here, matching the file's existing convention for closed
+tickets.
+
+**Version:** not bumped. This ticket's own text doesn't call for a bump
+(unlike the BALANCE and FUN OVERHAUL tickets further down, which explicitly
+say "Version bump"), and it matches this project's own precedent -- the
+touch-tap-double-fire fix and the mobile-overflow fixes, similarly-scoped
+player-facing bug fixes, didn't bump version either. Left at v0.10.
+
+**Current state:** v0.10, `npm test` 23/23, `npm run test:qa` 24/24 (x2),
+`npm run test:mobile` clean. Next unchecked GOALS.md item: BUG (review B1)
+-- seeded runs losing determinism at events because `events.js` guards on
+`window.Wordbound.RNG`, which is never assigned (RNG registers at
+`window.Game.RNG`). That's a smaller, well-scoped three-line fix; a good
+pickup for the next run.

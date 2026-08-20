@@ -99,8 +99,12 @@ async function playOneWord(page) {
   await page.fill('#word-input', '');
   await page.type('#word-input', word);
   await page.click('#btn-submit-word');
-  // TILE_PLAY_ANIM_MS (220ms) defers defeat/counterattack processing
-  await page.waitForTimeout(450);
+  // TILE_PLAY_ANIM_MS (220ms) defers defeat/counterattack processing; a
+  // killing blow additionally holds a MONSTER_DEATH_BEAT_MS (500ms) beat
+  // before the screen actually switches away from combat -- wait past both,
+  // not just the tile-play animation, or fightUntilOver's next-turn check
+  // can see combatActive still true and submit into an already-dead monster.
+  await page.waitForTimeout(800);
   return word;
 }
 

@@ -325,6 +325,16 @@ h2 {
 .monster-hp-text { font-size: 0.85rem; color: #b8ac8a; margin-bottom: 8px; }
 .monster-weakness { font-size: 0.9rem; color: #9ab88a; font-style: italic; }
 
+/* Killing-blow death beat: a short, visible pause on the kill before the
+   screen cuts to the tile reward -- see MONSTER_DEATH_BEAT_MS in game.js. */
+@keyframes monsterDefeatFade {
+  0% { opacity: 1; }
+  100% { opacity: 0.35; }
+}
+.monster-info.monster-defeated {
+  animation: monsterDefeatFade 0.5s ease-out forwards;
+}
+
 .rack-display {
   display: flex;
   flex-wrap: wrap;

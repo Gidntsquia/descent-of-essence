@@ -162,6 +162,51 @@ async function main() {
     if (hpFill) check('monster-hp-fill got the flash-damage class', hpFill.className.indexOf('flash-damage') !== -1);
   }
 
+  // Killing-blow feedback (review B3/F1): force the monster down to a sliver
+  // of HP so the next damage-dealing word is a killing blow, and confirm the
+  // death path still shows a damage number + HP-bar flash during its beat
+  // instead of hard-cutting straight to the tile-reward screen.
+  if (state.combatActive) {
+    const hpRatio2 = state.monster.maxHp > 0 ? state.monster.hp / state.monster.maxHp : 0;
+    const activeTraitId2 = Traits.activeTraitForHpRatio(state.monster.traitPhases, hpRatio2);
+    const trait2 = Traits.TRAITS[activeTraitId2];
+    let killWord = null;
+    for (let i = 0; i < WORDLIST.length; i++) {
+      const w = WORDLIST[i];
+      if (w.length < 2 || w.length > state.player.rack.length) continue;
+      if (!Lexicon.isValidWord(w)) continue;
+      const formed = Lexicon.canFormFromRack(w, state.player.rack);
+      if (!formed.possible) continue;
+      const score = Lexicon.scoreWord(w, formed.tilesUsed);
+      const mult = trait2 ? trait2.multiplier(w, formed.tilesUsed) : 1;
+      if (Math.round(score.total * mult) > 0) { killWord = w; break; }
+    }
+    if (!killWord) {
+      console.log('SKIP kill-blow-feedback checks -- no damage-dealing word possible from this rack (likely a trait immunity, not a bug)');
+    } else {
+      state.monster.hp = 1; // force this word to be a killing blow
+      document.getElementById('word-input').value = killWord;
+      document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+      // TILE_PLAY_ANIM_MS (220ms) defers processing; check partway into the
+      // MONSTER_DEATH_BEAT_MS (500ms) beat that follows -- proves the
+      // feedback actually renders and is visible, not just that the game
+      // eventually reaches the reward screen afterward.
+      await new Promise((r) => setTimeout(r, 400));
+      check('killing blow produces zero errors', errors.length === 0);
+      if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+      check('killing blow: a damage-number element appeared during the death beat', document.querySelectorAll('.damage-number').length > 0);
+      const hpFillAfterKill = document.getElementById('monster-hp-fill');
+      check('killing blow: monster-hp-fill still exists during the death beat', !!hpFillAfterKill);
+      if (hpFillAfterKill) check('killing blow: monster-hp-fill got the flash-damage class', hpFillAfterKill.className.indexOf('flash-damage') !== -1);
+      check('killing blow: still on the combat screen mid-beat (no hard cut yet)', state.screen === 'RUN' && state.combatActive === true);
+      const monsterInfoDuringBeat = document.getElementById('monster-info');
+      check('killing blow: monster-info panel got the death-beat fade class', !!monsterInfoDuringBeat && monsterInfoDuringBeat.className.indexOf('monster-defeated') !== -1);
+
+      await new Promise((r) => setTimeout(r, 500)); // past MONSTER_DEATH_BEAT_MS (500ms)
+      check('killing blow: tile-reward screen arrives after the death beat', state.screen === 'TILE_REWARD');
+    }
+  }
+
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 }

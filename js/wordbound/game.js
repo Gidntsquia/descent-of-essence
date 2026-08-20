@@ -455,6 +455,7 @@
   }
 
   var TILE_PLAY_ANIM_MS = 220; // matches .tile-played's animation-duration in wordbound.css
+  var MONSTER_DEATH_BEAT_MS = 500; // matches .monster-defeated's animation-duration in wordbound.css
 
   function markTilesPlayed(tilesUsed) {
     var rack = $('rack-display');
@@ -467,6 +468,11 @@
 
   Game.submitWord = function (rawWord) {
     if (!state.combatActive) return;
+    // The killing blow holds combatActive true through its death beat (so
+    // the combat panel stays visible while monster-info fades) -- block
+    // further submissions in that window instead, or a fast second word
+    // would double-process a monster that's already dead.
+    if (state.monster.hp <= 0) return;
     var word = (rawWord || '').trim().toUpperCase();
     if (!word) return;
 
@@ -509,7 +515,22 @@
     // TILE_PLAY_ANIM_MS so it's actually visible before that happens.
     setTimeout(function () {
       if (state.monster.hp <= 0) {
-        onMonsterDefeated(result.damage, monsterHpBefore);
+        // Killing blow still gets the same feedback as any other hit
+        // (render() first so the HP bar reflects 0 before it flashes, same
+        // ordering the survive path below uses and for the same reason --
+        // render() rebuilds monster-info wholesale and would otherwise wipe
+        // out the damage-number/flash-damage elements before they paint).
+        // Then hold a short, non-blocking death beat (dim the monster-info
+        // panel via CSS) before switching to the reward screen, so a killing
+        // blow doesn't hard-cut straight past the moment of the kill.
+        render();
+        animateDamage(result.damage);
+        if (result.damage > 0) playCombatSound(result.damage);
+        var monsterInfo = $('monster-info');
+        if (monsterInfo) monsterInfo.classList.add('monster-defeated');
+        setTimeout(function () {
+          onMonsterDefeated(result.damage, monsterHpBefore);
+        }, MONSTER_DEATH_BEAT_MS);
         return;
       }
 
@@ -1406,6 +1427,10 @@
     var trait = Traits.TRAITS[activeTraitId];
 
     var info = $('monster-info');
+    // innerHTML below rebuilds info's children, not info's own class list --
+    // clear a leftover death-beat fade from a previous kill so it doesn't
+    // dim this (alive) monster's panel too.
+    info.classList.remove('monster-defeated');
     var tierClass = m.isBoss ? 'boss-tier' : (m.tier ? 'tier-' + m.tier : '');
     var tierGlyph = getTierGlyph(m.isBoss, m.tier);
     info.innerHTML =

@@ -57,7 +57,7 @@ Rules for the routine:
      Ordered: quick high-value bugs first, then the balance rework, then
      feel/polish, then design-flavored additions. -->
 
-- [ ] BUG/FEEL (review B3/F1), high priority: the killing blow produces NO
+- [x] BUG/FEEL (review B3/F1), high priority: the killing blow produces NO
       feedback at all -- no damage number, no HP-bar flash, no hit sound, no
       death beat. In `Game.submitWord` (js/wordbound/game.js ~line 510-514),
       the monster-death branch calls `onMonsterDefeated(...)` and returns;
@@ -84,6 +84,11 @@ Rules for the routine:
       afterward). `npm run test:qa` must stay 24/24 (it drives full fights --
       watch that added delay doesn't break its waits; bump its timeouts if
       needed, not the game's). Audio can't be verified in jsdom -- say so.
+      FIXED 2026-08-20T06:04Z: see PROGRESS.md for the fix (a
+      MONSTER_DEATH_BEAT_MS beat + a `.monster-defeated` fade class), the new
+      jsdom kill-blow assertions, a submitWord re-entrancy guard the beat's
+      open window required that wasn't in the ticket text, and the
+      test:qa timing bump.
 
 - [ ] BUG (review B1), high priority: seeded runs silently lose determinism
       at every event with a random outcome, contradicting the v0.10
