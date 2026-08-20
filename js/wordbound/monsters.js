@@ -108,9 +108,15 @@
     ]
   });
   bdef({
-    // maxHp 80 -> 60 (2026-08-20 orchestrator decision, ~25% cut -- same
-    // reasoning as boss_vowelmaw above).
-    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 60, attack: 6, floor: 2, goldDrop: [25, 40],
+    // maxHp 80 -> 60 -> 35 (2026-08-20 orchestrator decision: first cut was
+    // ~25% uniform; a fresh n=30 sim gate after that cut plus the
+    // Mend/Enrage/Devour knobs still measured this boss at 11.4 words/fight
+    // (throughput ~5.3 HP/word) and the "best" strategy win rate at 17%,
+    // both outside the decision's gate -- the decision explicitly sanctions
+    // further boss-HP-only iterations before stopping. This second cut
+    // targets ~6-7 words/fight at the same throughput. See PROGRESS.md for
+    // the before/after sim numbers.
+    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 35, attack: 6, floor: 2, goldDrop: [25, 40],
     intents: ['hex', 'devour'],
     // lengthy -> rareSeeker: starts savoring long words, then (as suggested
     // directly by the ticket) gets pickier and starts collecting rare
@@ -122,10 +128,15 @@
     ]
   });
   bdef({
-    // maxHp 120 -> 90 (2026-08-20 orchestrator decision, ~25% cut -- same
-    // reasoning as boss_vowelmaw above; this was the worst offender in the
-    // measured regression, 0/3 wins averaging 27.7 words/fight).
-    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 90, attack: 8, floor: 3, goldDrop: [40, 60],
+    // maxHp 120 -> 90 -> 45 (2026-08-20 orchestrator decision: first cut was
+    // ~25% uniform; a fresh n=30 sim gate after that cut plus the
+    // Mend/Enrage/Devour knobs still measured this boss at 15.3 words/fight
+    // (0/6 kills) against the gate's <8 words/fight target -- the decision
+    // explicitly sanctions further boss-HP-only iterations before stopping.
+    // This second cut targets ~7-8 words/fight at the same ~5.9 HP/word
+    // throughput this boss measured at. See PROGRESS.md for the
+    // before/after sim numbers.
+    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 45, attack: 8, floor: 3, goldDrop: [40, 60],
     // Final boss: the only def with Enrage, so a run that drags this fight
     // out gets meaningfully harder over time -- the escalating-stakes finale
     // this ticket's design note asks for.

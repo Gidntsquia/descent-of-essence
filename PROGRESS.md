@@ -7266,3 +7266,58 @@ floor-3 boss (Sovereign) averaging <8 words/fight.
 - `npm run test:qa` (real Chromium boss-fight run) has NOT been run yet
   this pass either -- do that alongside/after the sim gate, before
   checking the box, per this ticket's own VERIFICATION line.
+
+---
+
+### 2026-08-20T11:06Z -- sim gate #1 RESULT (miss) + boss-HP iteration #1 (IN PROGRESS)
+
+**Sim gate #1 result** (knobs 1-4 as committed in 065b633, n=30 all
+strategies, `test/balance-simulation.js 30`):
+
+| metric | gate target | result |
+|---|---|---|
+| "best" win rate | 33-50% | **17%** (5/30) -- MISS |
+| stall rate | <10% | **17%** (5/30) -- MISS |
+| floor-3 boss (Sovereign) words/fight | <8 | **15.3** (0/6 kills) -- MISS |
+
+Before/after vs. the pre-fix measurement (7% win, 33% stalls, 27.7
+words/fight on Sovereign): real improvement (win rate 7%->17%, stalls
+33%->17%, Sovereign words 27.7->15.3) but still well outside every leg of
+the gate. Floor-2 boss (Unabridged Terror) also still slow: 11.4
+words/fight, 1/8 kills. Floor-1 boss (Vowelmaw) is fine: 1.8 words/fight,
+already fast, no floor-1-specific gate criterion anyway.
+
+**Diagnosis:** the ~25% uniform HP cut (knob 4) wasn't enough on its own
+for floor 2/3 -- both bosses are still absorbing ~5.3-5.9 HP per word from
+a "best"-strategy player even after the Mend/Enrage/Devour knobs, so the
+fights still run long enough to hit the sim's 40-word stall cap on a
+meaningful fraction of runs and the player is usually dead or nearly dead
+by the time (if ever) the boss goes down.
+
+**Action taken (boss-HP iteration #1 of the decision's sanctioned "up to
+two more"):** left Enrage/Mend/Devour/combo untouched (per the decision's
+explicit "do not touch again without a new steer" -- this is a boss-HP-only
+adjustment, the "safest knob" the decision names). Cut boss HP further,
+using each boss's own measured HP/word throughput from the gate-#1 sim to
+target comfortably under the word-count gate rather than guessing:
+- boss_unabridged (floor 2): 60 -> 35 (targets ~6-7 words/fight at its
+  measured ~5.3 HP/word throughput)
+- boss_sovereign (floor 3): 90 -> 45 (targets ~7-8 words/fight at its
+  measured ~5.9 HP/word throughput)
+- boss_vowelmaw (floor 1): left at 38, unchanged -- already meets every
+  applicable target.
+
+`npm test`: **104/104**, unchanged (no jsdom-checkable behavior in a pure
+HP-constant change; the existing suite doesn't assert boss HP numbers).
+
+**Sim gate #2 is running as this entry is being written** (`node
+test/balance-simulation.js 30`, output going to
+`test/balance-simulation-results.json` plus stdout) -- not yet resolved.
+Committing this iteration's code now because the run's stop-hook fired
+requiring a commit before the sim finished; the GOALS.md box stays
+unchecked. **Next step for whoever picks this up:** read the gate-#2
+result. If it passes all three legs, check the box + version bump +
+`npm run test:qa` + final PROGRESS.md writeup. If it still misses, one
+more boss-HP-only iteration is sanctioned per the decision before stopping
+to flag Jaxon with a full before/after data table (do not touch
+Enrage/Mend/Devour/combo, do not invent new mechanics).
