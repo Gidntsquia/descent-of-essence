@@ -8531,3 +8531,119 @@ same standing caveat as every other feature ticket.
 Vampiric/Volatile) is next in the queue, now unblocked along with 6/8-8/8.
 No known blockers. Working tree clean, everything committed and pushed at
 the end of this run.
+
+---
+
+## 2026-08-20T14:25Z
+
+**FUN OVERHAUL 5/8: special tile variants -- box checked, v0.17 -> v0.18**
+
+Fresh run, zero memory of prior sessions. Started from a stale detached
+HEAD (local `main` ref pointed at an old commit `115e324`; `origin/main`
+had force-advanced to `93c0740`). Resolved with `git fetch origin main` +
+`git checkout -B main origin/main` -- no work lost, just a pointer fixup.
+Confirmed FUN OVERHAUL 5/8 was the first unchecked item and picked it up.
+
+**What shipped:** four named tile variants added to the reward/shop pools,
+per the ticket's exact numbers:
+- Gilded: +2 gold when played
+- Charged: +4 flat damage when played
+- Vampiric: heal 1 HP when played (clamped to max HP)
+- Volatile: its own letter scores x2; 25% chance to crack when played
+  (unusable for the rest of the fight, returns next fight)
+
+Full mechanics writeup is in GOALS.md's DONE note; this summarizes.
+
+**Where each effect lives (deliberate split):**
+- SCORING effects resolve in `js/wordbound/lexicon.js` `scoreWord`: Charged
+  adds +4 via a new `variantFlat` field in the score breakdown; Volatile
+  doubles ONLY its own letter's value in the `base` sum (not the word
+  total -- a Volatile C adds 3, not double the whole word). This is where
+  letter values are summed, so it's the right seam.
+- SIDE-EFFECT effects resolve in `js/wordbound/game.js` `submitWord`, right
+  after the item `onWordPlayed` hooks and before the survive/kill branch:
+  Gilded gold, Vampiric heal, and Volatile's per-tile 25% crack roll. Summed
+  across all matching played tiles, each logged once (two Gilded tiles = one
+  "+4 gold" line, not two).
+
+**Data model (`js/wordbound/tiles.js`):** a tile now carries an optional
+`variant` and a `crackedThisFight` flag (both default null/false).
+`rollRewardOptions` rolls a variant at `VARIANT_CHANCE=0.25` BEFORE the
+legacy bonus roll and mutually exclusive with it -- so a tile shows at most
+one badge, and the variant rate is exactly 25% rather than "25% of the ~82%
+that didn't roll a legacy bonus." New `rollVariantTile(rng)` is a
+guaranteed-variant roll for the shop. `describeVariant` feeds every tooltip/
+label the way `describeBonus` already did.
+
+**Crack lifecycle (the fiddly bit):** a cracked tile must be "gone for the
+rest of THIS fight" but "back next fight," without ever mutating the
+persistent deck. Done by (a) filtering cracked tiles out of the discard in
+`cycleRackAfterWord` so no reshuffle can deal one back this fight, and (b)
+clearing `crackedThisFight` on EVERY deck tile at `startCombat`. Leaving it
+out of both piles is sufficient to keep it out of the rack (the rack is
+rebuilt from the draw pile). Nothing touches `state.deck`'s membership --
+same fight-scoped pattern Devour's tile removal uses.
+
+**Shop plumbing + a real bug the change surfaced:** the premium variant-tile
+offer is a Tile OBJECT, not a string id, so it can't live in `shopOptions`
+(an array every consumer treats as string ids). My FIRST cut mixed it in as
+a `{shopTile: Tile}` wrapper -- `npm test` passed, but running
+`balance-simulation.js` (whose shopping bot does
+`for (const id of state.shopOptions) ... id.indexOf(...)`) CRASHED with
+`itemId.indexOf is not a function`. Fixed by moving the offer to its own
+`state.shopTileOffer` field, rolled once at shop entry at
+`SHOP_VARIANT_TILE_CHANCE=0.4`, priced 45 (rare-item tier), with
+`Game.buyShopTile()` reading it directly. `shopOptions` is back to a flat
+string array. This is exactly the "npm test can't catch everything, run the
+sim too" case -- flagging it because the mixed-type array LOOKED fine and
+only the sim exercised the bot path.
+
+**CSS (`css/wordbound.css`):** a distinct ring color plus a corner emoji
+glyph per variant (Gilded 🪙, Charged ⚡, Vampiric 🩸, Volatile 💥), applied
+in rack, staging, tile-reward, deck viewer, and shop rows. Glyph + color
+together (not color alone) because the four rings sit close in hue and the
+badges have to read on a 375px screen. Volatile tiles display their DOUBLED
+point value in rack/staging/reward so the picker sees the real number.
+
+**Verification -- what's actually confirmed:**
+- `npm test`: ALL CHECKS PASSED, run 8 consecutive times across randomized
+  floor layouts (variant checks depend on rack draws, so repeated runs
+  matter). New assertions: isolated `Lexicon.scoreWord` arithmetic per
+  scoring variant (plain CAT=5; Charged 5->9, two Charged ->13; Volatile
+  C 5->8, Volatile A 5->6; Gilded/Vampiric score-neutral), `describeVariant`
+  coverage, roll distribution (no tile carries both variant+bonus, ~25%
+  rate over 180 rolls, all four appear, fresh tiles uncracked),
+  `rollVariantTile` never whiffs; LIVE-DOM through real `Game.submitWord`
+  for Gilded's +2 gold, Vampiric's logged +1 heal, and Volatile's crack
+  (25% roll forced by temporarily wrapping `state.rng.chance` to return true
+  for `p===0.25` only -- grep-confirmed 0.25 is the sole in-fight
+  probability, so this is deterministic without disabling randomness);
+  cracked tile absent from BOTH piles and the rack but still in the deck;
+  next-fight reset driven through a real second `Game.enterCurrentNode`
+  combat; the full shop-tile render/buy/afford/disabled/re-roll path.
+- `npm run test:mobile`: clean at 375px and 414px (new badges don't overflow).
+- `npm run test:qa`: 26/26, real Chromium, zero console/page errors.
+- Real Chromium screenshots (manual, this run): confirmed badge ring + glyph
+  placement in rack, staging, tile-reward panel, and the new shop row --
+  glyphs sit in the corner without disturbing the letter/value, Volatile
+  shows doubled values, shop row shows its accent stripe.
+- `balance-simulation.js` n=30 "best" strategy: 33% win / 0% stall / 0
+  softlock (squarely in the ticket's/history's 33-50% target band; the last
+  recorded baseline was a 60% easy-side overshoot, so 33% is actually more
+  centered). Variant tiles did not break balance. ("first" strategy 0% is
+  pre-existing and unrelated, as documented in prior BALANCE entries.)
+
+**NOT verified (standing caveats, jsdom limits):** audio (none of these
+variants touch sound) and a human's actual FEEL for whether the variants
+make tile-reward decisions more interesting -- that's Jaxon's playtest, same
+caveat every feature ticket carries.
+
+**Current state:** v0.18, working tree clean, everything committed and
+pushed to `main` (commit 0744249). Queue: FUN OVERHAUL 6/8 (elites as opt-in
+risk/reward) is next, unblocked. No known blockers.
+
+**What's next:** FUN OVERHAUL 6/8. Note for whoever picks it up: it depends
+on the FUN OVERHAUL 4/8 rule-changer item pool (guaranteed elite drop) and
+references resistance traits (vowelless/shortFuse/alphabetic) -- the ticket
+already spells out a fallback branch if elites turn out to be unavoidable on
+the floor path, so verify the routing first per its own instructions.
