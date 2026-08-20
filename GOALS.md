@@ -372,6 +372,38 @@ Rules for the routine:
       combat-balance nerfs per the ticket's own instruction; picking up
       a safe, unrelated, already-queued item further down instead (see
       PROGRESS.md for which and why).
+      ORCHESTRATOR DECISION 2026-08-20T10:50Z (steer provided; Jaxon is
+      asleep and delegated overnight calls -- he can veto in the morning,
+      the decision and reasoning will be in his digest). Diagnosis I'm
+      acting on: the intents kit is a fight-LENGTH amplifier (Mend heals,
+      Enrage stacks, Devour shrinks the rack, Heavy Blow raises avg DPS
+      ~15%, two-phase bosses invalidate the held rack mid-fight), and boss
+      HP was sized before any of that existed -- so every extra monster
+      turn compounds and bosses became 14-27-word sponges (Sovereign 0/3).
+      The fix is to make signature costs NON-COMPOUNDING and shorten boss
+      fights; do NOT touch combo/novelty or remove any mechanic.
+      IMPLEMENT EXACTLY, in one pass:
+      1. Mend: heal 10% max HP (down from 15%), keep once-per-fight.
+      2. Devour: eaten tile returns after the fight (fight-scoped, not
+         permanent), and add a once-per-fight guard like Mend's. A
+         fight-level miss must not become run-level punishment.
+      3. Enrage: keep the 3-stack cap, reduce to +1 attack per stack
+         (max +3 total, down from +6).
+      4. Boss HP: cut all three bosses by ~25-30% (their arc now comes
+         from phases + signatures, not HP sponge).
+      5. Nothing else. Specifically: no new mechanics, no changes to
+         combo/novelty numbers, no regular-monster HP changes.
+      GATE (must pass to check this box): fresh n=30 balance-simulation
+      "best" strategy lands in the 33-50% win band, stall rate < 10%,
+      floor-3 boss averages < 8 words per encounter. If the gate fails
+      after knobs 1-4, adjust boss HP further (safest knob) and re-run;
+      only if TWO more boss-HP iterations still miss the band, stop and
+      leave a data table in PROGRESS.md -- do not start inventing new
+      mechanics overnight.
+      After the gate passes: FUN OVERHAUL 4/8-8/8 below are UNBLOCKED,
+      resume top-to-bottom as normal.
+      VERIFICATION: npm test, npm run test:qa, sim numbers in PROGRESS.md
+      (before/after table). Version bump (player-facing numbers).
 
 - [ ] FUN OVERHAUL 4/8 -- build-defining items (rule-changers, not stat
       sticks). Current items are mostly passive stat bumps, so no two runs

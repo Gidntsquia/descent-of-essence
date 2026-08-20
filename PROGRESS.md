@@ -7058,3 +7058,26 @@ items in order are FEEL review F3 (hard-cut screen transitions -- note:
 this one IS a CSS-layout task, `npm run test:mobile` is mandatory for
 it), the F4/F4.5 polish batches, the N6 end-of-run stats feature, and the
 tiny B6 cleanup batch.
+
+---
+
+## 2026-08-20T10:52Z
+
+**Orchestrator: unblocked the balance-regression ticket with a design decision**
+
+The FUN 3/8 sim check caught the win-rate crash (40% -> 7%, 33% stalls) and the
+follow-up run correctly capped Enrage, measured that it wasn't sufficient
+(stalls 33% -> 13%, win rate unmoved), and stopped to ask for steer rather than
+guessing -- exactly right. Jaxon is asleep and delegated overnight judgment
+calls, so I made the call (he can veto in the morning): the intents kit is a
+fight-length amplifier and boss HP was sized before it existed. Decision (full
+spec in the ticket): Mend 15% -> 10%, Devour fight-scoped + once-per-fight,
+Enrage +1/stack (cap 3 unchanged), boss HP -25-30%, nothing else touched, with
+a hard sim gate (33-50% win, <10% stalls, floor-3 boss <8 words) before the box
+can be checked and FUN 4/8-8/8 resume.
+
+Reasoning for the knobs: every signature currently makes fights LONGER, and
+longer fights make every signature stronger -- the only way out of that loop
+without deleting the fun is to make each cost non-compounding (fight-scoped
+Devour, weaker Mend/Enrage) and shorten the sponge (boss HP). Combo/novelty
+stays untouched -- it was in the healthy 40% measurement.
