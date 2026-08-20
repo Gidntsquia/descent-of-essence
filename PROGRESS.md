@@ -9416,3 +9416,94 @@ under reduced motion). It's polish built ON this run's drag mechanics -- the
 gap-open/close it mentions can hook the `applyStagingGap`/`clearStagingGap`
 functions added here. Then FUN OVERHAUL 8/8 (celebration juice) and the small
 shop-consumable-odds BALANCE ticket remain in the queue.
+
+## 2026-08-20T17:38Z -- MOBILE INPUT 3/3: input-feel juice (v0.25 -> v0.26)
+
+**Task:** GOALS.md first unchecked item -- input-feel juice, polish built on
+MOBILE INPUT 2/3's tile mechanics. Completed fully, box checked, v0.25 -> v0.26.
+
+**Housekeeping / collision note:** this run STARTED on MOBILE INPUT 2/3 Phase 2
+(the drag mechanics) and implemented + verified it independently (a mouse/touch
+drag state machine, ghost/gap CSS, jsdom + real-Chromium checks). On push, a
+CONCURRENT session had already landed the identical ticket (commits 22534cc +
+cf25f1d, v0.25) minutes earlier. Discarded this run's redundant Phase 2 work
+(reset to origin/main -- their implementation is solid: PointerEvents,
+applyStagingGap/clearStagingGap, suppressNextStagingClick, touch-action:none),
+verified their v0.25 is healthy (`npm test` clean), and picked up the next
+unchecked item (3/3) fresh from there. Same flag-and-continue pattern prior
+runs used when colliding on the balance ticket. No work lost -- theirs was
+first and equivalent.
+
+**What shipped (all 3/3 spec items):**
+- **Pressed :active scale (spec 1).** `transform: scale(0.93)` on
+  `.letter-tile`, `.rack-slot-empty`, and `.staged-tile` while held, inside an
+  `@media (prefers-reduced-motion: no-preference)` block. The dragged staged
+  tile sets an inline `transform: translate(...)` that wins over this
+  stylesheet rule, so an active drag is visually unaffected.
+- **Staged-tile lift (spec 2).** Bumped `.staged-tile` box-shadow from
+  `0 2px 4px` to `0 3px 7px rgba(0,0,0,0.42)` -- a subtle stronger lift so the
+  play area reads as tiles "picked up" out of the rack. Static (not animated),
+  independent of reduced-motion.
+- **Land-settle (spec 3).** A one-shot `.tile-settle` class the code adds for
+  exactly one render when a tile lands (staged into the play area, or unstaged
+  back to the rack), then clears. The keyframe animates `filter: brightness` +
+  `box-shadow` over 0.12s -- deliberately TRANSFORM-FREE: the Phase 1 FLIP owns
+  `transform` on the very same element to slide it into place, and a
+  transform-based settle keyframe would override that inline transform and
+  break the slide. Mechanism: a new `state.settleTileIds` array, marked in
+  `selectTileForWord`/`assignBlankLetter` (land staged) and `unstageTile` (land
+  in rack), read by the rack loop AND `renderStagingArea`, then cleared at the
+  END of `renderCombat` (not inside renderStagingArea, which early-returns when
+  the play area is empty and would otherwise leave a rack-side settle to
+  re-fire next render). Also reset in `startCombat`.
+- **Reorder gap-open/close (spec 4).** ALREADY shipped by Phase 2
+  (`applyStagingGap`/`clearStagingGap`, a 0.12s transform tween, reduced-motion
+  gated). Noted, not re-done -- the ticket's own "what's next" pointer from the
+  Phase 2 run said as much.
+- **Haptics (spec 5).** New `hapticTick()`: `navigator.vibrate(8)`, feature-
+  checked (Android-Chrome only; `vibrate` is silently absent on iOS/desktop, so
+  it no-ops there) and, per the ticket, gated on `prefersReducedMotion()` along
+  with the visual juice. Called on stage (`selectTileForWord`), blank stage
+  (`assignBlankLetter`), unstage (`unstageTile`), and submit (the
+  `btn-submit-word` click handler). Wrapped in try/catch (some browsers throw
+  if vibrate is called outside a user-gesture context).
+
+**Verified:**
+- `npm test` **318 checks, ALL PASSED** (+7 new: a just-staged tile carries
+  `.tile-settle` and the settle set is cleared that render; the class is gone
+  next render (one-shot on both the stage and unstage paths); `hapticTick`
+  calls a stubbed `navigator.vibrate` when motion is allowed and is suppressed
+  under a mocked reduced-motion matchMedia).
+- `npm run test:qa` **26/26** (desktop combat path untouched, zero errors).
+- `npm run test:mobile` **clean at 375/414px** (new juice CSS doesn't break
+  layout; the touch-mode section still passes).
+- `npm run test:itch-build` **clean** (zip 1.42 MB).
+- **Throwaway real-Chromium Playwright script (written, run, deleted)** in BOTH
+  `reducedMotion: 'no-preference'` and `'reduce'` contexts: confirmed the
+  pressed `:active` transform computes to `matrix(0.93, 0, 0, 0.93, 0, 0)`
+  while the tile is held under normal motion and to `none` under reduced
+  motion; confirmed a `tileSettle` animation actually appears in the staged
+  tile's `getAnimations()` right after staging under normal motion and does NOT
+  under reduced motion. Zero page/console errors in either pass. (The
+  `:active` read needed a ~260ms settle first -- `.letter-tile` has a
+  `transition: all 0.2s`, so an immediate read caught it mid-transition near
+  identity; the scale itself was correct.)
+
+**NOT verified (honest caveat, per house rules on audio/haptics/animation):**
+the physical vibration buzz on a real phone (jsdom has no `navigator.vibrate`;
+the real browser has the API but a headless run can't feel it) and the
+subjective FEEL/timing of the settle + press animations on a device. The code
+paths, the feature-check, the reduced-motion gates, and the CSS are all
+confirmed present and firing; only Jaxon's real device proves the tactile feel.
+No audio surface touched.
+
+**State:** committed (719cfbc) and pushed to main. Box checked in GOALS.md.
+Version v0.25 -> v0.26 (wordbound.html version-info).
+
+**What's next:** FUN OVERHAUL 8/8 -- celebration juice for the new systems
+(combo-chip pops, screen shake + "CRUSHING!" on big hits, "MAGNIFICENT!" banner
++ bonus gold on 7+ letter words, item-proc chip flashes), all reduced-motion
+gated. Then the small shop-consumable-odds BALANCE ticket. Note the concurrent
+second session on this same queue -- whoever picks up 8/8 should `git fetch`
+first and check GOALS.md for an already-landed 8/8 before starting, to avoid
+the double-work this run hit on 2/3 Phase 2.
