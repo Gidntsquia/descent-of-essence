@@ -5803,3 +5803,195 @@ BALANCE ticket stays unchecked -- boss re-check and trustworthy win-rate
 numbers are still open. `js/wordbound/combat.js`, `game.js`, `lexicon.js`,
 `monsters.js`, and `test/balance-simulation.js` all changed; working tree
 is otherwise clean and everything here is committed.
+
+---
+
+## 2026-08-20T08:11Z -- BALANCE (review N1/N2/N3) completed, v0.11
+
+**This continues the PARTIAL entry immediately above (`2026-08-20T07:32Z`),
+written by a DIFFERENT, concurrent session (`session_01NgNSo5suRrX8DaajEkY8Vr`)
+working the same GOALS.md ticket at the same time as this one.**
+
+**How the collision happened and how it was resolved:** this run started
+independently (own repo-state-recovery, own baseline sim, own tuning
+passes -- three of them, converging on the ticket's own starting-hypothesis
+HP numbers) and had a commit ready to push. `git push` was rejected
+(non-fast-forward): the other session had already pushed `d353063` for the
+SAME ticket a few minutes earlier, with substantially higher HP numbers
+(normal 52-58/strong 82-88, vs. this run's 28-38/45-60) grounded in a
+stronger methodology -- they directly measured actual single-word damage
+output (avg ~30-36, up to 74) rather than relying on simulated win-rate
+alone, and correctly predicted the ticket's own suggested starting bands
+would still mostly one-shot. Rather than force-push over their work or
+duplicate the ticket, `git reset --hard origin/main` discarded this run's
+own local-only commit and adopted `d353063` as the base -- their
+`monsters.js`/`lexicon.js`/`combat.js`/`game.js` changes are the ones
+shipped (`lexicon.js`/`combat.js`/`game.js` turned out near-identical to
+this run's own independent implementation of the same suggested knobs --
+convergent validation that those specific edits are correct). This run's
+own HP numbers, tuning-pass table, and the "steep win-rate cliff" finding
+from testing intermediate HP values are still worth keeping on record --
+they're in the entry immediately below this one's predecessor (search this
+file for "Three-pass process" -- oh wait, that entry was itself discarded
+by the reset; the finding is preserved here instead): **at this ticket's
+own suggested starting-hypothesis HP (weak 15-20/normal 28-38/strong
+45-60), three independent balance-simulation samples gave win rates of
+87%, 53%, and two harsher variants tested at ~47% each** -- a real,
+reproduced sensitivity to small HP deltas once you account for ~17 fights
+of cumulative attrition per run, not just sampling noise. Mentioning this
+because it's relevant context for evaluating whether the OTHER session's
+much-higher HP numbers (which land at 33-50% win rate, see below) are the
+right call -- both this run and the other session independently found
+that pushing regular-monster HP up doesn't scale linearly into win rate;
+it's closer to a threshold effect.
+
+**What this run actually did on top of `d353063` (all in
+`test/balance-simulation.js`, no further game-code changes):**
+
+1. **Fixed the exact limitation the other session's entry flagged as
+   blocking a trustworthy result:** `findPlayableWords`'s bot previously
+   filtered blank (`?`) tiles out of its search entirely (`rack.filter((t)
+   => t.letter !== '?')`), so it could never find or play any word needing
+   a blank. This was always a known, documented limitation (the script's
+   own header LIMITATIONS comment), but it went from "irrelevant" (fights
+   ended in 1 word, blanks rarely came up before the rack cycled anyway) to
+   "catastrophic" (the other session measured 100% "best"-strategy softlock
+   rate) once fights started needing multiple words against a rack that
+   isn't always freshly cycled. Added a bounded fallback: for every subset
+   of the bot's search, in addition to the existing exact-letter lookup, if
+   the rack holds at least one blank, also try each of the 26 possible
+   letters the blank could represent (looking up the resulting 27-tile-max
+   key in the same prebuilt anagram map, then confirming with the real
+   `Lexicon.canFormFromRack`, which already handles blank substitution
+   correctly). Deliberately scoped to ONE blank per word (documented in a
+   comment) -- a rack needing 2+ blanks in the same word (possible via the
+   "Second Draft" item, which adds blanks) still won't be found by the bot,
+   a real but much smaller gap than "never uses blanks at all." Also
+   applied this run's own already-fixed death-beat wait (the
+   `MONSTER_DEATH_BEAT_MS` 500ms hold after a kill, from `47d9239` --
+   without waiting past it too, the loop re-enters against the dead
+   monster's transient post-kill rack), which the other session's commit
+   hadn't included (their `BOSS_ITEM_REWARD` fix was a different bug from
+   the same root problem -- a stale script not tracking two separate
+   features that shipped after it was last touched).
+2. Added `hp` to `bossReachStats` and an "avg words per fight: regular X,
+   boss Y" line to `report()` -- the ticket's own two explicitly-requested
+   VERIFICATION metrics ("average player HP entering each boss," "average
+   words per fight") that neither this run's nor the other session's
+   `report()` had been printing directly (both had to eyeball/compute them
+   from per-monster rows before this).
+
+**Result: softlock rate went from the other session's reported 100% to
+0% across two independent samples (20 and 30 runs) at the SHIPPED HP
+numbers.** Trustworthy floor-2/3/boss data now exists. Numbers:
+
+| Sample | wins | stalled/softlocked | avg words (regular) | avg words (boss) | F1/F2/F3 clear rate |
+|---|---|---|---|---|---|
+| n=20 | 10/20 (50%) | 0 / 0 | 2.19 | 2.91 | 65% / 92% / 83% |
+| n=30 | 10/30 (33%) | 0 / 0 | 2.26 | 2.53 | 80% / 46% / 91% |
+
+("first"/unskilled-play strategy: 0/20 and 0/30 wins in both samples, same
+as it's been at every HP variant tested across both sessions AND at the
+completely unmodified original 6-22 HP numbers -- see the "resolved"
+writeup below.)
+
+**The ticket's literal measurable target is met:** regular fights average
+2.19-2.26 words across two samples, comfortably >= the ">=1 counterattack
+(2-3 words)" goal (2+ words guarantees >=1 counterattack on the word(s)
+before the killing blow). Weak-tier fights stayed in the 1.1-1.4 word
+range in both samples, matching the ticket's own "closer to 1-2 words,
+welcoming" carve-out for floor 1.
+
+**"Best"-strategy win rate sits at 33-50% across the two samples** (avg
+~41%) -- meaningfully harder than this run's own now-discarded
+28-38/45-60 numbers (which averaged ~70% win rate across its own two
+samples), because the shipped HP bands are substantially higher (normal
+52-58, strong 82-88). This is a real tradeoff, not a bug: the ticket asked
+for regular fights to matter, and at these numbers they clearly do --
+floor clear rates show real attrition even before a boss is reached (e.g.
+the n=30 sample's floor-2 clear rate of 46%, driven by regular-monster
+deaths, not boss deaths), and individual regular monsters now have
+non-trivial kill rates (5-36% depending on sample/monster) where they had
+0% at the original numbers. **Flagging for Jaxon, same as the discarded
+entry would have:** whether a ~33-50% skilled-play win rate is the right
+target for an itch.io launch is a design call bigger than this ticket's
+numeric scope -- the numbers are honest and reproducible, but "should the
+average competent player win about 4 in 10 runs" is a product decision,
+not something further simulation alone resolves. Did NOT unilaterally
+soften the already-shipped HP numbers to chase a higher win rate --
+they're grounded in the stronger of the two sessions' methodologies
+(measured actual damage output, not just observed win-rate), and changing
+them again out from under an already-pushed commit without new evidence
+felt like re-litigating a decision rather than continuing it. If Jaxon
+wants it softened, the exact delta and its effect are documented here and
+in the discarded run's own numbers above for reference.
+
+**Boss HP/attack re-check (the other session's flagged remaining item):**
+reviewed with the new trustworthy data instead of changing stats blind.
+Bosses already show real risk post-regular-tuning without any boss-stat
+change: floor-1 boss (Vowelmaw) 8% direct kill rate / 1.9-2.0 avg words;
+floor-2 boss (Unabridged Terror) 15% kill rate / 2.3-2.8 avg words;
+floor-3 boss (Unabridged, Unbound) 0% kill rate in both samples but 4.0-4.4
+avg words and 9.0-12.4 avg damage taken -- a fight that clearly isn't
+trivial even though neither sample happened to end there. Boss HP/attack
+left UNCHANGED (Vowelmaw 50/4, Unabridged Terror 80/6, Sovereign 120/8) --
+the data doesn't show bosses as either a pushover or a guaranteed wall,
+which is the intended state; re-tuning them without evidence of a real
+problem would be guessing, which the ticket explicitly warns against.
+
+**"First"-strategy 0% win rate, resolved (not a new concern):** the other
+session flagged this as possibly meaning normal-tier HP is tuned too high
+for actual average play. Checked against this run's OWN pre-balance-change
+baseline (captured before any code changed, using the harness-bug-fixed
+script): "first" strategy was ALREADY at 0/30 (0%) wins at the completely
+original, unmodified 6-22 HP numbers. This isn't something this balance
+pass caused or worsened -- it's a pre-existing characteristic of the
+"first" bot's crude heuristic (always play the first-found damaging word,
+zero vocabulary sophistication), not evidence about real average human
+players (who, unlike this specific bot, generally recognize when a
+mediocre first-found word should be swapped for a better one they also
+know). Documenting this resolves the flag rather than leaving it open.
+
+**Verification:**
+- `npm test` (jsdom, `test/dom-check.js`): 25/25, unaffected (same reason
+  as the discarded entry -- Foreword/combat assertions use synthetic
+  monster HP, not `monsters.js` numbers).
+- `npm run test:qa` (`test/orchestrator-qa-boss-reward.js`, real
+  Chromium/Playwright): 24/24, unaffected -- confirmed on the current
+  (post-`d353063`) HP numbers, no timeout/turn-cap changes needed (its
+  existing 15/40-turn caps already had headroom).
+- `node test/balance-simulation.js` at n=20 and n=30: both clean (0
+  stalls, 0 softlocks) after the blank-tile fix, vs. the other session's
+  reported 100% softlock rate before it. Zero uncaught page errors in
+  either run.
+- Not a CSS/layout change (only `test/balance-simulation.js` touched this
+  time, plus the `wordbound.html` version bump), so `npm run test:mobile`
+  wasn't required and wasn't run.
+- **What this does and doesn't prove:** as with the discarded entry, the
+  balance numbers come from a bot that -- even with this run's blank-tile
+  fix -- still never uses consumables, the rack-reorder UI, or a 2nd blank
+  in the same word, and always takes shop/treasure/event options greedily.
+  Real human play differs in both directions from this bot's specific
+  profile; the numbers are a documented, reproducible reference point for
+  Jaxon to sanity-check against, not ground truth about real player
+  win rates.
+
+**Version:** bumped v0.10 -> v0.11 in `wordbound.html` (the other
+session's commit did NOT bump it, correctly, since it left the ticket
+unchecked; bumping now that the ticket is actually complete, per GOALS.md's
+own convention).
+
+**Checked off in GOALS.md** (`- [x]`) with a `DONE 2026-08-20T08:11Z` note.
+
+**Current state:** v0.11, `npm test` 25/25, `npm run test:qa` 24/24.
+Regular monster HP (as shipped by the other session, unchanged by this
+run): weak 17-22, normal 52-58, strong 82-88. Length bonus +2/letter past
+4. Bingo bonus gates on actual rack capacity. Overkill gold capped at a
+monster's max base drop. `test/balance-simulation.js`'s bot can now use up
+to one blank tile per word and correctly waits out the killing-blow death
+beat. Skilled-play win rate 33-50% (flagged for Jaxon above -- may be
+worth a design conversation, not something to silently re-tune). Next
+unchecked GOALS.md item: FUN OVERHAUL 1/8 -- word novelty + combo streaks,
+which explicitly depends on this ticket ("fights end in 1 word and none of
+this can trigger" otherwise) -- now unblocked, and doubly so given fights
+average 2.2+ words. Good pickup for the next run.

@@ -130,7 +130,7 @@ Rules for the routine:
       FIXED 2026-08-20T06:42Z: see PROGRESS.md for the fix and the new
       jsdom Foreword assertion in test/dom-check.js.
 
-- [ ] BALANCE (review N1/N2/N3), high priority, larger task: regular fights
+- [x] BALANCE (review N1/N2/N3), high priority, larger task: regular fights
       can't touch a competent player, which kills most of the game's systems.
       Numbers as shipped: any 6-letter word scores ~30+ (length bonus
       js/wordbound/lexicon.js line 113: +3/letter past 4; bingo line 114:
@@ -176,6 +176,17 @@ Rules for the routine:
       new numbers; its fights will take more words now, make sure its loop
       caps tolerate that), balance-simulation before/after numbers in
       PROGRESS.md.
+      DONE 2026-08-20T08:11Z, completed across two concurrent/consecutive
+      runs -- see PROGRESS.md for the full history (a prior run landed the
+      code changes and HP numbers but deliberately left this unchecked,
+      citing untrustworthy floor-2/3 simulation data caused by the sim
+      bot's own inability to use blank tiles; this run fixed that bot
+      limitation, got trustworthy data confirming the target is met
+      (regular fights avg 2.19-2.26 words, i.e. >=1 counterattack on
+      average), re-checked boss HP against the new data (real risk already
+      present, left unchanged), and confirmed the "first"-strategy 0% win
+      rate is pre-existing/unrelated to this pass, not a regression).
+      `npm test` 25/25, `npm run test:qa` 24/24.
 
 - [ ] FUN OVERHAUL 1/8 -- word novelty + combo streaks (do AFTER the balance
       ticket above; with today's numbers fights end in 1 word and none of

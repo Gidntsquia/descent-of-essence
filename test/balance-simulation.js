@@ -20,9 +20,14 @@
 // Usage: node test/balance-simulation.js [runsPerStrategy]   (default 15)
 //
 // LIMITATIONS (don't over-read the numbers):
-//   - The bot never uses blank ('?') tiles, consumables, or the rack-reorder
-//     UI, and always takes shop/treasure/event option ordering greedily.
-//     So these win rates are a floor, not a ceiling, on human performance.
+//   - The bot can use AT MOST one blank ('?') tile per word (2026-08-20 --
+//     it used to use none at all, which badly undercounted playable words
+//     once the balance pass made fights take multiple turns; see
+//     findPlayableWords). A rack needing 2+ blanks in the same word (e.g.
+//     from the Second Draft item, which adds blanks) still won't be found.
+//   - The bot never uses consumables or the rack-reorder UI, and always
+//     takes shop/treasure/event option ordering greedily. So these win
+//     rates are a floor, not a ceiling, on human performance.
 //   - jsdom has no Web Audio API; audio paths are inert here (already true of
 //     npm test). Nothing in this script depends on them.
 
@@ -63,8 +68,12 @@ function buildAnagramMap(wordlist, maxLen) {
 function findPlayableWords(win, anagramMap, rack, monster, opts) {
   const { Lexicon, Traits, Tiles } = win.Wordbound;
   const usable = rack.filter((t) => t.letter !== '?');
+  // Real blank count, but the fallback below only ever substitutes ONE of
+  // them per candidate word -- see the loop below for why that's an
+  // accepted, documented simplification rather than full generality.
+  const hasBlank = rack.some((t) => t.letter === '?');
   const n = usable.length;
-  if (n < 2) return [];
+  if (n < 2 && !hasBlank) return [];
   const rackCapacity = (opts && opts.rackCapacity) || 7;
 
   const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
@@ -74,36 +83,66 @@ function findPlayableWords(win, anagramMap, rack, monster, opts) {
   const seen = new Set();
   const stopAtFirst = opts && opts.stopAtFirstDamaging;
 
-  for (let mask = 1; mask < 1 << n; mask++) {
+  function tryWord(word) {
+    if (seen.has(word)) return false;
+    seen.add(word);
+
+    const formed = Lexicon.canFormFromRack(word, rack);
+    if (!formed.possible) return false;
+
+    const score = Lexicon.scoreWord(word, formed.tilesUsed, rackCapacity);
+    const usedIds = new Set(formed.tilesUsed.map((t) => t.id));
+    let holdMult = 1;
+    for (const tile of rack) {
+      if (usedIds.has(tile.id)) continue;
+      if (tile.bonus && tile.bonus.type === Tiles.BONUS_TYPES.MULT_ON_HOLD) holdMult *= tile.bonus.amount;
+    }
+    const traitMult = trait ? trait.multiplier(word, formed.tilesUsed) : 1;
+    const damage = Math.round(score.total * holdMult * traitMult);
+
+    results.push({ word, damage });
+    if (stopAtFirst && damage > 0) return true;
+    return false;
+  }
+
+  // Blank fallback: real players (and the actual game, via
+  // Lexicon.canFormFromRack's blank-substitution) can use a '?' tile as any
+  // letter. This bot previously never considered that at all (see this
+  // file's header LIMITATIONS note, and the 2026-08-20 balance pass in
+  // PROGRESS.md that found this made the softlock rate explode once fights
+  // started taking multiple words). Only substitutes ONE blank per
+  // candidate -- a rack with 2+ blanks (e.g. the Second Draft item) still
+  // won't find words needing both, a real but much smaller gap than "never
+  // uses blanks at all."
+  function tryWithOneBlankAdded(nonBlankSubset) {
+    if (nonBlankSubset.length + 1 < 2) return false;
+    for (let code = 65; code <= 90; code++) {
+      const letter = String.fromCharCode(code);
+      const key = nonBlankSubset.map((t) => t.letter).concat([letter]).sort().join('');
+      const words = anagramMap.get(key);
+      if (!words) continue;
+      for (const word of words) if (tryWord(word)) return true;
+    }
+    return false;
+  }
+
+  outer:
+  for (let mask = 1; mask < (1 << n); mask++) {
     const subset = [];
     for (let i = 0; i < n; i++) if (mask & (1 << i)) subset.push(usable[i]);
-    if (subset.length < 2) continue;
 
-    const key = subset.map((t) => t.letter).sort().join('');
-    const words = anagramMap.get(key);
-    if (!words) continue;
-
-    for (const word of words) {
-      if (seen.has(word)) continue;
-      seen.add(word);
-
-      const formed = Lexicon.canFormFromRack(word, rack);
-      if (!formed.possible) continue;
-
-      const score = Lexicon.scoreWord(word, formed.tilesUsed, rackCapacity);
-      const usedIds = new Set(formed.tilesUsed.map((t) => t.id));
-      let holdMult = 1;
-      for (const tile of rack) {
-        if (usedIds.has(tile.id)) continue;
-        if (tile.bonus && tile.bonus.type === Tiles.BONUS_TYPES.MULT_ON_HOLD) holdMult *= tile.bonus.amount;
-      }
-      const traitMult = trait ? trait.multiplier(word, formed.tilesUsed) : 1;
-      const damage = Math.round(score.total * holdMult * traitMult);
-
-      results.push({ word, damage });
-      if (stopAtFirst && damage > 0) return results;
+    if (subset.length >= 2) {
+      const key = subset.map((t) => t.letter).sort().join('');
+      const words = anagramMap.get(key);
+      if (words) for (const word of words) if (tryWord(word)) break outer;
     }
+
+    if (hasBlank && n <= 8 && tryWithOneBlankAdded(subset)) break outer;
   }
+  // n===0 (a rack that's ALL blanks) never enters the mask loop above
+  // (1 << 0 === 1, so `mask < 1` is immediately false) -- correctly returns
+  // [] with no further work: forming any 2+ letter word needs at least 2
+  // tiles, and the single-blank fallback above can't cover a 2nd blank.
   return results;
 }
 
@@ -227,6 +266,7 @@ async function playRun(win, anagramMap, strategy, runIndex) {
           floor: state.floorNumber,
           gold: state.player.gold,
           items: state.player.items.length,
+          hp: state.player.hp,
         });
       }
 
@@ -257,6 +297,16 @@ async function playRun(win, anagramMap, strategy, runIndex) {
         // (220ms in game.js) so the tile-play animation is visible. Wait past
         // that, or we'd read state mid-turn.
         await sleep(260);
+        // Killing blow (47d9239, 2026-08-20): combatActive stays true for an
+        // additional MONSTER_DEATH_BEAT_MS (500ms in game.js) death beat
+        // before the screen actually switches to TILE_REWARD. Without
+        // waiting that out too, the loop below re-enters and tries to find
+        // another word against the dead monster's transient, un-refilled
+        // post-kill rack (which can be tiny or empty), misreading a normal
+        // kill as a softlock/stall.
+        if (state.combatActive && state.monster && state.monster.hp <= 0) {
+          await sleep(560);
+        }
         encounter.damageTaken += Math.max(0, hpBefore - state.player.hp);
 
         if (state.screen === 'GAME_OVER') {
@@ -377,8 +427,21 @@ function report(allRuns) {
       if (!b.length) { say(`    floor ${f} boss: never reached`); continue; }
       const g = (b.reduce((s, x) => s + x.gold, 0) / b.length).toFixed(1);
       const i = (b.reduce((s, x) => s + x.items, 0) / b.length).toFixed(1);
-      say(`    floor ${f} boss: reached ${b.length}x, avg ${g} gold, ${i} items`);
+      const h = (b.reduce((s, x) => s + (x.hp || 0), 0) / b.length).toFixed(1);
+      say(`    floor ${f} boss: reached ${b.length}x, avg ${g} gold, ${i} items, ${h} HP`);
     }
+
+    // Overall words-per-fight, split regular vs. boss -- the balance
+    // ticket's headline measurable target ("a regular fight should average
+    // >= 1 counterattack, i.e. take 2-3 words to win").
+    const regularMonsters = monsters.filter((m) => m.tier !== 'boss');
+    const bossMonsters = monsters.filter((m) => m.tier === 'boss');
+    const wavg = (list) => {
+      const totalWords = list.reduce((s, m) => s + m.totalWords, 0);
+      const totalEnc = list.reduce((s, m) => s + m.encounters, 0);
+      return totalEnc ? totalWords / totalEnc : 0;
+    };
+    say(`  avg words per fight: regular ${wavg(regularMonsters).toFixed(2)}, boss ${wavg(bossMonsters).toFixed(2)}`);
 
     say('  per-monster (kills = runs ended by it / times encountered):');
     for (const f of [1, 2, 3]) {
