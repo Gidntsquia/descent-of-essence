@@ -4645,3 +4645,132 @@ Checked off in GOALS.md.
 (POLISH, small) -- next hourly run should pick that up. Once it's done, per
 GOALS.md's own rule, check ROADMAP.md's "known gaps" section for what to
 pull next before concluding the queue is empty.
+
+---
+
+## 2026-08-20T04:43Z (QA pass, worker session)
+
+**Task:** scheduled real-browser QA pass (independent worker, not the hourly
+dev routine picking up a queue item) on tip commit `0c17617` ("Surface seeded
+runs," v0.9 -> v0.10), covering the 11 commits landed since the last QA pass
+(`e4d9120`). Ran the jsdom baseline, the mobile-layout gate, the repo's own
+relevant recent regression scripts, two full real-browser Playwright
+playthroughs to VICTORY with real clicks and typed words, a real-click
+consumable buy+use check, and (new for this pass) real touch-emulation
+testing of the touchscreen tap-to-play fix.
+
+**Baseline / fast checks -- all clean:**
+- `npm test`: 16/16.
+- `npm run test:mobile`: zero overflow at 375px/414px, main menu + combat.
+- `node test/verify-seeded-runs.js`: 11/11.
+- `node test/verify-howto-panel.js`: all checks passed.
+- `node test/verify-boss-skip-softlock-fix.js`: 11/11 -- re-confirms the
+  earlier softlock fix still holds on this tip.
+- `npm run test:itch-build`: clean, 0.67 MB zip, zero 404s loading the
+  unzipped build in a real browser.
+- Pre-flight per the standing QA instruction: grepped every `state.screen =`
+  assignment in game.js and cross-checked against what the scratch QA
+  scripts (`/Users/jaxon/.claude/jobs/73872751/tmp/qa-playthrough.js` and
+  `qa-consumable-real-clicks.js`) handle -- no new screen values since the
+  last pass (`BOSS_ITEM_REWARD` remains the newest, already handled).
+  However, neither script yet handled the new How-to-Play overlay (see
+  below), which isn't a `state.screen` value but does block clicks.
+
+**Real-browser playthrough pass (scratch scripts adapted for this tip):**
+Both scripts needed one fix before they'd run at all: the How-to-Play
+overlay (`#howto-overlay`, shipped `f4986e9` 03:48Z, `position:fixed;
+inset:0; z-index:100`, no `pointer-events:none`) auto-shows on the
+first-ever combat entry in a fresh browser context and intercepts every
+click underneath it -- confirmed directly via Playwright's own actionability
+trace ("...from #howto-overlay subtree intercepts pointer events"). Added a
+`dismissHowToPlayIfOpen()` helper (real click on `#btn-close-howto`) to both
+scripts, called at the top of each script's main loop. Script-adaptation
+only, no game code touched.
+- `qa-playthrough.js` (2 full runs; real typed words via the best-scoring-word
+  finder, alternating tile-click vs. typed submission; panel-stacking
+  checks; bonus-tile CSS checks; a real-click seed-input check on run 1):
+  **both runs clean, both ended in VICTORY.** Node types visited across the
+  two runs: combat, elite, shop, treasure, event, rest, boss,
+  boss-item-reward. Zero uncaught page errors, zero console errors, zero
+  panel-stacking. The typed seed on run 1 correctly showed up in both
+  `state.runSeed` and `#run-seed-display`. The How-to-Play overlay
+  auto-showed exactly once per run and dismissed cleanly via a real click,
+  without reappearing.
+- `qa-consumable-real-clicks.js`: bought a consumable via a real click in a
+  shop, opened the consumables panel via a real click, used it via a real
+  click -- count decremented 4 -> 3 as expected. The specific item drawn
+  (Errata Slip, heal-to-max) happened to roll while the player was already
+  at full HP, so HP/bonusDamage didn't visibly change; that's correct
+  behavior for that item at full HP, not a bug (the count decrementing
+  confirms it was genuinely consumed). Zero page errors.
+
+**Real touch-emulation testing (new angle for this pass) -- found a genuine
+regression:** the repo's own `test/verify-touch-tap-fix.js` (added alongside
+`a486e06`, "Fix touchscreen tap bug," 2026-08-20T00:59Z) currently can't run
+locally at all (hardcoded `/opt/pw-browsers/chromium` executablePath with no
+fallback, AND a hardcoded `/home/user/...` file path -- see the new
+TEST-INFRA ticket). Made a throwaway patched copy in the scratch dir (paths
+only, logic untouched) to actually execute it, then wrote a small
+scratch-only diagnostic attaching extra listeners directly to a rack tile to
+see exactly which native events a real Playwright touch tap produces on this
+tip.
+
+Finding: a single real tap (`page.touchscreen.tap()` and separately
+`locator.tap()`, both tried, both reproduce) on a rack tile appends that
+tile's letter to `#word-input` **twice**, and pushes the same tile id into
+`state.selectedTileIds` **twice**. Root cause traced precisely (full detail
+in the new GOALS.md ticket): `endTouchReorder()`'s own tap-detection branch
+calls `selectTileForWord()` directly on `touchend`, but nothing in the touch
+handlers ever calls `preventDefault()` for a plain (non-drag) tap -- so the
+browser's standard post-touchend synthesized `click` event *also* fires,
+landing on the freshly re-rendered replacement tile button (`render()`
+rebuilds the whole rack on every state change) and calling
+`selectTileForWord()` a second time. Net effect: any real multi-letter word
+tapped out on a touchscreen comes out letter-doubled (e.g. C-A-T ->
+"CCAATT") and gets rejected as "not playable" -- tap-to-play is still
+effectively broken for real touchscreen users, just differently than before
+`a486e06`'s fix (a wrong rejection instead of silently doing nothing). The
+existing regression test didn't catch this because its only relevant
+assertion checks the input became non-empty, not that it matches the tapped
+letter exactly -- a doubled letter still passes that check. Filed as a new
+high-priority BUG ticket at the top of GOALS.md's queue.
+
+**Tickets added to GOALS.md** (2 new `[ ]` entries at the top of `## Queue`,
+above the pre-existing favicon ticket):
+1. **BUG, high priority** -- touchscreen tap-to-play double-fires
+   (letter/tile appended twice per tap), a regression in `a486e06`'s own
+   fix, with root cause, repro, and suggested fix.
+2. **TEST-INFRA** -- three Playwright scripts (`verify-touch-tap-fix.js`,
+   `verify-keyboard-playable.js`, `measure-wordlist-load.js`) hardcode a
+   cloud-sandbox-only chromium path with no local fallback
+   (`verify-touch-tap-fix.js` also hardcodes a cloud-sandbox-only `file://`
+   URL) -- the same class of bug already fixed once for
+   `verify-mobile-layout.js`, never applied to these three.
+
+**Not a bug, not ticketed:** the Errata-Slip-at-full-HP case above (correct
+behavior for that item). No other anomalies found across 2 full real-browser
+playthroughs to VICTORY, 90+ real word plays, and dozens of real clicks
+across shop/treasure/event/tile-reward/boss-item-reward/consumables panels.
+
+**Genuinely urgent?** Not a crash or softlock -- runs never break, and
+mouse/click-based play (desktop, and the vast majority of this project's
+existing automated coverage) is completely unaffected by the double-tap bug.
+But it does mean the touchscreen-specific fix this project already shipped
+and marked complete does not actually deliver working tap-to-play on a real
+touch device today, which matters given mobile/itch.io play is an explicit
+target per ROADMAP.md. Treating it as high priority (as filed), not an
+emergency page.
+
+**Housekeeping:** fetched + compared HEAD against `origin/main` immediately
+before this commit -- no concurrent push from the hourly routine landed
+during this pass, so no merge was needed. No scratch-dir files (adapted
+scripts, throwaway diagnostics, patched test copies) were committed to the
+repo -- all QA tooling changes for this pass live only under
+`/Users/jaxon/.claude/jobs/73872751/tmp/`. No game code (game.js,
+wordbound.html, traits.js, monsters.js, etc.) was modified -- QA only, per
+this pass's scope.
+
+**Current state:** v0.10, tip `0c17617` (unchanged by this pass). 3
+unchecked GOALS.md tickets in file order: (1) the new touch double-tap bug,
+(2) the new test-infra hardcoded-path ticket, (3) the pre-existing
+inline-SVG favicon ticket -- the routine should pick up (1) next.
