@@ -9749,3 +9749,93 @@ level pointer handlers + shared teardown this run added are the right
 foundation for it: the drag-to-rack drop zone just needs the rack container's
 rect added as a release target routing to `unstageTile`, using the same
 `pointerOutsideStaging`-style hit-test already in `endStagingDrag`.
+## 2026-08-20T19:31Z -- Queue empty: test-infra fix + fresh balance data (FLAG FOR JAXON)
+
+**Context:** started this run with GOALS.md's queue fully checked off (the
+prior 18:16Z run correctly idled after the last shop-consumable ticket). Per
+the routine's guardrails, checked ROADMAP.md's known-gaps for the next pull;
+everything there is RESOLVED or a Jaxon-only call. So this run did NOT invent a
+feature ticket -- instead: (a) one genuinely in-scope, low-risk infra fix, and
+(b) a fresh balance-health check that turned up a material regression worth
+Jaxon's eyes. No game-mechanic or balance numbers were changed.
+
+**IN-SCOPE FIX -- `npm test` did not actually self-install (contradicted
+GOALS.md).** GOALS.md's mandatory-testing rule states "`npm test` installs
+jsdom once, then runs test/dom-check.js." That was FALSE: in a fresh sandbox
+(node_modules absent, which is the normal state of every ephemeral hourly run)
+`npm test` crashed with `Cannot find module 'jsdom'` and did nothing. A future
+run could easily mistake that crash for a broken repo, or -- worse -- skip the
+mandatory DOM gate because "the test command is broken," which is exactly the
+failure mode the gate exists to prevent. FIX: added `tools/ensure-deps.js` (a
+tiny require.resolve check that runs `npm install` only if a dep is missing)
+and wired it as `pretest`/`pretest:*` hooks in package.json for every script
+that needs jsdom or @playwright/test. Verified by deleting node_modules and
+running `npm test` from clean: the pretest hook installed jsdom and the suite
+then ran to ALL CHECKS PASSED. Idempotent -- when deps are present the hook
+exits instantly. No test or game code touched.
+
+**BALANCE HEALTH CHECK (flag, not a fix).** Ran test/balance-simulation.js
+n=30 twice (the routine's own sanctioned health metric). Also made a small
+TEST-INFRA improvement to the sim: it now records `isElite` per encounter and
+prints an elite-only breakdown line, because elites (unavoidable on the linear
+floor path, carrying a 0.3x resistance trait + signature intents) concentrate
+deaths and were previously invisible in the aggregate.
+
+FINDINGS ("best"/skilled strategy, two independent n=30 runs):
+| metric | v0.16 (last recorded, gate-#3) | now (v0.28) |
+|---|---|---|
+| win rate | 60% | 13-17% |
+| stall rate | 0% | 7-20% |
+| floor-1 clear | 80% | 63% |
+| floor-2 clear | 75% | **30%** |
+| floor-3 clear | 100% | 83% |
+| elite kill rate | (not tracked) | 19%/fight, 5.2 dmg taken (vs 3.2 regular) |
+
+Deaths concentrate on FLOOR 2 (18-of-24 in one run), and 22-of-24 deaths were
+to REGULAR/STRONG-tier monsters, only 2 to bosses. Players arrive at the
+floor-1 boss at ~10 HP of 20 and are ground out on floor 2 by strong defs
+(Spine Splinter, The Hoarder, Card Catalog, Binding Strap, Echo Pup) plus the
+forced elite fight. Bosses are NOT the bottleneck (avg 1.3 words, ~1.7 dmg
+taken -- they're now trivial, arguably over-nerfed, consistent with the
+standing "boss HP may have been cut too far" recommendation already in the
+queue history).
+
+WHY IT MOVED: v0.16's 60% was measured BEFORE FUN OVERHAUL 5/8-8/8 landed. The
+regular/strong-tier and elite numbers were last tuned by the original N1/N2/N3
+pass, before combo/novelty, monster intents, 2-phase bosses, OR the elite
+resistance-trait + guaranteed-drop system existed. Every one of those added a
+damage/length source on top of stale HP/attack numbers. FUN OVERHAUL 6/8's own
+DONE note explicitly flagged this: "whether an elite (resistance 0.3x + intents
++ ~68-82 HP) is actually FUN or just brutally hard... is a feel call only a
+human playtest can make -- flagging for Jaxon."
+
+WHY I DID NOT FIX IT: this is precisely the "regular/strong-tier monster
+HP/damage on floors 1-2" lever the big BALANCE ticket declared OUT OF SCOPE and
+recommended Jaxon authorize as a fresh pass, and the routine's guardrail
+against inventing overnight balance nerfs. Nerfing five floor-2 defs + elite
+tuning by guess, against a bot-proxy that can't use consumables or route around
+elites, is exactly the "guess without checking a dedicated experiment" the
+ticket's history repeatedly warns against. It needs Jaxon's steer on direction
+(raise player max HP / healing? cut floor-2 strong+elite damage? make elites
+skippable to restore their intended opt-in nature?).
+
+RECOMMENDATION FOR JAXON: the game shifted from a v0.16 easy overshoot (60%
+win) to a v0.28 hard undershoot (13-17% win), driven by floor-2 strong/elite
+damage stacked on pre-overhaul numbers. Likely highest-leverage single lever:
+elites are currently UNAVOIDABLE (linear path) despite the "opt-in risk/reward"
+design intent -- making them skippable (a branching node or a skip option)
+would both restore their design and remove a large forced-damage source,
+without a global monster retune. Second: floor-2 strong-tier HP/attack is stale
+vs. current player power. Third: boss HP is now probably too low and could come
+back up. All three are product judgment calls, not mechanical fixes.
+
+**Verified:** `npm test` ALL CHECKS PASSED (from a clean node_modules, proving
+the new pretest hook). Two n=30 balance-simulation runs (numbers above); the
+sim's new elite-breakdown line and isElite field run clean, zero page errors.
+Did NOT touch any game code, so no audio/drag surface involved. The balance
+numbers are bot-proxy figures (no consumable use, greedy routing) -- a floor,
+not a ceiling, on human skill, same caveat as every prior sim reading.
+
+**State:** committed + pushed to main. GOALS.md queue remains empty (no box to
+check -- no ticket was worked). Next run: if Jaxon has queued a floor-1/2
+balance pass or an elite-skip ticket, pick it up; otherwise idle.

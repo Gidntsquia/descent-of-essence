@@ -281,6 +281,7 @@ async function playRun(win, anagramMap, strategy, runIndex) {
         defId: monster.defId,
         name: monster.name,
         isBoss,
+        isElite: !!monster.isElite,
         tier: monster.tier || (isBoss ? 'boss' : 'unknown'),
         floor: state.floorNumber,
         words: 0,
@@ -487,6 +488,18 @@ function report(allRuns) {
       return totalEnc ? totalWords / totalEnc : 0;
     };
     say(`  avg words per fight: regular ${wavg(regularMonsters).toFixed(2)}, boss ${wavg(bossMonsters).toFixed(2)}`);
+
+    // Elite breakdown: elites are unavoidable (linear floor path) and carry a
+    // 0.3x resistance trait + signature intents, so they concentrate deaths
+    // out of proportion to their frequency. Reported separately so a spike
+    // here is visible without cross-referencing per-monster rows by hand.
+    const eliteEnc = [].concat(...runs.map((r) => r.encounters)).filter((e) => e.isElite);
+    if (eliteEnc.length) {
+      const eKills = eliteEnc.filter((e) => e.playerDied).length;
+      const eWords = (eliteEnc.reduce((s, e) => s + e.words, 0) / eliteEnc.length).toFixed(1);
+      const eDmg = (eliteEnc.reduce((s, e) => s + e.damageTaken, 0) / eliteEnc.length).toFixed(1);
+      say(`  elites: ${eliteEnc.length} encounters, ${eKills} kills (${pct(eKills / eliteEnc.length)}), avg ${eWords} words, ${eDmg} dmg taken`);
+    }
 
     say('  per-monster (kills = runs ended by it / times encountered):');
     for (const f of [1, 2, 3]) {
