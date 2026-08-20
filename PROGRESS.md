@@ -3655,3 +3655,81 @@ Next: TEST-INFRA task (harden test/verify-mobile-layout.js -- fix its
 hardcoded browser path and its hidden-button false-positive, wire it into
 `npm run test:mobile`), then the boss-kill bonus-item-choice feature.
 
+
+---
+
+## 2026-08-20T01:57Z
+
+**Harden test/verify-mobile-layout.js into a real regression guard (Task 4 from
+2026-08-20 queue)** -- COMPLETED and pushed.
+
+**Bug 1 -- hardcoded browser path:** the ticket's literal suggestion was to drop the
+`executablePath: '/opt/pw-browsers/chromium'` override entirely and let
+`chromium.launch({ headless: true })` resolve the browser itself. Tried that first --
+it actually broke in THIS cloud sandbox right now: the pinned `@playwright/test`
+version (1.62.1, package.json) expects Chromium revision 1234
+(`node_modules/playwright-core/browsers.json`), but the sandbox's pre-installed
+browser at `/opt/pw-browsers/` is revision 1194 -- a version mismatch, so
+Playwright's own auto-resolution looked for
+`/opt/pw-browsers/chromium_headless_shell-1234/...` and 404'd. So a bare default
+`chromium.launch()` is not actually portable here either, just in the opposite
+direction from the original bug.
+Fix: check `fs.existsSync('/opt/pw-browsers/chromium')` at runtime and pass
+`executablePath` only when that path exists (it's a symlink to whichever revision
+is actually installed, decoupled from the version-pin mismatch above); otherwise
+fall through to Playwright's normal resolution. This is portable to Jaxon's Mac
+(path doesn't exist there -> falls through to default resolution, same as the
+ticket wanted) AND still works in this sandbox despite the current version
+mismatch. Confirmed working here: `npm run test:mobile` launches and runs cleanly.
+
+**Bug 2 -- hidden-button false positives:** the button-size check queried
+`button:not(.hidden)`, which only excludes a button carrying the `.hidden` class
+itself, not one inside a hidden ancestor screen. Fixed per the ticket's own
+suggestion: filter to `getComputedStyle(btn).display !== 'none' &&
+getComputedStyle(btn).visibility !== 'hidden' && btn.offsetParent !== null` before
+sizing. Confirmed the fix is real, not cosmetic: before, the combat-screen run
+reported "12/11 buttons < 36px" (mix of real + off-screen buttons from
+non-visible screens, per the still-open ticket at the time); after, the main menu
+now reports zero button-size warnings at all (all previously-flagged buttons there
+were false positives from hidden screens), and the combat screen reports exactly
+3 genuinely-visible small buttons ("Deck" 30x55px, "Consumables" 30x99px, and one
+more) -- real, currently-rendered elements, not an artifact of the query. That
+3-button finding is real but out of scope for this ticket (it's a design/CSS call,
+not a test-infra one); leaving it unfixed and undocumented as a new ticket per
+Jaxon's "don't invent busywork" guardrail -- flagging it here in case it's worth a
+future ticket, not silently ignoring it.
+
+**Wired into the routine's regular verification path**, per the ticket:
+- Added `"test:mobile": "node test/verify-mobile-layout.js"` to package.json's
+  scripts (kept separate from `npm test`, as instructed -- it needs a real browser
+  and is measurably slower: ~3-4s vs `npm test`'s <1s).
+- Added a paragraph to GOALS.md's top-of-file mandate section, mirroring the
+  existing `npm test` mandate: any task touching CSS layout/panels
+  (positioning, sizing, media queries, flex/grid) must also run `npm run
+  test:mobile` and get a clean/documented-acceptable result before being checked
+  off.
+
+**Verification:**
+- `npm run test:mobile`: exit code 0. Main menu 375px/414px: zero overflow, zero
+  clipped elements, zero button/text warnings ("Layout OK" clean). Combat screen
+  375px/414px: zero overflow, zero clipped elements (the mobile-overflow fix from
+  the previous task in this queue still holds); 3 real small-button warnings and 8
+  small-text warnings, both legitimate (not false positives, see above) and out of
+  this ticket's scope.
+- `npm test`: 16/16, no regressions (this task didn't touch game.js/wordbound.html,
+  only the test script, package.json, and GOALS.md).
+- Confirmed the script runs end-to-end on this checkout without any manual path
+  editing, per the ticket's verification bullet.
+
+**What's still unverified / needs a human:** whether the script *actually* runs
+unmodified on Jaxon's local Mac is still unconfirmed (no way to test that from
+here) -- but the fix now specifically handles that case (path doesn't exist there
+-> falls through to Playwright's default browser resolution, which is what a
+normal local `npx playwright install` set up would use), so it should work,
+just not something I can directly observe from this sandbox.
+
+**Current status:** 4 of 5 unchecked tasks from the 2026-08-20 queue complete.
+Next: the boss-kill bonus-item-choice FEATURE ticket (extra permanent-item choice
+screen after defeating a boss, on top of the normal tile reward) -- the queue's
+last remaining unchecked item before ROADMAP.md's known-gaps section.
+

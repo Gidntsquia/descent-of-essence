@@ -104,7 +104,10 @@ async function checkLayout(page, widthPx, heightPx = 800) {
 
   // Check button sizes (should be at least 44px tall for touch)
   const buttonSizes = await page.evaluate(() => {
-    const buttons = Array.from(document.querySelectorAll('button:not(.hidden)'));
+    const buttons = Array.from(document.querySelectorAll('button')).filter(btn => {
+      const style = window.getComputedStyle(btn);
+      return style.display !== 'none' && style.visibility !== 'hidden' && btn.offsetParent !== null;
+    });
     const tooSmall = buttons.filter(btn => {
       const rect = btn.getBoundingClientRect();
       return rect.height < 36 || rect.width < 36;
@@ -160,10 +163,16 @@ async function main() {
     await startServer();
     console.log('Starting mobile layout verification...\n');
 
-    const browser = await chromium.launch({
-      executablePath: '/opt/pw-browsers/chromium',
-      headless: true
-    });
+    // Some sandboxes pre-install a Chromium build under a fixed path that may not match
+    // the exact revision @playwright/test's package.json pins (its own auto-resolved
+    // path can then 404). Prefer that fixed path when present; otherwise fall back to
+    // Playwright's normal resolution (e.g. Jaxon's local Mac, where it doesn't exist).
+    const sandboxChromiumPath = '/opt/pw-browsers/chromium';
+    const launchOpts = { headless: true };
+    if (fs.existsSync(sandboxChromiumPath)) {
+      launchOpts.executablePath = sandboxChromiumPath;
+    }
+    const browser = await chromium.launch(launchOpts);
 
     const page = await browser.newPage();
 

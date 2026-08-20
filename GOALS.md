@@ -22,6 +22,13 @@ drag-related, verify what you can (no errors, correct state changes, elements/cl
 present) and say plainly in PROGRESS.md that full verification needs a real browser,
 rather than claiming it's confirmed working when it isn't.
 
+**ALSO MANDATORY for any task that touches CSS layout/panels (positioning, sizing,
+media queries, flex/grid behavior):** run `npm run test:mobile` (a real-browser
+Playwright check of horizontal overflow/clipping at 375px and 414px on the main menu
+and combat screen) and get a clean (or documented-acceptable) result before checking
+the box, same standard as the `npm test` mandate above. It's a separate, slower script
+from `npm test` (needs a real browser) -- see test/verify-mobile-layout.js.
+
 Rules for the routine:
 - Work top to bottom. Don't skip ahead unless a task is blocked — note the blocker in
   PROGRESS.md instead and move to the next one.
@@ -186,9 +193,15 @@ Rules for the routine:
       both main menu and combat screens; confirm zero horizontal overflow and
       zero clipped elements at both widths. `npm test` 16/16.
 
-- [ ] TEST-INFRA: harden test/verify-mobile-layout.js into an actual regression
+- [x] TEST-INFRA: harden test/verify-mobile-layout.js into an actual regression
       guard instead of a one-off spot-check. Reported 2026-08-20 by Jaxon
       ("make tests for things not looking right on mobile for the future").
+      COMPLETED 2026-08-20T01:57Z (see PROGRESS.md for full details): fixed
+      both bugs below (with a portability improvement on bug 1 -- see
+      PROGRESS.md for why a literal default-`chromium.launch()` wasn't
+      actually safe in this cloud sandbox right now), added `npm run
+      test:mobile`, and added the CSS-layout-task rule to this file's
+      top-of-file mandate section.
       Two real bugs found in the script itself while investigating the ticket
       above:
         1. `chromium.launch({ executablePath: '/opt/pw-browsers/chromium', ... })`
