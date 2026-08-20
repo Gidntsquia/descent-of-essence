@@ -22,15 +22,15 @@
   function bdef(d) { BOSS_DEFS[d.id] = d; }
 
   mdef({ id: 'slime', name: 'The Vowel Slurper', maxHp: 8, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
-  mdef({ id: 'gremlin', name: 'The Fidget', maxHp: 7, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'shortFuse' }] });
+  mdef({ id: 'gremlin', name: 'The Fidget', maxHp: 7, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
   mdef({ id: 'wisp', name: 'Filler Word', maxHp: 6, attack: 2, tier: 'weak', goldDrop: [1, 2], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] });
-  mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 14, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelless' }] });
+  mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 14, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }] });
   mdef({ id: 'golempup', name: 'Echo Pup', maxHp: 16, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
   mdef({ id: 'raven', name: 'Quoth', maxHp: 12, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
-  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 22, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'alphabetic' }] });
+  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 22, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }] });
   mdef({ id: 'warden', name: 'The Hoarder', maxHp: 20, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }] });
   mdef({ id: 'glossary', name: 'The Glossary', maxHp: 9, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
-  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 15, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'alphabetic' }] });
+  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 15, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
   mdef({ id: 'appendix', name: 'The Appendix', maxHp: 13, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
   mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 19, attack: 5, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
 

@@ -3511,3 +3511,52 @@ The touchscreen tap interaction is now fully functional. Players on mobile/table
 devices can tap rack tiles to play letters, while drag-to-reorder still works for
 players who want to reorder before playing.
 
+
+---
+
+## 2026-08-20T01:11Z
+
+**Fix regular monster traits (Task 2 from 2026-08-20 queue)** -- COMPLETED and pushed.
+
+**The Problem:**
+Four regular (non-boss) monsters were using resistance-type traits (0.3x floor penalty on 
+off-type words) that had been deliberately removed from ALL bosses after balance simulation 
+showed they were too punishing on an unlucky rack. The backward difficulty curve meant weak-tier 
+`gremlin` could be harder than floor-2 and floor-3 bosses, and new players would hit these 
+penalties before they'd learned the game at all.
+
+**The Fix:**
+Reassigned four monsters to appropriate "simple" traits (bonus-only, 1x baseline):
+
+1. **gremlin** (weak tier, "The Fidget"): `shortFuse` → `doubled`
+   - "Doubled" captures the hyperactive fidgety energy (double-action, twitchy)
+   - Fits thematically: fidgeting = repeated doubling of small motions
+
+2. **serpent** (normal tier, "The Consonant Constrictor"): `vowelless` → `lengthy`
+   - "Lengthy" fits a constrictor's wrapping/coiling behavior
+   - Long words trigger the bonus, similar to how a constrictor uses length
+
+3. **sentinel** (strong tier, "The Card Catalog"): `alphabetic` → `rareSeeker`
+   - "Rare seeker" fits a cataloger searching archives for valuable finds
+   - Encourages players to build words with high-value letters (Q, X, Z)
+
+4. **bindingstrap** (normal tier): `alphabetic` → `doubled`
+   - "Doubled" reflects typical double-ply construction of binding materials
+   - Works well thematically with the idea of layered binding
+
+**Result:**
+- All four resistance traits (`vowelless`, `palindromic`, `shortFuse`, `alphabetic`) are now 
+  completely unused by any MONSTER_DEFS (verified via grep)
+- Regular monsters now use only "simple" traits, matching bosses
+- Weak-tier monsters are no longer punishingly hard
+- Early-game difficulty now progresses smoothly without trait-based spikes
+
+**Verification:**
+- ✓ npm test: 16/16 checks pass (no regressions)
+- ✓ grep: no MONSTER_DEFS reference resistance traits after fix
+- ✓ BOSS_DEFS continue to use simple traits as intended (no changes to bosses)
+- ✓ All four monsters have valid trait assignments
+
+**Current status:** 2 of 5 unchecked tasks from 2026-08-20 queue complete.
+Next: Fix mobile-width overflow (CSS layout issue).
+

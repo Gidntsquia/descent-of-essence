@@ -100,11 +100,12 @@ Rules for the routine:
       test is still the strongest confirmation and wasn't possible in this
       environment.
 
-- [ ] BALANCE/DESIGN: several regular (non-boss) monsters currently carry a
+- [x] BALANCE/DESIGN: several regular (non-boss) monsters currently carry a
       HARSHER version of the trait mechanic than any boss does, which is
       backwards. Reported 2026-08-20 by Jaxon ("normal enemies should have much
       simpler modifiers than the boss ones"), verified by reading traits.js and
-      monsters.js together.
+      monsters.js together. COMPLETED 2026-08-20T01:11Z: reassigned gremlin/serpent/sentinel/bindingstrap
+      from resistance traits (vowelless/alphabetic/shortFuse) to simple traits (doubled/lengthy/rareSeeker/doubled).
       ROOT CAUSE: js/wordbound/traits.js has two categories of trait, by design
       (see the file's own comments on `vowelless`/`palindromic`/`alphabetic`):
       four "resistance" traits with a 0.3x-floor penalty on off-type words
