@@ -751,6 +751,13 @@ async function main() {
       return t && t.letter !== '?';
     });
 
+    // MOBILE INPUT 2/3: a staged tile now renders as an empty outlined slot
+    // (.rack-slot-empty) in its rack position -- the tile visually "lives" in
+    // the staging area below, and the rack keeps its shape. Unstaging happens
+    // by tapping that empty slot OR the staged tile itself. These checks
+    // replace the old .selected-class-on-the-rack-tile model.
+    const emptySlot = (id) => document.querySelector('#rack-display .rack-slot-empty[data-tile-id="' + id + '"]');
+    const stagedTileEl = (id) => document.querySelector('#staging-area .staged-tile[data-tile-id="' + id + '"]');
     let candidates = nonBlankButtons();
     if (candidates.length < 2) {
       console.log('SKIP tile-toggle checks -- fewer than 2 non-blank rack tiles (unexpected)');
@@ -759,14 +766,26 @@ async function main() {
       candidates[0].dispatchEvent(new window.Event('click', { bubbles: true }));
       check('tile click: staging a tile appends its letter exactly once', document.getElementById('word-input').value.length === 1);
       check('tile click: selectedTileIds gains exactly the clicked tile', state.selectedTileIds.length === 1 && state.selectedTileIds[0] === firstId);
-      let firstBtn = rackButtons().find((b) => b.getAttribute('data-tile-id') === firstId);
-      check('tile click: the staged tile shows the selected class', !!firstBtn && firstBtn.className.indexOf('selected') !== -1);
+      check('mobile 2/3: staged tile leaves an empty rack slot (rack keeps shape)', !!emptySlot(firstId));
+      check('mobile 2/3: the staged tile no longer renders as a .letter-tile in the rack',
+        !rackButtons().some((b) => b.getAttribute('data-tile-id') === firstId));
+      check('mobile 2/3: the staged tile appears in the staging area', !!stagedTileEl(firstId));
 
-      firstBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
-      check('tile click: clicking a staged tile again deselects it (input empty)', document.getElementById('word-input').value === '');
-      check('tile click: selectedTileIds is empty again', state.selectedTileIds.length === 0);
-      firstBtn = rackButtons().find((b) => b.getAttribute('data-tile-id') === firstId);
-      check('tile click: the tile no longer shows the selected class', !!firstBtn && firstBtn.className.indexOf('selected') === -1);
+      // Unstage by clicking the empty rack slot.
+      emptySlot(firstId).dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('mobile 2/3: clicking the empty slot unstages the tile (input empty)', document.getElementById('word-input').value === '');
+      check('mobile 2/3: selectedTileIds is empty again', state.selectedTileIds.length === 0);
+      check('mobile 2/3: the tile is a normal rack .letter-tile again after unstage',
+        rackButtons().some((b) => b.getAttribute('data-tile-id') === firstId));
+      check('mobile 2/3: no empty slot lingers after unstage', !emptySlot(firstId));
+
+      // Unstage by tapping the staged tile itself (the other unstage path).
+      let againBtn = rackButtons().find((b) => b.getAttribute('data-tile-id') === firstId);
+      againBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('mobile 2/3: re-staged for the staged-tile-tap check', state.selectedTileIds.indexOf(firstId) !== -1 && !!stagedTileEl(firstId));
+      stagedTileEl(firstId).dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('mobile 2/3: tapping the staged tile unstages it', state.selectedTileIds.indexOf(firstId) === -1);
+      check('mobile 2/3: staging area no longer shows that tile', !stagedTileEl(firstId));
 
       candidates = nonBlankButtons();
       const tileAId = candidates[0].getAttribute('data-tile-id');
@@ -779,9 +798,9 @@ async function main() {
       tileBBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
       check('tile click: two distinct tiles stage in click order', document.getElementById('word-input').value === tileALetter + tileBLetter);
 
-      const tileABtn = rackButtons().find((b) => b.getAttribute('data-tile-id') === tileAId);
-      tileABtn.dispatchEvent(new window.Event('click', { bubbles: true })); // unclick the first of the two
-      check('tile click: unclicking the first of two leaves only the second letter', document.getElementById('word-input').value === tileBLetter);
+      // Unstage the first of the two by clicking its empty slot.
+      emptySlot(tileAId).dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('tile click: unstaging the first of two leaves only the second letter', document.getElementById('word-input').value === tileBLetter);
       check('tile click: selectedTileIds now holds only the second tile', state.selectedTileIds.length === 1 && state.selectedTileIds[0] === tileBId);
 
       state.selectedTileIds = [];

@@ -1385,6 +1385,60 @@
     render();
   }
 
+  // MOBILE INPUT 2/3: honor the OS "reduce motion" setting for the tile
+  // slide animations, matching the house convention (the screen/floater
+  // animations gate on prefers-reduced-motion in CSS; a JS-measured FLIP
+  // can't live in CSS, so it checks the same media query here).
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  // MOBILE INPUT 2/3: FLIP-animate a tile from a rect captured BEFORE render
+  // to its new post-render position (transform-only, ~200ms ease-out). Instant
+  // (no-op) under reduced motion or where rAF/getBoundingClientRect are absent
+  // (jsdom), so callers can always invoke it unconditionally.
+  function flipTile(fromRect, toEl) {
+    if (!fromRect || !toEl) return;
+    if (prefersReducedMotion() ||
+        typeof window.requestAnimationFrame !== 'function' ||
+        typeof toEl.getBoundingClientRect !== 'function') return;
+    var toRect = toEl.getBoundingClientRect();
+    var dx = fromRect.left - toRect.left;
+    var dy = fromRect.top - toRect.top;
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+    toEl.style.transition = 'none';
+    toEl.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        toEl.style.transition = 'transform 0.2s ease-out';
+        toEl.style.transform = '';
+      });
+    });
+  }
+
+  function tileElIn(containerId, tileId) {
+    var container = $(containerId);
+    if (!container || !container.querySelector) return null;
+    return container.querySelector('[data-tile-id="' + tileId + '"]');
+  }
+
+  // MOBILE INPUT 2/3: remove a staged tile back to its rack slot from any
+  // entry point (tap the empty rack slot, tap the staged tile, tap a staged
+  // blank). Slides the tile home unless reduced-motion. Single source of
+  // truth so every unstage path behaves identically.
+  function unstageTile(tileId) {
+    var idx = state.selectedTileIds.indexOf(tileId);
+    if (idx === -1) return;
+    var fromRect = null;
+    var stagedEl = tileElIn('staging-area', tileId);
+    if (stagedEl && stagedEl.getBoundingClientRect) fromRect = stagedEl.getBoundingClientRect();
+    state.selectedTileIds.splice(idx, 1);
+    delete state.blankAssignments[tileId];
+    syncWordInput();
+    render();
+    flipTile(fromRect, tileElIn('rack-display', tileId));
+  }
+
   // MOBILE INPUT 1/3: the word being built from the staged tiles, in click
   // order. selectedTileIds is the source of truth; a staged blank contributes
   // whatever letter the touch-mode picker assigned it (blankAssignments),
@@ -1419,31 +1473,34 @@
       // Touch-mode: typing is gone, so a blank needs a letter chosen for it.
       // If it's already staged, tapping it again unstages it (and forgets its
       // chosen letter); otherwise open the A-Z picker to assign one.
-      var stagedIdx = state.selectedTileIds.indexOf(tile.id);
-      if (stagedIdx !== -1) {
-        state.selectedTileIds.splice(stagedIdx, 1);
-        delete state.blankAssignments[tile.id];
-        syncWordInput();
-        render();
+      if (state.selectedTileIds.indexOf(tile.id) !== -1) {
+        // Already staged -- tapping again unstages it (and forgets the letter).
+        unstageTile(tile.id);
       } else {
         openBlankPicker(tile.id);
       }
       return;
     }
-    var existingIndex = state.selectedTileIds.indexOf(tile.id);
-    if (existingIndex !== -1) {
+    if (state.selectedTileIds.indexOf(tile.id) !== -1) {
       // Already staged -- clicking again deselects it instead of appending
-      // a second copy of the same letter.
-      state.selectedTileIds.splice(existingIndex, 1);
-    } else {
-      state.selectedTileIds.push(tile.id);
+      // a second copy of the same letter. unstageTile slides it home.
+      unstageTile(tile.id);
+      return;
     }
+    // Stage it. MOBILE INPUT 2/3: capture the rack tile's position BEFORE the
+    // render (which replaces it with an empty slot and moves the tile into the
+    // staging area) so we can FLIP-slide it down into the play area.
+    var fromRect = null;
+    var rackEl = tileElIn('rack-display', tile.id);
+    if (rackEl && rackEl.getBoundingClientRect) fromRect = rackEl.getBoundingClientRect();
+    state.selectedTileIds.push(tile.id);
     // The selection array is the source of truth; rebuild the input from it
     // rather than surgically edit the string, so removals from the middle
     // work correctly too.
     syncWordInput();
     if (!state.touchMode) $('word-input').focus();
     render();
+    flipTile(fromRect, tileElIn('staging-area', tile.id));
   }
 
   // MOBILE INPUT 1/3: the touch-mode blank-letter picker. Opening it just
@@ -2039,13 +2096,29 @@
     rack.innerHTML = '';
     var currentRackIds = [];
     state.player.rack.forEach(function (tile, index) {
+      var isSelected = state.selectedTileIds.indexOf(tile.id) !== -1;
+      // MOBILE INPUT 2/3: a staged tile leaves an empty outlined slot in the
+      // rack (same footprint -- the rack must not reflow). The tile itself
+      // "lives" in the staging area below while staged; tapping the empty slot
+      // unstages it back home.
+      if (isSelected) {
+        var slot = document.createElement('button');
+        slot.type = 'button';
+        slot.className = 'rack-slot-empty';
+        slot.setAttribute('data-tile-id', tile.id);
+        slot.setAttribute('data-tile-index', index);
+        slot.setAttribute('aria-label', 'Return staged tile to rack');
+        slot.addEventListener('click', function () { unstageTile(tile.id); });
+        rack.appendChild(slot);
+        currentRackIds.push(tile.id);
+        return;
+      }
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.draggable = true;
       btn.setAttribute('data-tile-id', tile.id);
       btn.setAttribute('data-tile-index', index);
       var isNewTile = state.rackJustRefilled || state.lastRackTileIds.indexOf(tile.id) === -1;
-      var isSelected = state.selectedTileIds.indexOf(tile.id) !== -1;
       var isHexed = tile.id === state.hexedTileId;
       var bonusClass = '';
       if (tile.variant) {
@@ -2056,7 +2129,7 @@
         else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
         else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
       }
-      btn.className = 'letter-tile' + bonusClass + (isNewTile ? ' new-tile' : '') + (isSelected ? ' selected' : '') + (isHexed ? ' tile-hexed' : '');
+      btn.className = 'letter-tile' + bonusClass + (isNewTile ? ' new-tile' : '') + (isHexed ? ' tile-hexed' : '');
       if (isHexed) btn.disabled = true;
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       var displayVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
@@ -2156,6 +2229,7 @@
         else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
       }
       stageTile.className = 'staged-tile' + bonusClass;
+      stageTile.setAttribute('data-tile-id', tile.id);
       var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
       var stagedVal = tile.variant === Tiles.VARIANTS.VOLATILE ? val * 2 : val;
       // MOBILE INPUT 1/3: a blank staged via the touch picker shows the letter
@@ -2163,8 +2237,11 @@
       // A blank's letter value is 0 either way.
       var stagedGlyph = tile.letter === '?' ? (state.blankAssignments[tile.id] || '★') : tile.letter;
       stageTile.innerHTML = stagedGlyph + '<sub>' + stagedVal + '</sub>';
-      if (tile.variant) stageTile.title = Tiles.describeVariant(tile.variant);
-      else if (tile.bonus) stageTile.title = Tiles.describeBonus(tile.bonus);
+      var variantTip = tile.variant ? Tiles.describeVariant(tile.variant)
+        : (tile.bonus ? Tiles.describeBonus(tile.bonus) : '');
+      stageTile.title = variantTip ? variantTip + ' -- tap to remove' : 'Tap to remove';
+      // MOBILE INPUT 2/3: tapping a staged tile unstages it (slides home).
+      stageTile.addEventListener('click', function () { unstageTile(tile.id); });
       stagingArea.appendChild(stageTile);
     });
   }
