@@ -11,7 +11,7 @@
 // PUBLIC API (window.Wordbound.Monsters):
 //   MONSTER_DEFS[id] = { id, name, maxHp, attack, traitPhases, tier, goldDrop:[min,max], intents? }
 //   BOSS_DEFS[id]     = { id, name, maxHp, attack, traitPhases, floor, intents? }
-//   createMonster(defId) -> fresh instance { defId, name, hp, maxHp, attack, traitPhases, intents, mendUsed, enrageStacks }
+//   createMonster(defId) -> fresh instance { defId, name, hp, maxHp, attack, traitPhases, intents, mendUsed, enrageStacks, devourUsed }
 //   createBoss(defId)    -> same shape, isBoss:true
 //   `intents` (GOALS.md "FUN OVERHAUL 2/8", js/wordbound/intents.js): a list
 //   of signature-move ids (from Intents' shared pool: hex/devour/mend/
@@ -83,7 +83,14 @@
     // pure race against its attack. 20 player HP / 5 = 4 turns; /4 = 5 turns.
     // This widens that window without touching the trait; see PROGRESS.md --
     // the 0x-floor phase is the real cause and needs a design call, not a stat.
-    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 50, attack: 4, floor: 1, goldDrop: [15, 25],
+    // maxHp 50 -> 38 (2026-08-20 orchestrator decision, ~25% cut): monster
+    // intents (Mend/Enrage/Devour/Heavy Blow) and 2-phase traits landed
+    // after this HP number was picked, and simulation showed every extra
+    // monster turn they bought was compounding the fight further -- the
+    // fix is non-compounding signature costs (see intents.js) PLUS
+    // shortening the sponge itself. See PROGRESS.md for before/after
+    // balance-simulation numbers.
+    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 38, attack: 4, floor: 1, goldDrop: [15, 25],
     // Floor-1 boss, kept to a single defensive signature (Mend) rather than
     // an offensive one -- this ticket's own judgment call, per this file's
     // history of the floor-1 boss already being the hardest fight in the
@@ -101,7 +108,9 @@
     ]
   });
   bdef({
-    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 80, attack: 6, floor: 2, goldDrop: [25, 40],
+    // maxHp 80 -> 60 (2026-08-20 orchestrator decision, ~25% cut -- same
+    // reasoning as boss_vowelmaw above).
+    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 60, attack: 6, floor: 2, goldDrop: [25, 40],
     intents: ['hex', 'devour'],
     // lengthy -> rareSeeker: starts savoring long words, then (as suggested
     // directly by the ticket) gets pickier and starts collecting rare
@@ -113,7 +122,10 @@
     ]
   });
   bdef({
-    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 120, attack: 8, floor: 3, goldDrop: [40, 60],
+    // maxHp 120 -> 90 (2026-08-20 orchestrator decision, ~25% cut -- same
+    // reasoning as boss_vowelmaw above; this was the worst offender in the
+    // measured regression, 0/3 wins averaging 27.7 words/fight).
+    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 90, attack: 8, floor: 3, goldDrop: [40, 60],
     // Final boss: the only def with Enrage, so a run that drags this fight
     // out gets meaningfully harder over time -- the escalating-stakes finale
     // this ticket's design note asks for.

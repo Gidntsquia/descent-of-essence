@@ -267,6 +267,31 @@ async function main() {
       const strongHitPlayer = { rack: ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null)) };
       const strongHitResult = Intents.executeIntent({ type: 'devour' }, { player: strongHitPlayer, monster, turnDamage: Intents.DEVOUR_DAMAGE_THRESHOLD, rng });
       check('monster intents: Devour is thwarted (skips) when turn damage meets the threshold', strongHitPlayer.rack.length === 3 && strongHitResult.tileDevouredLetter === null && strongHitResult.damage === 0);
+      check('monster intents: a successful Devour sets devourUsed', monster.devourUsed === true);
+    }
+
+    // GOALS.md balance ticket (2026-08-20 orchestrator decision): Devour had
+    // no per-fight cap, so a long fight (esp. boss_unabridged/spinesplinter)
+    // could eat the whole rack over enough turns. Once devourUsed is true,
+    // rollIntent must stop offering 'devour' -- same guard pattern as Mend.
+    {
+      const boss = Monsters.createBoss('boss_unabridged'); // intents: ['hex', 'devour']
+      boss.isBoss = true;
+      const Tiles = window.Wordbound.Tiles;
+      const player = { rack: ['C', 'A', 'T', 'S'].map((l) => Tiles.createTile(l, null)) };
+      Intents.executeIntent({ type: 'devour' }, { player, monster: boss, turnDamage: 0, rng });
+      check('monster intents: Devour eaten tile is only removed from the in-fight rack, not the persistent deck', player.rack.length === 3);
+      let devourSeenAfterUse = false;
+      for (let i = 0; i < 60; i++) {
+        if (Intents.rollIntent(boss, rng).type === 'devour') devourSeenAfterUse = true;
+      }
+      check('monster intents: Devour is never re-telegraphed after it\'s already fired this fight (60/60)', !devourSeenAfterUse);
+      check('monster intents: hex (the def\'s other signature) still rolls once Devour is used', (() => {
+        for (let i = 0; i < 60; i++) {
+          if (Intents.rollIntent(boss, rng).type === 'hex') return true;
+        }
+        return false;
+      })());
     }
 
     // executeIntent: Mend heals a fixed % of max HP, once per fight.

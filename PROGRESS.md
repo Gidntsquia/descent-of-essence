@@ -7188,6 +7188,87 @@ stays untouched -- it was in the healthy 40% measurement.
 
 ---
 
+### 2026-08-20T11:01Z -- implementing the orchestrator's balance decision (knobs 1-4), IN PROGRESS, box NOT checked yet
+
+**What I did this run:** implemented exactly the 5-point spec from the
+2026-08-20T10:52Z orchestrator decision above, in `js/wordbound/intents.js`
+and `js/wordbound/monsters.js`:
+
+1. **Mend:** `MEND_HEAL_RATIO` 0.15 -> 0.10.
+2. **Devour:** added a once-per-fight guard (`monster.devourUsed`, set true
+   the moment a tile is actually eaten; `buildPool` drops 'devour' from the
+   intent pool once it's true -- same pattern as `mendUsed`). IMPORTANT
+   finding while implementing this: I read through `executeIntent`'s devour
+   branch and `game.js`'s `startCombat`/rack-cycling code before touching
+   anything, expecting to need to make the eaten tile "return after the
+   fight" as the decision text says. It doesn't need a code change --
+   Devour only ever spliced the tile out of `player.rack` (the in-fight
+   hand), never out of `state.deck` (the persistent run deck), and
+   `startCombat` rebuilds each fight's draw pile fresh from `state.deck`
+   (`Tiles.shuffleIntoDrawPile(state.deck, state.rng)`, which is a shuffled
+   *copy*, not a deck mutation). So the eaten tile was already
+   fight-scoped and already returns next fight automatically -- the
+   GOALS.md ticket's "permanent tile removal" framing was inaccurate (the
+   same class of trusting-the-ticket-text-without-reading-code mistake the
+   N1 hypothesis warning elsewhere in this repo's history is about). I did
+   NOT change that mechanic since it already matches the intended
+   behavior; I only added the once-per-fight cap, which was the other,
+   real half of the ask. Added a jsdom assertion for both halves
+   (`test/dom-check.js`: a devour only ever removes from the in-fight
+   rack array + a devour never re-telegraphs after first use, 60/60
+   samples) plus a `devourUsed` assertion on the existing thwarted-devour
+   test.
+3. **Enrage:** `ENRAGE_ATTACK_BONUS` 2 -> 1 (cap stays at 3 stacks, so max
+   total is now +3, down from +6). Existing tests already reference
+   `Intents.ENRAGE_ATTACK_BONUS` symbolically rather than a hardcoded
+   number, so they adapted with no changes needed.
+4. **Boss HP**, ~25% cut on all three (decision said 25-30%, picked 25%
+   uniformly as the simplest defensible starting point, consistent with
+   "if the gate fails, adjust boss HP further" being the sanctioned next
+   step rather than guessing a bigger cut up front):
+   - boss_vowelmaw (floor 1): 50 -> 38
+   - boss_unabridged (floor 2, "Unabridged Terror"): 80 -> 60
+   - boss_sovereign (floor 3, "The Unabridged, Unbound"): 120 -> 90
+5. Nothing else touched -- no combo/novelty changes, no regular-monster HP
+   changes, no new mechanics, per the decision's explicit "nothing else."
+
+**Tests:** `npm test` **104/104** (98 previous + 6 new: 1 devourUsed
+assertion on the existing thwarted-devour check, plus the new
+devour-scoping/devour-cap block's 4 checks... actual count from the run:
+104/104, all green, zero regressions).
+
+**Sim gate: RUNNING, not yet resolved when this entry was written.** I
+started `node test/balance-simulation.js 30` (the "best"-strategy run the
+gate is measured on is one of several strategies it runs together) in the
+background right after the code changes landed; it was still executing
+(all-strategy 30-run sims take several minutes) when this run's stop-hook
+fired requiring a commit. Per GOALS.md's own rule ("never leave the repo
+in a broken state... commit and push after every run, even partial
+progress"), I'm committing the CODE change now (it's complete, working,
+and covered by the passing jsdom suite) but explicitly NOT checking the
+GOALS.md box -- the sim gate is the actual pass/fail criterion the ticket
+requires and I don't have that number yet.
+
+**What's next:** the very next thing to do is read the finished
+balance-simulation.js output (n=30, all 3 strategies) and check it
+against the gate: 33-50% win rate for "best" strategy, <10% stall rate,
+floor-3 boss (Sovereign) averaging <8 words/fight.
+- If it passes: check the GOALS.md box, bump the version (player-facing
+  balance numbers), commit, and this ticket is done -- FUN OVERHAUL 4/8
+  onward unblocks.
+- If it's close but misses: the decision text explicitly sanctions up to
+  two more boss-HP-only adjustment iterations (re-run the sim after each)
+  before stopping to flag Jaxon -- do NOT touch Enrage/Mend/Devour/combo
+  again without a new steer.
+- If two more boss-HP iterations still miss: stop, write the data table,
+  flag for Jaxon, do NOT invent new mechanics, per the decision's own
+  explicit instruction.
+- `npm run test:qa` (real Chromium boss-fight run) has NOT been run yet
+  this pass either -- do that alongside/after the sim gate, before
+  checking the box, per this ticket's own VERIFICATION line.
+
+---
+
 ### 2026-08-20T11:05Z -- QA pass: real-browser verification of v0.12/v0.13/v0.14 (combo, intents, boss phases), B4/B5 spot-checks, 2 full regression runs. Clean except one small Mend display bug (ticketed).
 
 **Scope and commit pinning.** Pulled once at the start (fast-forward to
