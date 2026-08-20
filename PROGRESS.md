@@ -3970,3 +3970,41 @@ on the boss-reward feature itself working end to end. Its title-overflow finding
 also explains why this pass's test:mobile run was clean here: this sandbox lacks
 Georgia, so the title renders narrower -- exactly the environment-dependence its
 ticket warns about.)
+
+---
+
+## 2026-08-20T03:07Z (orchestrator, continued -- softlock fix)
+
+Fixed the queue's top ticket directly rather than leaving a game-breaking softlock
+live for an hour: the event-skip flag ("Sit and breathe" -> skip next fight)
+applied to a boss node did a bare `currentNodeIndex += 1`, and since the boss is
+always a floor's last node, that walked one past the end of `floor.nodes` --
+screen RUN, no combat, no current node, no possible action, silently. Reproduced
+independently in jsdom before touching anything (index 8 on an 8-node floor,
+exactly as the QA worker's ticket described), then applied the ticket's suggested
+fix verbatim: the skip branch now routes boss nodes through `advanceFloor()`
+(same terminal path as a real boss kill), with NO tile/boss-item reward -- the
+boss wasn't defeated, so no kill loot.
+
+**Verified:** new test/verify-boss-skip-softlock-fix.js (11/11) -- skip on floor
+1 and 2 bosses lands on the next floor's first node with a clickable pill, no
+deck/item changes, flag consumed; skip on the floor-3 boss ends the run at the
+victory screen instead of stranding; zero uncaught errors. `npm test` 16/16.
+Full boss-reward QA re-run (`npm run test:qa`) 24/24 -- the normal
+kill -> tile reward -> item reward -> advance flow is unregressed.
+
+**DESIGN NOTE for Jaxon (not fixed, flagging):** with this fix, taking "Sit and
+breathe" when the event sits directly before the FINAL boss skips it and wins
+the game. That's what the event's text promises ("skip the next fight") and the
+alternative -- a skip that silently doesn't work on bosses -- is worse UX, so I
+kept the ticketed behavior. But if a free final-boss win feels too degenerate,
+the clean alternatives are: (a) make the skip effect exclude boss nodes and say
+so in the event text ("skip the next ordinary fight"), or (b) keep it but grant
+no floor-clear achievements/counters on a skipped boss. Your call; it's a
+2-line change either way. Left the version at v0.8 -- the display convention is
+single-decimal (v0.X), which has meant feature bumps; there's no established
+patch-digit display for bug fixes.
+
+**Current state:** 7 unchecked tickets. Top of queue is now the test:mobile
+title-overflow ticket (font-metric-dependent, fails in Georgia-having
+environments, passes in this sandbox -- see its ticket for why both are true).

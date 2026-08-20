@@ -176,6 +176,15 @@
         state.pendingEventSkipNextCombat = false;
         log('You skip the next encounter.');
         node.cleared = true;
+        if (node.type === 'boss') {
+          // The boss is always the floor's last node (see floor.js), so a bare
+          // index bump here walks past the end of the array and strands the
+          // run with no current node -- route through the same floor-advance
+          // a real boss kill ends in. No tile/item reward on this path: the
+          // boss wasn't actually defeated, so no kill loot is granted.
+          advanceFloor();
+          return;
+        }
         state.currentNodeIndex += 1;
         render();
         return;

@@ -51,9 +51,18 @@ Rules for the routine:
 
 ## Queue
 
-- [ ] BUG, high priority (softlock, game-breaking): skipping a fight via the
+- [x] BUG, high priority (softlock, game-breaking): skipping a fight via the
       "Sit and breathe" event choice permanently strands the run if the
-      skipped fight turns out to be that floor's boss. Found 2026-08-20 during
+      skipped fight turns out to be that floor's boss. FIXED 2026-08-20T03:05Z
+      (orchestrator, directly -- game-breaking bugs don't wait an hour): exact
+      fix as specified below, verified by the new
+      test/verify-boss-skip-softlock-fix.js (11/11: floors 1->2->3 all land
+      playable after a boss skip, floor-3 skip ends in VICTORY, no loot
+      granted on any skip path), npm test 16/16, and a full re-run of the
+      boss-reward QA (24/24, normal kill path unregressed). One DESIGN NOTE
+      for Jaxon flagged in PROGRESS.md: this fix means skipping the floor-3
+      boss wins the game -- see there before deciding if that needs changing.
+      Found 2026-08-20 during
       a real-browser Playwright QA pass (adapted qa-playthrough.js) testing
       commit e4d9120 -- reproduced organically in one full run (Run 2 of 2),
       then confirmed deterministically with an isolated repro that sets
