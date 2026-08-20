@@ -3422,7 +3422,7 @@ Rules for the routine:
       mid-fight on a real phone) is Jaxon's to confirm, but placement, math
       accuracy, and no-reflow are all verified in a real browser.
 
-- [ ] CONTENT (Jaxon, same real-device playtest): more dictionary gaps --
+- [x] CONTENT (Jaxon, same real-device playtest): more dictionary gaps --
       "BORKS" rejected (see his screenshot; he tried ZORKS and BORKS, and
       called out BORKS specifically as a word that should work). BORK/BORKS/
       BORKED/BORKING are in Collins Scrabble Words but not ENABLE1 (our v0.22
@@ -3447,3 +3447,44 @@ Rules for the routine:
       word-check path; `npm run test:itch-build` clean (the packaged build
       must pick up the updated wordlist -- this manifest has silently drifted
       before).
+      DONE 2026-08-20T21:55Z, v0.31 -> v0.32: added a clearly-marked
+      `SUPPLEMENT` array in js/wordbound/wordlist.js (renamed the baked
+      dictionary to `WORDS_BASE`, `WORDS = WORDS_BASE.concat(SUPPLEMENT)`,
+      matching the same "strictly additive, documented in the header comment"
+      pattern the v0.22 ENABLE1 union used). BORK/BORKS/BORKED/BORKING land as
+      specified. JUDGMENT CALL (2): folded in 60 more individually-verified
+      common modern/informal words missing from both the base dict and
+      ENABLE1 (both predate this vocabulary) -- MEME(S), SELFIE(S), EMOJI(S),
+      BLOG/VLOG/PHISH families, HASHTAG(S), PODCAST(ER/S), TWERK/YEET
+      families, NOOB(S), EMOTICON(S), FRENEMY/FRENEMIES, STAYCATION(S),
+      MANSPLAIN family, CATFISHED/CATFISHING, FOMO, SUS, CRINGEY/CRINGY,
+      APP(S), SPAMMED/SPAMMING, UNFOLLOW(S) -- each checked against at least
+      one major dictionary (Merriam-Webster/Collins/Oxford) before inclusion,
+      not a bulk import of any single list. Skipped anything trademark-
+      adjacent (e.g. GOOGLE as a verb, WIFI) to stay unambiguous. ZORKS (3):
+      left out per the ticket's own instruction, noted in wordlist.js's own
+      comment (proper noun, no dictionary support found).
+      VERIFIED: `npm test` ALL CHECKS PASSED, 5/5 clean repeat runs (390
+      assertions incl. 10 new supplement-specific ones: BORK family + a
+      sample of the modern-word supplement now valid, ZORKS still rejected,
+      word count grew from 548635 to 548699). `npm run test:itch-build`
+      ALL CHECKS PASSED (dom-check re-run clean against the unzipped packaged
+      copy, confirming the updated wordlist ships in the itch.io build; zero
+      real-browser 404s).
+      SIDE FINDING, fixed in the same touch (test-infra only, no game-code
+      change): `npm test` was flaky (~2 of 3 runs failing) on an assertion
+      from the immediately-prior FEATURE ticket (staged-word damage preview,
+      v0.31) -- test/dom-check.js's "damage-preview shows a number" check
+      required the preview text contain no "--", but the preview legitimately
+      appends " -- weak point!" / " -- repeat (x0.4)" (game.js
+      updateDamagePreview) whenever the test's own auto-selected word happens
+      to hit the monster's weakness or repeat, which is not the neutral "--"
+      state (that has its own `.preview-empty` class). Fixed the assertion to
+      check `.preview-empty` absence instead of the text substring; 5/5 clean
+      reruns after the fix (0/5 before). This was actively undermining the
+      "npm test must be trustworthy" mandate GOALS.md's own top-of-file
+      warning exists for, so fixed rather than left for a future run to
+      rediscover.
+      NOT touched: game.js, wordbound.html markup/CSS beyond the version bump
+      -- no rendering/event surface changed, so `npm run test:mobile` /
+      `npm run test:qa` were not required by this ticket and were not run.

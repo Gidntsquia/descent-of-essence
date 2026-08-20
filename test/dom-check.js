@@ -96,6 +96,24 @@ async function main() {
     check('Wordlist union: list grew to > 500000 words (was 497871)', WORD_SET.size > 500000);
   }
 
+  // Wordlist SUPPLEMENT (Jaxon, 2026-08-20): BORKS was rejected live on his
+  // phone (BORK family is in Collins Scrabble Words but not ENABLE1). A small
+  // hand-curated supplement of individually-verified modern/informal words was
+  // added, strictly additive -- see js/wordbound/wordlist.js's own header
+  // comment and SUPPLEMENT array for the full list and reasoning. These probes
+  // were all MISSING before the supplement and must now validate; ZORKS was a
+  // deliberate exclusion (proper noun, no dictionary support) and must still
+  // be rejected.
+  {
+    const Lexicon = window.Wordbound.Lexicon;
+    const WORD_SET = window.Wordbound.WORD_SET;
+    ['BORK', 'BORKS', 'BORKED', 'BORKING', 'MEME', 'SELFIE', 'FOMO', 'SUS'].forEach((w) => {
+      check('Wordlist supplement: "' + w + '" is now valid (was missing pre-supplement)', Lexicon.isValidWord(w));
+    });
+    check('Wordlist supplement: "ZORKS" deliberately excluded, still invalid', !Lexicon.isValidWord('ZORKS'));
+    check('Wordlist supplement: list grew to > 548695 words (was 548635)', WORD_SET.size > 548695);
+  }
+
   // Foreword item (review B2): its unused-tile-count bonus used to be
   // computed as `rack.length - tilesUsed.length`, but Combat.playWord
   // already removes played tiles from the rack BEFORE onWordPlayed hooks
@@ -1644,7 +1662,15 @@ async function main() {
     document.getElementById('word-input').dispatchEvent(new window.Event('input', { bubbles: true }));
     const previewText = previewEl ? previewEl.textContent : '';
     const previewNum = parseInt((previewText.match(/(\d+)/) || [])[1], 10);
-    check('damage-preview shows a number for a valid staged word (not "--")', !isNaN(previewNum) && previewText.indexOf('--') === -1);
+    // Pre-existing test bug found while verifying an unrelated task (2026-08-20):
+    // this used to also require previewText.indexOf('--') === -1, but the preview
+    // legitimately appends " -- weak point!" / " -- repeat (x0.4)" suffixes
+    // (game.js updateDamagePreview) whenever the auto-selected word happens to hit
+    // the monster's weakness or repeat a word -- neither is the neutral "--" state
+    // (that uses the distinct .preview-empty class, checked below instead), so the
+    // old substring check spuriously failed on a real number about 1 in 3 runs
+    // depending on which word/monster the test's own scan happened to land on.
+    check('damage-preview shows a number for a valid staged word (not neutral)', !isNaN(previewNum) && previewEl.className.indexOf('preview-empty') === -1);
 
     document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
     // Rack cycling, the counterattack, and damage animations are deferred by

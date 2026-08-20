@@ -9973,3 +9973,107 @@ flag still open from the prior run (commit 5437708): a fresh balance-simulation
 shows win rate fell to ~13-17% (from 60% at v0.16) driven by floor-2 strong/
 elite damage stacked on pre-overhaul numbers -- that's a Jaxon-authorized
 balance pass, not a queued item.
+
+## 2026-08-20T21:55Z -- BORKS / dictionary supplement (v0.31 -> v0.32), queue now empty
+
+**Task:** last unchecked GOALS.md item -- Jaxon's real-device playtest CONTENT
+ticket: "BORKS" was rejected live (BORK family is in Collins Scrabble Words,
+not ENABLE1, our v0.22 union source). Guaranteed deliverable: BORK family
+validates. Judgment call offered: fold in a broader conservative modern-word
+supplement if source licensing checks out. ZORKS: leave out unless found in a
+reputable list.
+
+**What I built (js/wordbound/wordlist.js):** followed the same pattern the
+v0.22 ENABLE1 union used (strictly additive, documented in the file's own
+header comment) rather than inventing a new mechanism. Renamed the baked
+548635-word array to `WORDS_BASE`, added a clearly-marked `var SUPPLEMENT =
+[...]` array right above it with its own comment block explaining what it is
+and why, and `WORDS = WORDS_BASE.concat(SUPPLEMENT)` before `WORD_SET` is
+built -- zero risk of silently clobbering the base list, easy to spot/extend
+later.
+
+**Supplement content (64 words):**
+- BORK, BORKS, BORKED, BORKING -- the guaranteed deliverable.
+- JUDGMENT CALL: 60 more common modern/informal English words individually
+  confirmed missing from both source lists (checked with a Python substring
+  scan against the actual file content before adding, not assumed) AND
+  verified against at least one major dictionary (Merriam-Webster/Collins/
+  Oxford) before inclusion -- not a bulk import of Collins or any other
+  proprietary list, which is what the ticket's licensing caveat actually
+  warned against. Families added: MEME(S), SELFIE(S), EMOJI(S), BLOG(GED/
+  GING/GER/GERS), VLOG(GED/GING/GER/GERS), PHISH(ES/ED/ING), HASHTAG(S),
+  PODCAST(ER/ERS/S), TWERK(S/ED/ING), YEET(S/ED/ING), NOOB(S), EMOTICON(S),
+  FRENEMY/FRENEMIES, STAYCATION(S), MANSPLAIN(S/ED/ING), CATFISHED/
+  CATFISHING, FOMO, SUS, CRINGEY/CRINGY, APP(S), SPAMMED/SPAMMING,
+  UNFOLLOW(S). Deliberately skipped anything trademark-adjacent (GOOGLE as a
+  verb, WIFI) to stay unambiguous for a word game.
+- ZORKS: left out, per the ticket's own instruction -- no dictionary support
+  found anywhere, "Zork" is a proper noun (the 1980 game), pluralizing it
+  doesn't make it a common word. Noted in wordlist.js's own comment so the
+  reasoning survives without needing to dig through GOALS.md history.
+
+**New test coverage (test/dom-check.js):** added a block matching the
+existing ENABLE1-union probe pattern exactly (same file, ~10 lines below it):
+BORK/BORKS/BORKED/BORKING + a sample of the modern-word supplement
+(MEME/SELFIE/FOMO/SUS) now validate; ZORKS still rejected; word count grew
+past 548695 (was 548635, now 548699 -- exactly base + 64, confirmed no
+duplicates via a Node one-liner before writing the file).
+
+**SIDE FINDING fixed in the same touch (test-infra only, zero game-code
+change):** while running the mandatory `npm test` for THIS ticket, hit a
+pre-existing flaky failure unrelated to my change -- 2 of 3 raw runs failed on
+"damage-preview shows a number for a valid staged word (not '--')", a check
+added by the immediately-prior run's FEATURE ticket (v0.31, staged-word
+damage preview). Root cause: that assertion rejected any preview text
+containing "--", but game.js's `updateDamagePreview` legitimately appends
+" -- weak point!" / " -- repeat (x0.4)" suffixes when the test's own
+auto-selected word happens to hit the monster's weakness or repeat a word --
+neither is the actual neutral/invalid state (which has its own distinct
+`.preview-empty` CSS class). So the check was randomly self-sabotaging on
+~1/3 of runs depending on which word the test's own word-finder scan landed
+on, nothing to do with BORKS or the wordlist. Fixed the assertion to check
+`previewEl.className.indexOf('preview-empty') === -1` instead of the text
+substring -- verified 5/5 clean reruns after the fix (0/3 before, then two
+more failures before I made the fix, for 0/5 total pre-fix vs 5/5 post-fix).
+Fixing this felt in-scope rather than a scope violation: an untrustworthy
+`npm test` undermines the exact discipline GOALS.md's own top-of-file warning
+exists to enforce, and leaving a known-flaky assertion for the next run to
+rediscover cold would have wasted its time diagnosing something already
+understood.
+
+**Verified:**
+- `npm test` **ALL CHECKS PASSED**, 5/5 consecutive clean runs (390
+  assertions total, 10 new supplement-specific ones listed above).
+- `npm run test:itch-build` **ALL CHECKS PASSED** -- dom-check.js re-run
+  clean (390/390) against the packaged/unzipped copy (confirms the itch.io
+  build picks up the updated wordlist, not just the dev tree -- this exact
+  class of drift bit a past run per the ticket's own note), plus zero
+  real-browser 404s loading the unzipped build and `window.Wordbound.Game`
+  present.
+- Node-level sanity check (loaded wordlist.js standalone): `WORD_SET.size ===
+  WORDLIST.length` (548699 === 548699, confirming zero accidental duplicates
+  between the base list and the supplement).
+
+**NOT touched / not required:** no game.js, wordbound.html markup, or CSS
+rendering/event-handling surface changed (only wordlist.js content + a test
+assertion), so `npm run test:mobile` and `npm run test:qa` were not mandatory
+for this ticket per GOALS.md's own rules and were not run. No audio or
+drag-and-drop surface involved either.
+
+**State:** committed + pushed to main. Box checked, v0.31 -> v0.32.
+**GOALS.md's queue is now fully empty** -- confirmed via
+`grep -n "^- \[ \]" GOALS.md` returning nothing. Per GOALS.md's own guardrail,
+checked ROADMAP.md's "known gaps" section before concluding there's nothing
+to do: every gap listed there is either RESOLVED, or explicitly NOT
+automatable (physical-device touch test, feel/fun playtest, the itch.io
+upload itself -- all Jaxon's), or the standing balance-regression flag (win
+rate ~13-17% vs the 33-50% band, floor-2 strong/elite damage) which every
+prior run has correctly declined to guess-fix without Jaxon's steer on
+direction (raise player HP/healing? cut floor-2 damage? make elites
+skippable to restore their opt-in design?) -- re-guessing at combat numbers
+without that steer would repeat exactly the mistake GOALS.md's own history
+warns against. Nothing else in ROADMAP.md's gap list is a well-scoped,
+un-blocked, automatable task.
+**Idle: no unblocked, well-scoped work remains for this run.** Next run
+should re-check both files fresh (Jaxon may have queued new tickets or
+provided the balance steer overnight) before assuming idle again.
