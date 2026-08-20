@@ -77,7 +77,17 @@
   Floor.generateFloor = function (floorNumber, rng) {
     var nodeCount = rng.randInt(6, 8);
     var hasElite = Floor.ELITE_FLOOR_NUMBERS.indexOf(floorNumber) !== -1;
-    var hasRest = floorNumber >= 2;
+    // floorNumber >= 2 -> >= 1 (2026-08-20 rebalance ROUND 3, GOALS.md
+    // "BALANCE, high priority"): balance-simulation.js data showed several
+    // floor-2 deaths were 1-word, single-digit-damage kills -- the player
+    // arrived at floor 2 already critical from floor-1 attrition (floor 1
+    // had NO checkpoint heal at all), so floor2's death-share numbers were
+    // partly floor 1's damage landing a floor late. This is the "heal
+    // availability" player-economy lever the ticket's hard constraints
+    // explicitly sanction, applied via the existing rest-node mechanism
+    // rather than a new one -- floor 1 simply gets the same guaranteed
+    // checkpoint floor 2/3 already had.
+    var hasRest = floorNumber >= 1;
     var hasShop = true;
     var hasEvent = floorNumber >= 1; // events on all floors
 

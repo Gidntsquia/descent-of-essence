@@ -10321,3 +10321,51 @@ to compound).
 these exact HP numbers; same audit as round 1 -- checked first). A fresh
 n=30 sim was kicked off in the background right after; next entry has the
 result and the checkpoint/checkbox decision.
+
+**UPDATE 3 -- round 2's n=30 landed: win rate now IN BAND, floor2 share
+still over ceiling, floor3 boss still killing nobody. Starting ROUND 3.**
+
+| metric | round 1 (post-SHREDDER-fix) | round 2 | target |
+|---|---|---|---|
+| win rate ("best") | 60% | **43%** (13/30) | 35-50% -- **IN BAND** |
+| stall rate | 0% | 3% (1/30, unrelated to SHREDDER -- a different genuine per-combat-cap stall) | n/a |
+| floor1 death share | 8% | 25% (4/16) | <=50% |
+| floor2 death share | 67% | 62.5% (10/16) | <=50%, toward floor3 parity -- still MISS, improving |
+| floor3 death share | 25% | 12.5% (2/16) | toward floor2 parity -- moved the WRONG way |
+| floor1-regular deaths | 0% | 6.25% (1/16, The Appendix) | <=~10% -- still comfortably PASS |
+| boss_vowelmaw (floor1) kill rate | 3% | 11% (3/28) -- feels like a real fight now | "meaningful spike" -- improved |
+| boss_sovereign (floor3/final) kill rate | 0% | **0%** (0/13), avg 1.4 words/fight even at maxHp 55 | "meaningful spike" -- still a non-event |
+
+**Diagnosis (read the raw per-death JSON, not just the aggregate table):**
+queried `test/balance-simulation-results.json` directly for every floor-2
+death's word count and damage taken. Several were 1-word kills for 1-3
+damage -- the player arrived at that fight already critical, so ANY hit
+would have ended the run; the specific floor-2 monster's own stats weren't
+really the proximate cause. Floor 1 has NO rest/checkpoint-heal node at all
+(`floor.js`: `hasRest = floorNumber >= 2`), so a floor-1 gauntlet's
+cumulative damage carries straight into floor 2 with zero recovery point --
+floor2's death-SHARE number is partly floor 1's damage landing a floor
+late. Separately, boss_sovereign remains a complete non-event even after
+round 2's HP bump (players arrive healthy per round-2's own boss-reach
+stats: avg 19.7/24 HP) -- the ceiling there is pure HP, not player
+attrition, so it needs a bigger push, not a different lever.
+
+**ROUND 3 changes:**
+- `js/wordbound/floor.js`: `hasRest = floorNumber >= 2` -> `>= 1`. Floor 1
+  now generates a guaranteed rest/checkpoint-heal node too, same as floors
+  2-3 already had. This is the "heal availability" player-economy lever
+  the ticket's hard constraints explicitly sanction (parenthetical example
+  "heal amounts/costs, potion availability"), applied through the EXISTING
+  rest-node mechanism rather than inventing a new one -- judgment call:
+  treating "which floors get a checkpoint heal" as heal-availability
+  tuning, not a structural floor-generation/level-design change (no new
+  node type, no path/branch change, same node the later floors already
+  use). Targets floor2's death-share specifically, by fixing where the
+  damage that KILLS on floor2 actually often came from.
+  npm test's elite/floor-generation assertions don't hardcode floor-1's
+  node-type mix, so this didn't need any test updates -- checked first.
+- `js/wordbound/monsters.js`: `boss_sovereign` maxHp 55 -> 65 (further
+  push, HP-only again, same reasoning as round 2 -- still 0% kills at 55).
+
+`npm test` **ALL CHECKS PASSED**. Balance-simulation n=30 re-running in the
+background; next entry has the result.

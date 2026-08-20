@@ -208,7 +208,12 @@
     // surviving floors 1-2. HP-only (attack untouched, already the
     // highest in the game at 8, and Enrage already escalates over a long
     // fight -- no need to compound that with a bigger per-hit number too).
-    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 55, attack: 8, floor: 3, goldDrop: [40, 60],
+    // maxHp 55 -> 65 (2026-08-20 rebalance ROUND 3): the round-2 bump to 55
+    // still measured 0/13 kills, avg 1.4 words/fight -- literally the
+    // easiest fight in the game despite being the final boss. Players
+    // arrive at this fight healthy (round-2 sim: avg 19.7/24 HP), so the
+    // ceiling is HP, not player attrition -- pushing further.
+    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 65, attack: 8, floor: 3, goldDrop: [40, 60],
     // Final boss: the only def with Enrage, so a run that drags this fight
     // out gets meaningfully harder over time -- the escalating-stakes finale
     // this ticket's design note asks for.
