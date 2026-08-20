@@ -3553,3 +3553,110 @@ Rules for the routine:
       bump ITS timeouts if needed, not the game's). Bump the minor version
       (player-facing balance change) and note the rebalance in ROADMAP.md's
       known-gaps list as resolved.
+
+<!-- The 4 tickets below were queued 2026-08-20T23:12Z directly from Jaxon
+     ("Add more items, make the background/visuals fit the theme better, add
+     more sound effects to make the game feel more responsive, and review the
+     game for polish and small details"). They queue BEHIND the rebalance
+     ticket above — finish that first. Ordered: items, then visuals, then
+     audio, then the review pass LAST deliberately (a detail review is most
+     valuable after the new content/visual/audio work has landed, so it
+     catches their rough edges too). -->
+
+- [ ] CONTENT (Jaxon request): add more items. Design and add roughly 8-12
+      new shop/reward items consistent with THEME.md's library/archive lore
+      and naming voice (read it first -- items are things like "Heavy Ink",
+      "Folio Mark"; stay in that register, no generic fantasy nouns). Spread
+      across the existing rarity tiers; include at least 2 genuinely
+      build-defining ones (the rule-changer class from FUN OVERHAUL, which
+      Jaxon liked) and avoid near-duplicates of existing effects -- read
+      js/wordbound/items.js in full before designing so the new effects fill
+      gaps (e.g. hook points that exist but have few items: onWordPlayed
+      variants, floor-transition, gold-economy, consumable-synergy) rather
+      than stacking more of what's common. Keep effects implementable with
+      the existing hook system -- don't invent new engine machinery unless
+      one flagship item truly earns it. NOTE the shop-pool interaction: the
+      guaranteed-consumable-slot fix (v0.28) means adding items no longer
+      starves consumables, but adding many items DOES dilute each individual
+      item's appearance rate -- that's acceptable (variety is the point), no
+      pool-weighting work needed unless something specific breaks. If the
+      rebalance ticket above shifted monster/economy numbers, design against
+      the NEW numbers, not v0.32's.
+      VERIFICATION: `npm test` clean with per-item assertions (each new item's
+      effect fires through its hook with the expected state change -- follow
+      the existing per-item test pattern in test/dom-check.js), `npm run
+      test:qa` clean, and a seeded-shop check that the new items actually
+      appear in shop rolls. Minor version bump.
+
+- [ ] VISUAL (Jaxon request): make the background/visuals fit the theme
+      better. Right now the game plays on a mostly flat dark backdrop; the
+      theme is the Boundless Archive -- a library gone feral (THEME.md).
+      Give the game an ambient visual identity: e.g. layered CSS-gradient /
+      inline-SVG bookshelf silhouettes or stack outlines behind the play
+      area, a subtle parchment/vellum texture on panels, maybe slow-drifting
+      dust motes or stray letters in the deep background, a per-floor tint
+      shift (floor names already have distinct flavors) so descending feels
+      like moving somewhere. Constraints, all hard:
+      - NO external asset files (project convention) -- CSS gradients, inline
+        SVG/data-URIs only. Keep the page weight increase trivial.
+      - Readability first: text/tile contrast must not degrade; anything
+        behind the combat area stays low-contrast and out of the way.
+      - All ambient motion gates on prefers-reduced-motion (house convention)
+        and must be transform/opacity-only (no layout-thrashing animation),
+        cheap enough to not jank a mid-range phone.
+      - Both games share CSS files in places -- scope changes to Wordbound's
+        surfaces (wordbound.css / wordbound.html) so Descent of Essence's
+        look is untouched.
+      VERIFICATION: `npm test` clean, `npm run test:mobile` clean at 375/414px
+      (backdrop must not introduce overflow), `npm run test:qa` clean, plus a
+      real-browser screenshot pass at desktop + 375px in PROGRESS.md terms
+      (describe what was visually confirmed -- element visibility/contrast --
+      and say plainly that aesthetic judgment is Jaxon's). Minor version bump.
+
+- [ ] AUDIO (Jaxon request): more sound effects, so the game feels more
+      responsive. Audit what already has sound (grep playCombatSound /
+      the audio module) and add short, subtle synthesized SFX (existing
+      WebAudio approach, no external audio files) for the interactions that
+      are currently silent -- candidates, pick the ones that read as
+      responsiveness rather than noise: tile tap/stage, unstage, drag pickup
+      and drop, invalid-word rejection, word-accepted vs weakness-hit
+      differentiation (if not already distinct), gold gained, shop purchase,
+      consumable use, heal, floor transition, boss entrance, victory/defeat
+      stingers, button taps on major CTAs. Requirements:
+      - Everything routes through the existing mute toggle + volume slider;
+        nothing plays before the first user gesture (autoplay policy).
+      - Keep the palette coherent (same synthesis voice/family as existing
+        sounds) and QUIET -- feedback, not fanfare; combat hits stay the
+        loudest thing.
+      - Debounce rapid-fire cases (fast tile taps shouldn't machine-gun).
+      VERIFICATION: `npm test` clean (assert the sound-trigger functions are
+      called on the right events and that mute suppresses them -- jsdom can
+      verify call/state, NOT actual audibility; say so plainly in
+      PROGRESS.md), `npm run test:qa` clean with zero console errors (a
+      broken AudioContext call would surface there). Actual sound quality/mix
+      is Jaxon's ears' call -- flag it for his next playtest. Minor version
+      bump.
+
+- [ ] QA (Jaxon request) -- polish & small-details review pass. LAST of this
+      batch on purpose: run it after the items/visual/audio tickets above
+      have landed so their rough edges get caught too. Like the 2026-08-20
+      bugs/feel/fun review but aimed at SMALL things: play the real game in a
+      real browser (desktop AND 375px mobile, touch mode) through at least
+      one full run each, visiting every screen (menu, character select,
+      how-to, combat, shop, events, boss reward, game over, victory, stats,
+      deck/consumables panels, achievements), and hunt: typos/inconsistent
+      capitalization or naming (cross-check THEME.md), spacing/alignment
+      glitches, inconsistent button styles, missing hover/focus/pressed
+      states, log-message wording that lies or reads awkwardly, animation
+      timing that feels off, dead/empty states (empty consumables panel,
+      zero-gold shop, etc.), keyboard focus traps, anything that looks
+      unfinished. FIX the trivial ones in the same run (a typo, a padding
+      value); for anything non-trivial, append a properly-specced ticket to
+      this queue (root cause, file/line, fix shape, verification) -- follow
+      the format of the tickets the earlier review produced. Report the full
+      findings list in PROGRESS.md, including what was checked and found
+      CLEAN, so the pass is auditable.
+      VERIFICATION: `npm test` + `npm run test:mobile` + `npm run test:qa`
+      all clean after any inline fixes; new tickets properly filed for the
+      rest. Patch version bump if only fixes shipped, minor if anything
+      user-visible changed meaningfully.
