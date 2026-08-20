@@ -51,6 +51,86 @@ Rules for the routine:
 
 ## Queue
 
+- [x] BUG, minor (found during real-browser QA pass on 2fb89fd, verified
+      2026-08-20T11:00Z): Mend's log message (and its `result.healed`
+      return value) overstate the actual HP recovered whenever the heal
+      would be clamped by the monster's max HP -- the number the player
+      sees and the HP actually gained silently disagree.
+      ROOT CAUSE (line numbers as of commit 065b633, which landed mid-pass
+      and already retuned MEND_HEAL_RATIO 0.15->0.10 without touching this
+      logic -- re-check line numbers if more commits land first):
+      `js/wordbound/intents.js` lines 172-176, the 'mend'
+      branch of `Intents.executeIntent`:
+      ```
+      if (intent.type === 'mend') {
+        var healAmt = Math.round((monster.maxHp || 0) * MEND_HEAL_RATIO);
+        monster.hp = Math.min(monster.maxHp, monster.hp + healAmt);
+        monster.mendUsed = true;
+        result.healed = healAmt;
+        result.message = monster.name + ' mends its wounds, healing ' + healAmt + ' HP.';
+        return result;
+      }
+      ```
+      `monster.hp` itself is correctly clamped via `Math.min`, but
+      `result.healed` and the log message both use the raw, PRE-clamp
+      `healAmt` regardless of how much headroom the monster actually had.
+      Whenever Mend fires with the monster within `healAmt` HP of its max,
+      the displayed number is bigger than what actually happened. This is
+      independent of the exact `MEND_HEAL_RATIO` value (currently 0.15;
+      see the ORCHESTRATOR DECISION below this ticket, which plans to
+      retune it to 0.10) -- the bug is in how an already-computed heal
+      gets REPORTED, not in the ratio itself, so it will still apply after
+      that retune unless fixed in the same touch. This is a small,
+      self-contained, mechanically-unrelated fix -- fine for the next run
+      to knock out quickly before or after the time-sensitive balance
+      work below, whichever fits better.
+      VERIFIED live in a real Chromium browser through the actual
+      `Game.submitWord` flow (not a synthetic/isolated call): forced a
+      Mend intent on a boss-tier monster instance sitting 10 HP below a
+      300 max HP, played a real word, and read `state.monster.hp` before
+      and after. Message read "...mends its wounds, healing 45 HP." but
+      the monster's HP only actually increased by 12 (290 -> 300,
+      hard-capped at maxHp). Reproduced identically (same 45-claimed/
+      12-actual split) across two independent runs of the same check.
+      (Those exact numbers were measured against MEND_HEAL_RATIO=0.15,
+      just before commit 065b633 retuned it to 0.10 -- the bug mechanism
+      is identical regardless of the ratio, just with a smaller claimed
+      number now; didn't re-run the live check against 0.10 specifically
+      since the formula is unchanged and the discrepancy is purely
+      arithmetic, not timing- or value-sensitive.)
+      FIX: compute the actual post-clamp delta and use THAT for both
+      `result.healed` and the message:
+      ```
+      var healAmt = Math.round((monster.maxHp || 0) * MEND_HEAL_RATIO);
+      var actualHeal = Math.min(monster.maxHp, monster.hp + healAmt) - monster.hp;
+      monster.hp += actualHeal;
+      monster.mendUsed = true;
+      result.healed = actualHeal;
+      result.message = monster.name + ' mends its wounds, healing ' + actualHeal + ' HP.';
+      ```
+      VERIFICATION: `npm test` plus one new targeted assertion alongside
+      the existing Mend checks in test/dom-check.js: set `monster.hp` to
+      `maxHp - X` where `X` is smaller than the raw heal amount, call
+      `executeIntent`, assert `result.healed === X` (not the raw
+      `round(maxHp*MEND_HEAL_RATIO)`) and that the log message's number
+      matches `X`; also re-confirm the existing no-clamp case still
+      reports the full raw amount (regression check). No player-facing
+      balance change on its own (the real `monster.hp` value was already
+      correct) so no version bump strictly required, but natural to fold
+      into whichever commit next touches this function for the pending
+      ratio retune.
+      FIXED 2026-08-20T11:10Z: exactly the fix specified -- `executeIntent`'s
+      'mend' branch now computes `actualHeal` (the real post-clamp delta)
+      and uses it for both `monster.hp`'s increment, `result.healed`, and
+      the log message. Added 3 jsdom assertions to test/dom-check.js: a
+      forced near-max-HP Mend reports the smaller clamped amount (not the
+      raw ratio amount) in both `result.healed` and the message text, and
+      post-heal `monster.hp` is exactly `maxHp`; the pre-existing no-clamp
+      Mend test above it still passes unchanged (regression check). `npm
+      test` 110/110 (full suite, ALL CHECKS PASSED). No version bump
+      (display-only fix, no player-facing balance change, per the
+      ticket's own note).
+
 <!-- The 12 tickets below were queued 2026-08-20 from a full bugs/feel/fun
      review Jaxon requested and approved (review artifact + full findings in
      the session that queued these; finding IDs like B1/F2/N1 refer to it).

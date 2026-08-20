@@ -169,11 +169,16 @@
     }
 
     if (intent.type === 'mend') {
+      // GOALS.md bug (2026-08-20 QA pass): report the actual post-clamp
+      // delta, not the raw ratio-derived amount -- a monster within
+      // healAmt of its max HP was previously reporting a bigger number
+      // than it actually gained.
       var healAmt = Math.round((monster.maxHp || 0) * MEND_HEAL_RATIO);
-      monster.hp = Math.min(monster.maxHp, monster.hp + healAmt);
+      var actualHeal = Math.min(monster.maxHp, monster.hp + healAmt) - monster.hp;
+      monster.hp += actualHeal;
       monster.mendUsed = true;
-      result.healed = healAmt;
-      result.message = monster.name + ' mends its wounds, healing ' + healAmt + ' HP.';
+      result.healed = actualHeal;
+      result.message = monster.name + ' mends its wounds, healing ' + actualHeal + ' HP.';
       return result;
     }
 

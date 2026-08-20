@@ -309,6 +309,21 @@ async function main() {
       check('monster intents: Mend is never re-telegraphed after it\'s already fired this fight (60/60)', !mendSeenAfterUse);
     }
 
+    // GOALS.md bug (2026-08-20 QA pass): a Mend firing close to max HP used
+    // to report the raw ratio-derived amount instead of the actual
+    // post-clamp gain -- assert the clamped case reports the SMALLER real
+    // number, and that the no-clamp case still reports the full raw amount.
+    {
+      const boss = Monsters.createBoss('boss_vowelmaw'); // intents: ['mend']
+      const rawHeal = Math.round(boss.maxHp * Intents.MEND_HEAL_RATIO);
+      boss.hp = boss.maxHp - Math.floor(rawHeal / 2); // less headroom than the raw heal amount
+      const clampedHealResult = Intents.executeIntent({ type: 'mend' }, { monster: boss });
+      const expectedClampedHeal = boss.maxHp - (boss.maxHp - Math.floor(rawHeal / 2));
+      check('monster intents: Mend reports the actual post-clamp heal, not the raw ratio amount', clampedHealResult.healed === expectedClampedHeal && clampedHealResult.healed < rawHeal);
+      check('monster intents: Mend message number matches the clamped heal', clampedHealResult.message.indexOf('healing ' + expectedClampedHeal + ' HP') !== -1);
+      check('monster intents: post-Mend hp is exactly maxHp (clamped)', boss.hp === boss.maxHp);
+    }
+
     // executeIntent: Enrage permanently increases attack and stacks.
     {
       const boss = Monsters.createBoss('boss_sovereign'); // intents: ['enrage', 'hex']
