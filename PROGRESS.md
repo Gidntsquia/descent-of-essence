@@ -7185,3 +7185,207 @@ longer fights make every signature stronger -- the only way out of that loop
 without deleting the fun is to make each cost non-compounding (fight-scoped
 Devour, weaker Mend/Enrage) and shorten the sponge (boss HP). Combo/novelty
 stays untouched -- it was in the healthy 40% measurement.
+
+---
+
+### 2026-08-20T11:05Z -- QA pass: real-browser verification of v0.12/v0.13/v0.14 (combo, intents, boss phases), B4/B5 spot-checks, 2 full regression runs. Clean except one small Mend display bug (ticketed).
+
+**Scope and commit pinning.** Pulled once at the start (fast-forward to
+`2fb89fd`, "Fix click-to-stage tile trap (review B5)") and pinned the whole
+verification pass to it. The shared local checkout advanced twice more
+DURING this pass as a side effect of the orchestrator working concurrently
+in the same working directory (confirmed via `git reflog` timestamps, not
+assumed): `16f47b4` (F2 boss-music fix, 10:29Z) and `e9cef62` (the
+balance-regression ORCHESTRATOR DECISION immediately above this entry,
+10:42Z, GOALS.md/PROGRESS.md only -- zero code changes). Checked both
+diffs directly before trusting anything: `16f47b4` touches only
+`js/wordbound/game.js` (audio mode-switching) and `e9cef62` touches no
+code files at all -- neither touches `intents.js`, `combat.js`,
+`traits.js`, or `monsters.js`, the files everything below actually
+exercises, so none of this pass's findings are affected by the concurrent
+movement. Per this pass's own instructions ("if origin moves, note it,
+don't chase"), did not restart or re-run the verification scripts against
+the moving target. Did fast-forward the local checkout to the true latest
+(`797b09a`, F3 screen-transition CSS, also code-disjoint from this pass's
+scope) before writing this entry and before pushing, and re-ran `npm test`
+once more at that final HEAD as a cheap sanity gate (98/98, clean) --
+everything else in this entry reflects the pinned `2fb89fd` pass.
+
+**One more landed while writing this entry up:** `065b633` (the balance-
+regression decision's actual implementation -- Mend ratio 0.15->0.10,
+Enrage bonus 2->1, Devour once-per-fight guard, boss HP -25%) arrived on a
+final pre-push fetch. Checked its diff before merging: it's exactly the
+retune the orchestrator decision above already described, touches
+`intents.js`/`monsters.js` only in the constants and the Devour branch, and
+does NOT touch the Mend log-message code this pass's ticket targets -- the
+bug is confirmed still present verbatim in that commit (just at shifted
+line numbers, since earlier lines in the same file grew), so the ticket
+above has been updated to cite the current line numbers before merging.
+Not re-running the verification scripts against it (same "don't chase"
+reasoning) since nothing about the actual mechanism -- Hex/Devour/Mend/
+Enrage logic, combo math, boss-phase trait selection -- changed, only
+tuning constants this pass was never trying to validate the exact value
+of.
+
+**Baselines (at `2fb89fd`):** `npm test` -- ALL CHECKS PASSED (98 checks:
+combo math, boss-phase math, monster-intent unit + live-DOM checks, tile
+toggle, killing-blow beat, etc. -- this pass's baseline, before `16f47b4`
+added 2 more test:qa checks). `npm run test:mobile` -- clean, zero overflow
+at 375px/414px on main menu and combat. `npm run test:qa`
+(orchestrator-qa-boss-reward.js) -- 24/24 clean, zero console/page errors,
+real Chromium. No stale-test-vs-real-bug judgment calls needed -- everything
+green out of the box.
+
+**Real-browser verification, three new targeted scripts** (scratch dir
+`/Users/jaxon/.claude/jobs/73872751/tmp/`, all run against real Chromium,
+real `Game.submitWord`/render()/timers, never a reimplementation of game
+formulas -- damage predictions call the real `Lexicon.scoreWord`/
+`Traits.activeTraitForHpRatio`/etc. and compare against actual
+`state.monster.hp` deltas):
+
+1. **`verify-intents-full-realbrowser.js`** (new) -- closes a real gap in
+   existing coverage: dom-check.js's own comment says Devour/Mend/Enrage
+   were deliberately never taken through a live `submitWord` flow ("predicting
+   a real word's exact damage well enough to force those specific branches
+   through a live run would be unreliably precise"). Solved that with a
+   deterministic technique -- synthetic single-word racks via the real
+   `Tiles.createTile` API plus a temporary 'plain' (1x) trait override, so
+   predicted damage == actual exactly and Devour's 12-damage threshold can
+   be hit from both sides on purpose. Result: **20/21 passed** (see the one
+   failure below, a genuine bug). Confirmed: Hex telegraphs correctly, locks
+   the right tile (disabled + `.tile-hexed` in the real rendered rack, real
+   click on it is a no-op), and releases after EXACTLY one player turn (a
+   check dom-check.js's own live Hex test doesn't extend to); Devour eats a
+   tile when turn damage < 12 and is thwarted (correct message, rack
+   untouched) when >= 12, including the two-outcome nuance where an
+   already-known safety net (`ensureRackIsPlayable`, "devour can empty an
+   unlucky rack") correctly refills to full capacity if the post-devour rack
+   has no playable word -- ran into this as a false failure on the first
+   attempt, traced it to my own script's rack-replacement technique
+   accidentally flooding the deck with duplicate letters, fixed by
+   diversifying the top-up spread (see "false leads" below); Mend heals
+   `round(maxHp*0.15)` and sets `mendUsed`, never re-telegraphed after
+   (60/60 direct `rollIntent` calls against the live monster instance);
+   Enrage reaches its 3-stack cap via three real forced turns and is never
+   re-telegraphed after (60/60), while confirming its sibling signature
+   (Hex) still rolls normally once only Enrage is capped. A final
+   **organic, unforced 14-turn poll** against a live elite fight (no forcing
+   at all) cross-checked the displayed "Next: ..." intent against what
+   actually happened every single turn -- **28/28 consistency checks
+   passed**, directly satisfying this pass's "poll `_state` across several
+   turns" instruction.
+2. **`verify-combo-novelty-realbrowser.js`** (new) -- **34/34 passed**.
+   Grew a combo across 7 distinct synthetic words and checked the EXACT
+   damage each turn (`round(base * (1 + 0.12*min(comboAtPlay,5)))`) against
+   real `state.monster.hp` deltas: confirmed the multiplier grows +12%/stack
+   through +60% at 5 stacks, and critically that it STAYS at +60% on a 6th
+   and 7th distinct word rather than continuing to +72%/+84% (the real
+   stored `comboState.combo` counter keeps growing past 5 uncapped in
+   storage -- only its EFFECT is capped at read-time via `Math.min(x,5)` --
+   caught and fixed a bug in my OWN first draft that conflated these two
+   numbers and would have produced a wrong prediction from word 7 onward).
+   Confirmed a repeat word gets exactly x0.4 of the capped-combo rate (not
+   x0.4 of a fresh x1 rate) and resets the stored combo to exactly 0, that
+   the very next distinct word after a repeat starts clean at comboAtPlay=0,
+   and that the combo-chip UI text/visibility and the two log-line templates
+   ("Combo x{n}! +{pct}%" / "The Archive has heard that one before.") match
+   state exactly on every single play.
+3. **`verify-boss-phase-damage-realbrowser.js`** (new) -- **21/21 passed**
+   across all three bosses (vowelmaw, unabridged, sovereign), closing the
+   other real gap: dom-check.js's live boss-phase check only verifies the
+   `.monster-weakness` TEXT flips at the threshold (one boss only,
+   vowelmaw) -- it explicitly does not check that the DAMAGE MULTIPLIER
+   follows the new trait. For each boss, at both full HP and just below its
+   0.5 threshold: confirmed the weakness text matches the active phase: a
+   word matching ONLY that phase's condition deals the real 2x, and --the
+   strongest check-- a word matching ONLY the OLD phase's condition (post-
+   threshold) deals plain 1x, not a stale 2x, proving the old trait is
+   genuinely deactivated rather than just the new one being additionally
+   checked. First run produced one nonsensical "-64 damage" reading;
+   traced it (not a game bug) to this script not re-forcing the monster's
+   intent between synthetic plays the way the intents script does, so
+   `boss_vowelmaw`'s own naturally-rolled Mend intent fired mid-sequence and
+   healed the boss between my before/after HP reads -- fixed by re-forcing
+   a harmless attack intent before every synthetic play, matching the
+   sibling script's approach; clean 21/21 after.
+
+**One genuine bug found, ticketed at the top of the Queue above:** Mend's
+log message and `result.healed` report the raw, pre-clamp heal amount
+instead of the actual (possibly smaller) HP gained when the heal would push
+past the monster's max HP -- e.g. message claimed "healing 45 HP" while the
+monster only actually gained 12. Purely cosmetic/display (the real
+`monster.hp` math is correctly clamped already) but genuinely player-
+visible and reproduced identically twice. Full root-cause/fix/verification
+in the ticket; noted there that it's independent of the pending Mend-ratio
+retune above and should be folded into whichever commit next touches that
+function.
+
+**False leads chased down and ruled out as MY scripts' bugs, not the
+game's** (per this pass's "triple-check your own scripts first" mandate --
+recording these so the pattern is easy to recognize if it recurs): (a) a
+"rack lost the wrong number of tiles after Devour" failure traced to my
+synthetic-rack technique silently dropping displaced tiles out of the
+tracked draw/discard-pile economy on repeated calls within one fight,
+eventually starving a `refillRack()` call (`Tiles.draw` correctly returns
+fewer than requested once both piles are exhausted -- intentional,
+documented behavior) -- fixed by topping up the draw pile with a varied
+letter spread on every synthetic-rack call; (b) the FOLLOW-UP version of
+that same fix initially flooded the pool with duplicate letters, which
+happened to make a post-Devour rack unplayable often enough to trip the
+game's own pre-existing `ensureRackIsPlayable` safety net and refill back
+to full capacity -- correct game behavior, not a bug, fixed by diversifying
+the top-up letters and loosening the assertion to accept either legitimate
+outcome; (c) the boss-phase script's "-64 damage" (detailed above).
+
+**General regression: 2 full real-browser runs to completion**, adapted
+`qa-playthrough.js` (copy: `qa-playthrough-v2-combo-aware.js` in the
+scratch dir) with two fixes to its word-finder, both gaps in the SCRIPT
+exposed by reading game.js, not game bugs: (1) prefer the best word NOT
+already played this fight (falls back to allowing a repeat only if every
+damage word is exhausted) -- the original always picked the single
+highest-scoring word regardless of repeats, which after turn 1 would
+re-select the same word and eat the x0.4 penalty every turn thereafter,
+not exercising the combo system the way a real player choosing distinct
+words would; (2) exclude any hexed tile from the word-search pool --
+searching with it still "available" could select a word `Game.submitWord`
+would then silently reject (it splices the hexed tile out before
+`Combat.playWord` runs), and since the fight loop doesn't verify forward
+progress, a hex landing on a needed tile could in principle stall a fight
+up to its 40-iteration cap. Also added a one-time real-click staged-tile
+toggle spot-check (click-stage-then-click-deselect) and organic
+combo/intent activity observability (fixed a placement bug in this
+observability code too: it was only sampling once per fight, before any
+words were played, so it always read "no activity" even in fights that
+clearly had plenty -- moved the sample point inside the per-word loop).
+Result: **2/2 runs clean, 0 issues, zero console/page errors.** Run 1:
+GAME_OVER (loss -- expected/by-design given the known win-rate gap being
+addressed above, not itself a bug), visited combat/treasure/event/shop/
+boss, combo chip+log confirmed firing organically. Run 2: full **VICTORY**
+(all 3 floors), visited every node type including elite/rest/
+boss-item-reward, combo chip+log AND signature-intent telegraph+fire all
+confirmed firing organically on top of the dedicated scripts' precise
+checks. `qa-consumable-real-clicks.js` (unmodified, still hardened and
+correct) also run separately: bought a consumable via a real click, opened
+the consumables panel via a real click, used it via a real click, count
+decremented correctly; the specific consumable drawn (Errata Slip, heal-to-
+max) happened to be used while already at full HP so no HP delta was
+observable that instance -- correctly a no-op, not a bug, the script's own
+WARN branch already anticipates and doesn't fail on this.
+
+**Staged-word toggle (priority 4):** already exhaustively covered (98/98
+jsdom + 24/24 real-Chromium qa + 8/8 touch per the B5 fix's own PROGRESS.md
+entry) -- this pass added one more independent real-click confirmation via
+the general-regression run above rather than a full re-verification.
+
+**Not touched:** no game code changed this pass (scripts/GOALS.md/
+PROGRESS.md only, per the QA-pass mandate). `js/wordbound/intents.js`,
+`combat.js`, `traits.js`, `monsters.js` were read closely but not edited.
+
+**Coverage summary:** commit tested `2fb89fd` (baselines + all three
+targeted scripts + general regression), final HEAD at push time `797b09a`
+(fast-forwarded, code-disjoint from everything tested, re-sanity-checked
+with a clean `npm test` run). 75 targeted real-browser assertions across
+the three new scripts (74 passed, 1 genuine bug), 2/2 full regression runs
+clean, consumable buy+use confirmed, tile-toggle spot-checked. One ticket
+filed (Mend display bug, minor). Nothing game-breaking found. No softlocks,
+no uncaught page/console errors anywhere across the entire pass.
