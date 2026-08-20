@@ -306,7 +306,13 @@ Rules for the routine:
       375/414px with the panel open. Real-browser click check per the standing
       mandate.
 
-- [ ] UX/MOBILE: fix the two standing real findings from `npm run test:mobile`
+- [x] UX/MOBILE: fix the two standing real findings from `npm run test:mobile`
+      COMPLETED 2026-08-20T03:58Z: see PROGRESS.md for the fix (grew the
+      three run-header buttons' padding and the letter-tile point-value
+      badges' font-size inside the existing narrow-viewport media query only
+      -- desktop untouched, confirmed by direct measurement at 1024px).
+      `npm run test:mobile` now reports zero button-size and zero text-size
+      warnings at both 375px and 414px; `npm test` 16/16.
       (flagged 2026-08-20 during the test-infra hardening, deliberately left
       unfixed there as out of scope; ticketing now so they stop being loose ends):
       (1) the Deck and Consumables buttons in the run header render 30px tall at

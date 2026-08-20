@@ -4276,3 +4276,122 @@ onboarding/How-to-Play panel [now top of queue], (2) two standing mobile
 findings (30px-tall Deck/Consumables buttons, 8 sub-12px text elements),
 (3) gameplay GIF for README/itch, (4) seeded runs, (5) inline-SVG favicon.
 Next hourly run should start on the onboarding panel.
+
+---
+
+## 2026-08-20T03:58Z (hourly routine)
+
+Note on file ordering: this repo's checkout has multiple recent entries above
+this one (03:48Z onboarding panel, 03:20Z itch build) that landed out of
+strict chronological order at the tail of this file -- likely leftover from
+the concurrent-push situation an earlier entry already flagged. Left that
+alone (not this ticket's problem) and appended this entry at the literal
+bottom per this file's own "newest at the bottom" convention.
+
+**Task:** top of queue was UX/MOBILE -- the two standing `npm run
+test:mobile` findings on the combat screen at 375px/414px: (1) 3
+buttons rendering below the ~36px comfortable-tap floor (Deck, Consumables,
+and the music mute-toggle button -- the mobile-layout script only prints the
+first 2 examples, but its own count said 3; found the third, the music
+button, via a one-off diagnostic script), (2) 8 text elements rendering
+below 12px.
+
+**Root cause of each, confirmed by direct measurement (scratch Playwright
+script, not committed -- same throwaway-diagnostic pattern earlier entries
+used, deleted after use):**
+- Deck (55x30px) and Consumables (99x30px) buttons: `wordbound.html`'s
+  `.run-header-actions` set `padding: 6px 12px; font-size: 0.85rem;` via
+  inline `style=` attributes.
+- Music mute-toggle button (32x26px): inline `style="padding: 4px 8px;
+  font-size: 0.8rem; width: 32px;"`.
+- All 8 sub-12px text elements were the SAME kind of element: the
+  letter-point-value `<sub>` badge inside each of the 8 rack tiles
+  (`.letter-tile sub`, `css/wordbound.css` line ~331), set to `font-size:
+  0.6rem` (9.6px). Confirmed via the diagnostic script listing every
+  matched element's tag/class/text/fontSize -- no other element in the
+  combat screen was under 12px.
+
+**Why inline styles mattered for the fix approach:** inline `style=`
+attributes beat any external stylesheet selector short of `!important`, so a
+plain media-query override in `wordbound.css` would silently not have
+applied to the two 30px-tall buttons. Rather than reach for `!important`,
+moved the sizing out of the HTML and into two new CSS classes instead:
+`.run-header-btn` (Deck, Consumables) and `.music-toggle-btn` (mute toggle),
+each carrying the SAME padding/font-size the inline styles used to (zero
+visual change at any width by itself), added right after `.btn-secondary`
+in `css/wordbound.css`. `wordbound.html`'s three buttons now just carry
+those classes instead of `style=` attributes.
+
+**FIX applied**, all inside the *existing* `@media (max-width: 480px)` block
+in `css/wordbound.css` (extended it, per the ticket's own instruction --
+did not add a competing breakpoint), so desktop is completely untouched:
+```
+.run-header-btn {
+  padding: 10px 12px;
+}
+.music-toggle-btn {
+  width: 40px;
+  padding: 10px 8px;
+}
+.letter-tile sub,
+.staged-tile sub {
+  font-size: 0.8rem;
+}
+```
+Grew the buttons' PADDING (not width) -- the ticket's own guidance, since
+the run-header row is width-tight (that's what caused the earlier overflow
+bug) but has vertical headroom. Also bumped `.staged-tile sub` (the same
+point-value badge shown on a tile once it's staged into the word-in-progress
+row) alongside `.letter-tile sub` for consistency, even though the
+mobile-layout script's own click path never happens to stage a tile before
+measuring -- so it wasn't one of the 8 originally flagged, but it's the
+identical badge and would have hit the identical problem the moment a
+player staged a tile on a narrow screen.
+
+**Not treated as "intentionally tiny decorative text"** (the ticket's own
+escape hatch): these badges convey real gameplay information (a letter's
+point value, Scrabble-style), just secondary to the big letter glyph itself
+-- worth fixing properly rather than documenting as an exception. The
+46x46px tile (unchanged, no other mobile override exists for tile
+dimensions) had comfortable headroom for the badge to grow without needing
+any tile-size or layout change.
+
+**Verification:**
+- `npm run test:mobile`: clean at both 375px and 414px, main menu AND combat
+  screen -- zero button-size warnings, zero text-size warnings, zero
+  overflow/clipping. (Confirmed with a fresh run after the fix; before the
+  fix it reported exactly the same 3 buttons / 8 text elements described in
+  the ticket, so this reproduced the starting state first rather than
+  assuming the ticket's numbers.)
+- Direct measurement via a throwaway diagnostic script (deleted after use,
+  not committed) at 375px/414px: Deck/Consumables buttons now 55x38px and
+  99x38px, music button 40x38px -- all comfortably above the 36px floor
+  with ~2px of margin, not sitting right at the edge. Letter-tile `<sub>`
+  badge measured at exactly 12.8px (`0.8rem`), comfortably above the 12px
+  floor.
+- Same script re-run at 1024px (desktop) confirmed EXACT reversion to the
+  pre-fix values (30px/26px buttons, 9.6px badge) and zero horizontal
+  overflow -- proving the media query correctly scopes to narrow viewports
+  only and desktop got zero visual change, per the ticket's "don't touch
+  anything at desktop widths" instruction.
+- `npm test`: 16/16, no regressions (this was a CSS-only + one HTML
+  attribute-swap change, `dom-check.js` doesn't touch button/text sizing,
+  but ran it anyway per the mandatory gate for anything touching
+  rendering-affecting CSS).
+
+**Version:** left at v0.9, no bump. This is a small accessibility/usability
+fix (touch-target sizing, text legibility), not a new feature or visible
+redesign -- consistent with the precedent an earlier run set for the
+similarly-scoped title-overflow fix (see the 03:14Z-timestamped entry
+elsewhere in this file, which reasoned the same way: "the display
+convention is single-decimal (v0.X), which has meant feature bumps; there's
+no established patch format").
+
+Checked off in GOALS.md.
+
+**Current state:** v0.9, 3 unchecked tickets remain: (1) gameplay GIF for
+README/itch [now top of queue], (2) seeded runs, (3) inline-SVG favicon.
+All three are independent of each other -- next hourly run should start on
+the GIF ticket, or feel free to skip to seeded-runs or favicon if the GIF
+ticket's video-recording tooling turns out to be flakier in practice than
+the ticket assumes (say why in PROGRESS.md if so, don't silently swap).
