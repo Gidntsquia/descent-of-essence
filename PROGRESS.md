@@ -9898,3 +9898,78 @@ BORKS dictionary gap). NOTE for next run/Jaxon: also flagged this run (earlier
 commit 5437708 + its PROGRESS entry above) that a fresh balance-simulation shows
 win rate has fallen to 13-17% (from 60% at v0.16) -- floor-2 strong/elite
 damage is the wall; that's a Jaxon-authorized-pass call, not queued.
+
+## 2026-08-20T19:56Z -- Staged-word damage preview (v0.30 -> v0.31)
+
+**Task:** first unchecked GOALS.md item -- Jaxon's real-device playtest
+FEATURE: show a staged word's potential damage before it's played.
+
+**Session note (not a bug, but worth logging):** this run started on a detached
+HEAD at `ebbfc8e` (the real remote main, v0.30) while local `main`/`origin/main`
+pointed at a stale `115e324` -- an artifact of the shallow clone (the checkout's
+`origin/main` ref hadn't been updated to the true remote HEAD). `git fetch`
+confirmed remote main is `ebbfc8e`; realigned local main onto it before working.
+No commits were lost. Flagging in case future runs see the same shallow-ref
+skew.
+
+**What I built:**
+- `Combat.previewWord(player, monster, word, comboState, options)` (combat.js):
+  a PURE function returning `{ valid, damage, isRepeat, multiplier, comboAtPlay }`.
+  It computes the exact damage a word would deal by running the REAL
+  `Combat.playWord` + `Items.runHook('onWordPlayed', ...)` against shallow
+  clones of player/monster/comboState. No scoring/combo/item formula is
+  duplicated -- the preview literally runs the production damage path, so it
+  can never drift from what submit deals. Mutates nothing: rack is `.slice()`'d,
+  hp/monster.hp live on cloned wrappers, comboState's Set is copied. `options`
+  carries the per-fight sequence state the rule-changer items read
+  (`previousWord`, a 1-based `wordsPlayedThisFight` -- previewWord adds 1 to
+  match submitWord, which increments before building the hook ctx) and a
+  `hexedTileId` that hides a locked tile from rack-matching exactly as
+  submitWord does.
+- `#damage-preview` readout (wordbound.html) between the staging area and the
+  input row; CSS (`.damage-preview`) gives it a fixed min-height so the number
+  appearing/updating NEVER reflows the layout. Shows "⚔ N damage" (+
+  "-- weak point!" when the trait multiplier > 1, "-- repeat (x0.4)" on a
+  repeat, "0 damage -- no effect" on a 0x trait) or a dimmed "--" when the
+  staged/typed tiles don't yet form a valid, formable word.
+- `updateDamagePreview()` (game.js) runs at the end of every combat render
+  (covers stage/unstage/reorder/clear -- all render()) AND on the desktop
+  word-input `input` event. So the preview updates live on BOTH the touch
+  staging path and the desktop typing path (the ticket allowed touch-first;
+  desktop was cheap here since it just needed one `input` listener). Reorder is
+  handled for free: the preview is built from the staged-order word string, so
+  a position-sensitive reorder (e.g. Illuminated Initial's first-letter match)
+  reflects immediately.
+
+**Verified:**
+- `npm test` **ALL CHECKS PASSED** (+18 new assertions). 14 isolated
+  `previewWord` checks prove `preview.damage` EQUALS an actual `playWord` +
+  item-hook run for plain / combo-active (+24%) / repeat (x0.4) / item-modified
+  (Consonant Cluster +4) / sequence-item (Gilded Bookmark first-word x2) words,
+  plus non-mutation (rack length, monster.hp, combo streak all untouched after
+  a preview), the invalid/unformable/empty -> `valid:false` neutral path, and
+  the `hexedTileId` option hiding a locked tile. 3 live-DOM checks: the real
+  `#damage-preview` element exists, shows a number (not "--") for a valid typed
+  word after firing the real `input` event, and that number EQUALS the HP the
+  monster actually lost when the word is then submitted through the real
+  `btn-submit-word` click (guarded to the monster-survives case, since a kill
+  clamps the HP drop below the full previewed damage).
+- `npm run test:mobile` **clean at 375/414px** -- the reserved-height readout
+  adds no horizontal overflow.
+- `npm run test:qa` **26/26 real Chromium, zero console/page errors.**
+- **Throwaway real-Chromium screenshot (written, run, deleted):** confirmed the
+  readout renders "⚔ 13 damage" for a typed word in its reserved slot without
+  shifting the layout, and that both the touch-staging and desktop-typing paths
+  populate it. No audio or drag surface was touched by this change.
+
+**NOT verified (honest caveat):** the subjective on-glass FEEL -- whether the
+number reads clearly at a glance mid-fight on a real phone. Placement, math
+accuracy (proven equal to real damage), and the no-reflow requirement are all
+confirmed in a real browser; Jaxon's eyes are the last word on feel.
+
+**State:** committed + pushed to main, box checked, v0.30 -> v0.31. Remaining
+queue: one FEATURE ticket (BORKS / dictionary-supplement, CONTENT). Standing
+flag still open from the prior run (commit 5437708): a fresh balance-simulation
+shows win rate fell to ~13-17% (from 60% at v0.16) driven by floor-2 strong/
+elite damage stacked on pre-overhaul numbers -- that's a Jaxon-authorized
+balance pass, not a queued item.
