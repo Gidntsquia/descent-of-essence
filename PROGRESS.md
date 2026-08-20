@@ -8647,3 +8647,75 @@ on the FUN OVERHAUL 4/8 rule-changer item pool (guaranteed elite drop) and
 references resistance traits (vowelless/shortFuse/alphabetic) -- the ticket
 already spells out a fallback branch if elites turn out to be unavoidable on
 the floor path, so verify the routing first per its own instructions.
+
+---
+
+## 2026-08-20T14:47Z
+
+**FUN OVERHAUL 6/8: elites as opt-in risk/reward -- box checked, v0.18 -> v0.19**
+
+Fresh run, zero memory of prior sessions. Started by reading GOALS.md +
+ROADMAP.md + recent PROGRESS. The first unchecked item LOOKED like FUN
+OVERHAUL 5/8 in the checkout I started from (HEAD was one commit behind at
+the 4/8 commit), so I implemented all of 5/8 (tile variants) from scratch --
+data model, scoring, on-play effects, crack mechanic, shop offer, badges, 21
+tests, all green. THEN, at commit time, `git fetch origin main` revealed a
+concurrent session had ALREADY completed and pushed 5/8 (commits 0744249 +
+da0eb54, v0.18) with a functionally-equivalent implementation. Per the same
+pattern the 4/8 run documented, I discarded my redundant 5/8 work rather
+than re-litigate a closed ticket (`git stash` + `git checkout -B main
+origin/main`, confirmed their version passes `npm test`), and picked up the
+now-current first-unchecked item, **FUN OVERHAUL 6/8**, fresh from the real
+main.
+
+**Branch taken (documented per the ticket's own instruction):** the PRIMARY
+resistance-trait branch, NOT the fallback. The ticket says to fall back only
+if elites are unavoidable AND the pre-entry warning can't be made clear.
+floor.js is explicit that a floor is "a single ordered path... deliberately
+no choice of path" -- so elites ARE unavoidable. BUT the warning CAN be made
+clear (boss node pills already show a trait hint before entry via the same
+mechanism), so the fallback's second condition fails and the primary branch
+is correct.
+
+**What shipped** (full details in GOALS.md's own DONE note; summary here):
+- `Floor.ELITE_RESISTANCE_TRAITS` = [vowelless, shortFuse, alphabetic]; each
+  elite node rolls one at generation time, stored as `node.eliteTraitId`
+  (per-node, not hard-mapped per def -- a documented judgment call; always
+  telegraphed, which is what matters).
+- game.js `startCombat`: an elite's normal single-phase trait is replaced by
+  its node's resistance trait; plain fights against the same strong def keep
+  their ordinary trait.
+- game.js `renderNodeMap`: elite pill shows `Elite — <resistance hint>`
+  before entry, same as boss pills.
+- game.js `onMonsterDefeated`: elite kills pay 1.5x gold (logged) and grant
+  one guaranteed unowned rule-changer item from the new
+  `Items.RULE_CHANGER_IDS` (the exact 8 from 4/8), granted directly, logged.
+- Elites keep their def's intent pool (hex/devour/enrage) from the isElite
+  mechanism established in 2/8 -- so an elite is resistance trait + intents +
+  strong-tier HP + fully telegraphed.
+
+**Verification:** `npm test` 211/211 ALL CHECKS PASSED (18 new assertions:
+pool/trait shape, floor-gen elite nodes with valid rolled traits, and a LIVE
+spliced-elite fight proving the pre-entry pill warning, the resistance trait
+applied at fight start, the elite flag, the guaranteed drop, and 1.5x gold +
+log lines). `npm run test:qa` 26/26 real Chromium zero errors. `npm run
+test:mobile` clean at 375/414px (elite pill hint text doesn't overflow --
+same flex-wrap the boss pill already uses).
+
+**NOT verified (jsdom can't, flagged for Jaxon's playtest):** whether an
+elite (resistance trait 0.3x-floor + intents + ~68-82 HP) is actually FUN vs.
+brutally hard, and whether 1.5x gold + a guaranteed rare is enough payoff for
+that spike. Resistance traits are 0.3x (not 0x) so the fight is always
+winnable, but the difficulty/reward FEEL is a human call. Also unverified:
+audio and drag-and-drop (unchanged by this ticket, jsdom limitation as
+always).
+
+**Version:** v0.18 -> v0.19 (wordbound.html), player-facing feature.
+
+**What's next:** FUN OVERHAUL 7/8 (gamble events: Forbidden Tome / The
+Shredder / Wager with the Stacks). Note for whoever picks it up: 7/8's
+"Forbidden Tome" reuses the 4/8 rule-changer pool (now available as
+`Items.RULE_CHANGER_IDS`), "The Shredder" wants the deck-viewer list UI for
+tile-picking, and "Wager with the Stacks" depends on 1/8's per-fight
+usedWords tracking (`state.comboState.usedWords`). Working tree clean,
+everything committed and pushed.
