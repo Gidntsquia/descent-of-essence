@@ -356,6 +356,22 @@ Rules for the routine:
       the win rate back in band, reported in PROGRESS.md same as the
       original balance ticket did. Version bump if the fix changes
       player-facing numbers.
+      PARTIAL PROGRESS 2026-08-20T10:20Z, NOT checked off -- see PROGRESS.md
+      for full data: implemented the ticket's own starting hypothesis
+      (Enrage capped at 3 stacks/fight, `ENRAGE_MAX_STACKS` in intents.js).
+      Result of a fresh n=30 `balance-simulation.js` run: stall rate
+      improved a lot (33% -> 13%, 10/30 -> 4/30), but win rate did NOT
+      move (7%, 2/30, identical to the pre-fix measurement). Capping
+      Enrage alone is confirmed NOT sufficient to restore the 33-50% band
+      -- this is exactly the "numbers suggest something structural, not
+      just numeric" case the ticket asked to flag rather than guess
+      further on. Left the Enrage cap in place (it's a real, tested,
+      net-positive improvement with no downside) but the box stays
+      unchecked and this needs Jaxon's steer on the deeper cause before
+      continuing. Not spending more of this run guessing at further
+      combat-balance nerfs per the ticket's own instruction; picking up
+      a safe, unrelated, already-queued item further down instead (see
+      PROGRESS.md for which and why).
 
 - [ ] FUN OVERHAUL 4/8 -- build-defining items (rule-changers, not stat
       sticks). Current items are mostly passive stat bumps, so no two runs
@@ -446,7 +462,7 @@ Rules for the routine:
       what jsdom can't confirm (shake/animation timing), consistent with
       house rules on animation claims. `npm run test:mobile`. Version bump.
 
-- [ ] BUG, small (review B4): every fight opens with a doubled article --
+- [x] BUG, small (review B4): every fight opens with a doubled article --
       "A The Consonant Constrictor appears!" (js/wordbound/game.js line 371:
       `log('A ' + state.monster.name + ' appears!')` while nearly every
       monster name already starts with "The", and "Quoth" takes no article
@@ -456,6 +472,10 @@ Rules for the routine:
       VERIFICATION: `npm test` 16/16; eyeball the log line in the test
       output or a quick jsdom assertion that the message doesn't start
       with "A The".
+      FIXED 2026-08-20T10:10Z: exactly the one-line fix specified. Added 3
+      jsdom assertions (dom-check.js) -- the fight-start log line exists,
+      has no "A " prefix, and matches "<monster name> appears!" exactly.
+      `npm test` 85/85.
 
 - [ ] UX (review B5): staged-word editing is a trap. Clicking an
       already-selected rack tile stages it AGAIN (selectTileForWord,

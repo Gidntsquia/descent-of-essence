@@ -378,7 +378,7 @@
     state.combatActive = true;
     var isBoss = node.type === 'boss';
     startBackgroundMusic(isBoss);
-    log('A ' + state.monster.name + ' appears!');
+    log(state.monster.name + ' appears!');
     // Telegraphed monster actions (GOALS.md "FUN OVERHAUL 2/8"): pre-roll
     // what the monster does on ITS first turn before the player acts.
     state.monster.intent = Intents.rollIntent(state.monster, state.rng);

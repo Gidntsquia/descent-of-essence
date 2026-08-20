@@ -353,6 +353,14 @@ async function main() {
   check('combat is active after entering a combat node', state.combatActive === true);
   check('rack has tiles', state.player.rack.length > 0);
 
+  // review B4: the fight-start log line used to read "A The Consonant
+  // Constrictor appears!" (a hardcoded 'A ' prefix in front of names that
+  // already carry their own article, or none at all for "Quoth").
+  const appearsMsg = state.messages.find((m) => /appears!$/.test(m));
+  check('fight-start log line exists', !!appearsMsg);
+  check('fight-start log line has no doubled/spurious article ("A " prefix removed)', !!appearsMsg && !/^A /.test(appearsMsg));
+  check('fight-start log line is exactly "<monster name> appears!"', appearsMsg === state.monster.name + ' appears!');
+
   // Find a playable word that will actually deal damage > 0 -- not just any
   // playable word. A monster's trait can legitimately zero out damage (e.g.
   // "vowelless" is immune unless the word has zero vowels), and submitting

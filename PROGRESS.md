@@ -6724,3 +6724,118 @@ the target band isn't a shippable player-facing change). `npm test`
 82/82. Enrage-cap code is live on `main` but the GOALS.md box is
 correctly still unchecked pending sim confirmation, per this repo's own
 rule against checking off unverified work.
+
+---
+
+### 2026-08-20T10:12Z -- Enrage-cap sim results in: helps stalls, doesn't fix win rate (flagged for Jaxon); picked up B4 (doubled article) as a safe follow-up
+
+**Enrage-cap ticket: sim data is in, box stays unchecked.** The
+`balance-simulation.js` n=30 run started in the previous entry finished.
+Comparing to the pre-fix baseline (this file, FUN OVERHAUL 3/8 entry,
+same command, same n=30):
+
+| metric | before (uncapped Enrage) | after (capped at 3) |
+|---|---|---|
+| win rate ("best" strategy) | 2/30 (7%) | 2/30 (7%) -- unchanged |
+| stalled runs | 10/30 (33%) | 4/30 (13%) -- real improvement |
+| floor 1 clear rate | 60% | 53% (noise at this n) |
+| floor 2 clear rate | 28% | 19% (noise at this n) |
+| floor 3 clear rate | 40% | 67% (n=3 vs n=2, too small to read) |
+| floor-2 boss avg words/fight | 14.6 | 14.8 -- unchanged |
+| floor-1 boss avg HP on arrival | (not recorded before) | 9.3 / 20 max -- notably low |
+
+**Conclusion: capping Enrage was the ticket's own suggested starting
+hypothesis, correctly implemented and correctly measured, and it is
+NOT sufficient on its own.** Stall rate improved a lot (the uncapped
+spiral was real and worth fixing regardless), but the headline metric
+the ticket cares about -- win rate back in the 33-50% band -- did not
+move at all. This is exactly the "if the numbers suggest something
+structural (not just numeric) is wrong" case the ticket told the
+implementing run to flag rather than keep guessing at. Per that
+instruction, did NOT go further down the numeric-nerf path this run
+(e.g. also capping Devour, or further shrinking Enrage's bonus/cap) --
+that would be inventing a new hypothesis with no theory behind it, not
+validating the one the ticket gave.
+
+**New data point worth flagging explicitly for whoever (Jaxon or a future
+run) takes the next crack at this:** floor-1 boss entrants average only
+9.3/20 HP (46%) despite floor 1 having ZERO Enrage-carrying monsters (only
+`sentinel` and `boss_sovereign`, both floor 2/3, have Enrage in their
+intents list). That means a skilled player is already losing more than
+half their HP to plain floor-1 Attack/Heavy-Blow chip damage before ever
+reaching a boss, fully independent of the Enrage spiral. That suggests
+the win-rate shortfall may not be Enrage-specific at all, or at least not
+ONLY Enrage -- baseline regular-monster damage output (or how much
+healing/gold the player has access to by that point) may itself need a
+look. Flagging this as a lead, not a diagnosis -- didn't have budget this
+run to isolate it (would need e.g. an A/B with Enrage's pool weight
+zeroed entirely, not just capped, to separate "still some Enrage
+contribution" from "Enrage isn't the story here").
+
+**Left the Enrage cap in the codebase** -- it has zero downside (a
+capped signature move is strictly bounded compared to an uncapped one,
+and the affected defs' OTHER signature moves still roll normally, per
+this run's own jsdom test), it's fully tested, and it measurably reduced
+the stall rate, which was itself flagged as "a red flag independent of
+the win-rate number" in the original finding. Just didn't check the
+GOALS.md box, since the ticket's own measurable bar (win rate back in
+band) isn't met. Updated the ticket in GOALS.md with a dated
+PARTIAL PROGRESS note (not checked) pointing back here.
+
+**Why this run didn't push further into balance territory:** the ticket
+explicitly frames further nerfing (how much, whether Devour needs it too)
+as "a judgment call... not a mechanical fix" needing Jaxon's steer, and
+this routine's own guardrails say not to force an ambiguous product
+decision. Two independent numeric levers (Enrage magnitude/cap AND
+Devour) with only vague sim-based feedback is exactly the kind of
+decision that benefits from a human weighing in rather than an hourly run
+guessing a second and third knob in sequence. The ticket also explicitly
+says not to continue FUN OVERHAUL 4/8-8/8 while this is open, so instead
+of stalling or pushing into either of those, picked up an unrelated,
+already-queued, low-risk item further down the list.
+
+**Second task this run: BUG review B4 (doubled article), now DONE.**
+"A The Consonant Constrictor appears!" -> "The Consonant Constrictor
+appears!" -- exactly the one-line fix the ticket specified
+(`js/wordbound/game.js`, `log('A ' + state.monster.name + ' appears!')`
+-> `log(state.monster.name + ' appears!')`). Added 3 targeted jsdom
+assertions in `test/dom-check.js` (the fight-start log line exists, has
+no leading "A ", and matches "<name> appears!" exactly) since none
+existed before. This is a trivial, self-contained text fix with no
+interaction with the balance/combat-math ticket above, so picking it up
+doesn't compromise the "don't stack more on an unresolved balance issue"
+concern that ticket raised. Checked off in GOALS.md.
+
+**Verification, both changes this run:**
+- `npm test`: **85/85** (was 82 after the Enrage-cap commit -- 3 new B4
+  checks). Clean, zero uncaught DOM errors.
+- `npm run test:qa`: **24/24**, real Chromium, zero console/page errors
+  (run once, after the Enrage-cap change, before the B4 change -- B4's
+  own change is a one-line log-string edit with a dedicated jsdom check
+  and no rendering/timing implications, so a second full `test:qa` pass
+  wasn't necessary; nothing in test:qa asserts on the old log string).
+- `npm run test:mobile` not run -- neither change touches CSS
+  layout/rendering/events per the top-of-file gate (Enrage-cap is
+  pure combat-math/state; B4 is a log-string swap).
+- No audio changes in either.
+
+**Current state:** v0.14 (no version bump -- the Enrage cap is a bug-ish
+correctness fix to an unshipped-as-intended mechanic rather than new
+player-facing content, and didn't move any documented player-facing
+number since win rate is unchanged; B4 is copy-only). `npm test` 85/85,
+`npm run test:qa` 24/24 (as of the Enrage-cap commit). Working tree clean,
+both changes committed and pushed to `main`.
+
+**What's next:** the BALANCE, HIGH PRIORITY ticket (Enrage-cap
+investigation) is still the first unchecked item and should stay first --
+it is explicitly NOT resolved, just partially investigated with real data
+now attached. It needs Jaxon's input on: (a) is baseline floor-1/2
+regular-monster damage output itself part of the problem (see the 9.3/20
+HP boss-arrival data point above), (b) should Devour get the same
+once-capped treatment as Enrage, (c) is a numeric approach even going to
+be enough, or is something about fight length/complexity (e.g. the
+two-phase boss puzzle itself, or how few consumables/heals a "best"-bot
+run picks up) the real lever. Until that's answered, FUN OVERHAUL 4/8
+onward stay correctly un-started per the ticket's own instruction. Safe,
+non-combat, non-balance queue items (like B4 just now) remain fair game
+for future runs to pick up in the meantime rather than stalling.
