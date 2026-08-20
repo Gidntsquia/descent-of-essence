@@ -6839,3 +6839,127 @@ run picks up) the real lever. Until that's answered, FUN OVERHAUL 4/8
 onward stay correctly un-started per the ticket's own instruction. Safe,
 non-combat, non-balance queue items (like B4 just now) remain fair game
 for future runs to pick up in the meantime rather than stalling.
+
+---
+
+### 2026-08-20T10:17Z -- UX review B5 (click-to-stage tile toggle bug), DONE
+
+**Why this task, not the next unchecked item:** the top unchecked GOALS.md
+item is still the Enrage-cap/win-rate balance ticket, and it stays
+blocked pending Jaxon's steer (see the two entries directly above -- two
+separate runs have now investigated it with real sim data and both
+independently concluded a further numeric nerf shouldn't be guessed at
+without his input). That same ticket's own text explicitly says FUN
+OVERHAUL 4/8-8/8 should not start until it's resolved. So, following the
+precedent set by the previous run (which picked up B4 for the same
+reason), skipped straight to the next queue item that isn't gated by
+either of those: UX review B5 (staged-word click toggle), a
+self-contained, well-scoped bug fix with no interaction with the balance
+ticket or the FUN OVERHAUL chain.
+
+**What was wrong:** `selectTileForWord` (js/wordbound/game.js) only ever
+pushed a clicked tile's id onto `state.selectedTileIds` and appended its
+letter to `#word-input` -- clicking an already-staged tile pushed a
+*second* copy of the same id and appended the letter again, producing a
+guaranteed-invalid doubled word (e.g. clicking "C" then "C" again gave
+"CC", not "C" then nothing). The only way out was the Clear button, which
+wiped the whole word, not just the mistake. Separately, clicking a blank
+(★) tile pushed it into the selection and visibly highlighted it, but
+appended nothing to the input (blanks have no fixed letter) -- so it
+looked selected while doing nothing, a dead-end UI state.
+
+**Fix** (js/wordbound/game.js, `selectTileForWord`): a blank click is now
+a true no-op (`if (tile.letter === '?') return;`, before touching
+selection state at all -- no push, no highlight). For a non-blank tile,
+the id is now looked up in `state.selectedTileIds` first: if present, it
+gets `splice`d out (deselect); if absent, it gets pushed (select), same
+as before. Either way, `#word-input` is then fully rebuilt from
+`state.selectedTileIds` in order (`.map(id -> tile.letter).join('')`)
+rather than incrementally appended -- per the ticket's own instruction,
+the selection array is the source of truth, so a removal from the middle
+of a multi-tile selection is handled correctly by construction rather
+than needing string surgery. Both the click handler and the touch-tap
+path (`endTouchReorder` -> `selectTileForWord`) share this one function,
+so the fix and the blank no-op both apply to touch automatically -- no
+separate touch-path change needed.
+
+**One deliberate behavior note, not a bug:** because `#word-input` is now
+fully rebuilt from the selection array on every click (not just
+appended-to), if a player manually *types* extra characters into the
+input and then clicks a rack tile, that click now overwrites the whole
+field with just the click-staged letters, discarding the typed portion.
+The ticket's FIX section explicitly calls for exactly this ("rebuild
+#word-input from the remaining selection in order... don't try to
+surgically edit the string"), so this is the specified design, not an
+oversight -- flagging it here in case the mixed type-then-click case ever
+comes up as a follow-up UX report, since it's a genuine (if narrow)
+behavior change from before.
+
+**How to Play panel:** added the one specified line ("★ blanks: just type
+any word — they fill in automatically.") to wordbound.html's
+`.howto-list`, right after the existing tile-rewards line.
+
+**Tests added** (test/dom-check.js, live-DOM, real `click` events
+dispatched on the actual rendered `#rack-display` buttons -- not
+synthetic state edits): (1) click a tile once -> input gains exactly one
+letter, `selectedTileIds` gains exactly that id, button gets `.selected`;
+(2) click the SAME tile again -> input empty, `selectedTileIds` empty,
+`.selected` gone; (3) click two distinct tiles -> input shows both
+letters in click order; unclick the first -> input shows only the
+second, `selectedTileIds` holds only the second id; (4) a forced blank
+(`letter: '?'`) tile pushed into the rack for the test -> clicking it
+leaves `#word-input` and `selectedTileIds` completely unchanged and never
+adds `.selected`. All candidate tiles for cases 1-3 are filtered to
+non-blank first so the blank's now-true-no-op behavior can't interfere
+with those assertions. State and `#word-input` are reset back to neutral
+between sub-checks and at the end so this block doesn't leak into the
+later checks in the same file (the damage/killing-blow checks right
+after it still passed clean).
+
+**Verification:**
+- `npm test`: **98/98** (was 85 -- 13 new checks from this block). Clean,
+  zero uncaught DOM errors. (`npm install` was needed first --
+  `node_modules` wasn't present at the start of this run; installed via
+  the repo's own `package.json`/`package-lock.json`, no network issues.)
+- `test/verify-touch-tap-fix.js` (real Chromium + `hasTouch: true` +
+  `page.touchscreen.tap()`/`locator.tap()`, per the ticket's explicit
+  "touch path must keep working" requirement since it shares
+  `selectTileForWord`): **8/8 clean** -- exactly one letter staged per
+  tap, exactly one `selectedTileIds` entry, `.selected` class present,
+  and drag-to-reorder via simulated touch still works and still does NOT
+  also stage a letter (the two interactions stay mutually exclusive, same
+  as before this fix).
+- `npm run test:qa` (test/orchestrator-qa-boss-reward.js, real Chromium,
+  full scripted playthrough through two boss fights + both reward
+  screens): **24/24 clean**, zero console/page errors. This script plays
+  words via typed `#word-input` values rather than rack clicks, so it
+  doesn't directly exercise the toggle path, but confirms the change
+  didn't regress the broader combat/reward flow (render(), rack
+  rebuilding, etc. all still behave correctly end to end).
+- `npm run test:mobile` not run -- this task is a JS click-handler/state
+  bug, not a CSS layout change (the one new HTML line added to the How to
+  Play list is plain text in an existing `<li>`, no new layout), so the
+  top-of-file CSS-layout mandate doesn't apply here. No audio involved.
+
+**Version:** left at v0.14, no bump. This is a bug fix (broken
+click-to-stage interaction), and this repo's precedent for
+similarly-scoped bug fixes (B1-B4, the touch double-fire fix, the boss-
+skip softlock) has generally not bumped version for correctness fixes
+that don't change player-facing numbers/content -- only for new
+mechanics/systems or explicitly-called-out balance changes. Following
+that precedent rather than the previous run's B4 fix (which also didn't
+bump).
+
+**Current state:** v0.14. `npm test` 98/98, `npm run test:qa` 24/24,
+`test/verify-touch-tap-fix.js` 8/8. Working tree clean after this commit,
+pushed to `main`.
+
+**What's next:** same as noted in the previous two entries -- the
+Enrage-cap/win-rate BALANCE ticket is still first in GOALS.md and still
+needs Jaxon's steer before anyone keeps nerfing numbers blind; FUN
+OVERHAUL 4/8-8/8 stay correctly un-started until then. The next safe,
+non-blocked items in queue order are FEEL review F2 (boss music doesn't
+stop after a boss kill) and F3 (hard-cut screen transitions), followed by
+the F4/F4.5 polish batches, the N6 end-of-run stats feature, and the tiny
+B6 cleanup batch -- any of those are fair game for the next run to pick
+up without touching the blocked balance/overhaul chain.

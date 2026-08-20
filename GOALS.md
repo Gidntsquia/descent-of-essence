@@ -477,7 +477,7 @@ Rules for the routine:
       has no "A " prefix, and matches "<monster name> appears!" exactly.
       `npm test` 85/85.
 
-- [ ] UX (review B5): staged-word editing is a trap. Clicking an
+- [x] UX (review B5): staged-word editing is a trap. Clicking an
       already-selected rack tile stages it AGAIN (selectTileForWord,
       js/wordbound/game.js line 1006, has no dedupe/toggle), appending a
       doubled letter that guarantees a confusing "not playable" rejection --
@@ -502,6 +502,13 @@ Rules for the routine:
       input shows only second letter. Touch path must keep working --
       re-run test/verify-touch-tap-fix.js (tap goes through the same
       selectTileForWord).
+      FIXED 2026-08-20T10:17Z: exactly the fix specified (toggle in
+      selectTileForWord, full rebuild of #word-input from
+      state.selectedTileIds in click order, blank tiles are now a true
+      no-op, one new How to Play line). See PROGRESS.md for the 13 new
+      live-DOM jsdom assertions and the touch/QA regression re-runs.
+      `npm test` 98/98, `npm run test:qa` 24/24 (real Chromium),
+      `test/verify-touch-tap-fix.js` still clean (8/8).
 
 - [ ] FEEL (review F2): boss music never stops after the boss dies -- music
       mode only changes in startCombat/startRun/endRun (js/wordbound/game.js

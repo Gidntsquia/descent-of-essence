@@ -1098,8 +1098,25 @@
     // turn -- greyed out in the rack (see renderCombat) and a no-op here so
     // neither a click nor a touch tap can stage it.
     if (tile.id === state.hexedTileId) return;
-    state.selectedTileIds.push(tile.id);
-    $('word-input').value += (tile.letter === '?' ? '' : tile.letter);
+    // A blank has no letter to append -- clicking one has nothing to do, so
+    // leave it unselected rather than visibly "selecting" a tile that stages
+    // an empty string. Type the word instead; blanks fill in automatically.
+    if (tile.letter === '?') return;
+    var existingIndex = state.selectedTileIds.indexOf(tile.id);
+    if (existingIndex !== -1) {
+      // Already staged -- clicking again deselects it instead of appending
+      // a second copy of the same letter.
+      state.selectedTileIds.splice(existingIndex, 1);
+    } else {
+      state.selectedTileIds.push(tile.id);
+    }
+    // The selection array is the source of truth; rebuild the input from it
+    // rather than surgically edit the string, so removals from the middle
+    // work correctly too.
+    $('word-input').value = state.selectedTileIds.map(function (id) {
+      var t = state.player.rack.find(function (rt) { return rt.id === id; });
+      return t ? t.letter : '';
+    }).join('');
     $('word-input').focus();
     render();
   }

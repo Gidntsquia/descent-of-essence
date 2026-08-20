@@ -434,6 +434,87 @@ async function main() {
     }
   }
 
+  // UX (review B5): clicking an already-staged rack tile should DESELECT it
+  // instead of appending a second copy of its letter. Live-DOM check using
+  // real clicks on the actual rendered rack buttons (not synthetic state
+  // pokes), since this is exactly a click-handler/render-order bug class.
+  {
+    state.selectedTileIds = [];
+    document.getElementById('word-input').value = '';
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+
+    const rackButtons = () => Array.from(document.querySelectorAll('#rack-display .letter-tile'));
+    // Blanks are a separate no-op case (checked below) -- exclude them here
+    // so this check only exercises the toggle-select/deselect behavior.
+    const nonBlankButtons = () => rackButtons().filter((b) => {
+      const t = state.player.rack.find((rt) => rt.id === b.getAttribute('data-tile-id'));
+      return t && t.letter !== '?';
+    });
+
+    let candidates = nonBlankButtons();
+    if (candidates.length < 2) {
+      console.log('SKIP tile-toggle checks -- fewer than 2 non-blank rack tiles (unexpected)');
+    } else {
+      const firstId = candidates[0].getAttribute('data-tile-id');
+      candidates[0].dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('tile click: staging a tile appends its letter exactly once', document.getElementById('word-input').value.length === 1);
+      check('tile click: selectedTileIds gains exactly the clicked tile', state.selectedTileIds.length === 1 && state.selectedTileIds[0] === firstId);
+      let firstBtn = rackButtons().find((b) => b.getAttribute('data-tile-id') === firstId);
+      check('tile click: the staged tile shows the selected class', !!firstBtn && firstBtn.className.indexOf('selected') !== -1);
+
+      firstBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('tile click: clicking a staged tile again deselects it (input empty)', document.getElementById('word-input').value === '');
+      check('tile click: selectedTileIds is empty again', state.selectedTileIds.length === 0);
+      firstBtn = rackButtons().find((b) => b.getAttribute('data-tile-id') === firstId);
+      check('tile click: the tile no longer shows the selected class', !!firstBtn && firstBtn.className.indexOf('selected') === -1);
+
+      candidates = nonBlankButtons();
+      const tileAId = candidates[0].getAttribute('data-tile-id');
+      const tileALetter = state.player.rack.find((t) => t.id === tileAId).letter;
+      candidates[0].dispatchEvent(new window.Event('click', { bubbles: true }));
+      candidates = nonBlankButtons();
+      const tileBBtn = candidates.find((b) => b.getAttribute('data-tile-id') !== tileAId);
+      const tileBId = tileBBtn.getAttribute('data-tile-id');
+      const tileBLetter = state.player.rack.find((t) => t.id === tileBId).letter;
+      tileBBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('tile click: two distinct tiles stage in click order', document.getElementById('word-input').value === tileALetter + tileBLetter);
+
+      const tileABtn = rackButtons().find((b) => b.getAttribute('data-tile-id') === tileAId);
+      tileABtn.dispatchEvent(new window.Event('click', { bubbles: true })); // unclick the first of the two
+      check('tile click: unclicking the first of two leaves only the second letter', document.getElementById('word-input').value === tileBLetter);
+      check('tile click: selectedTileIds now holds only the second tile', state.selectedTileIds.length === 1 && state.selectedTileIds[0] === tileBId);
+
+      state.selectedTileIds = [];
+      document.getElementById('word-input').value = '';
+      window.Wordbound.Game.openDeckViewer();
+      window.Wordbound.Game.closeDeckViewer();
+    }
+
+    // A blank (?) tile has no letter to stage -- clicking it must be a true
+    // no-op (review B5's second finding), not a visible-but-empty selection.
+    const blankTile = { id: 'test-blank-tile-b5', letter: '?' };
+    state.player.rack.push(blankTile);
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    const blankBtn = document.querySelector('[data-tile-id="test-blank-tile-b5"]');
+    check('blank tile renders in the rack for this check', !!blankBtn);
+    if (blankBtn) {
+      const inputBefore = document.getElementById('word-input').value;
+      const selectedCountBefore = state.selectedTileIds.length;
+      blankBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('blank tile click: word-input unchanged', document.getElementById('word-input').value === inputBefore);
+      check('blank tile click: selectedTileIds unchanged', state.selectedTileIds.length === selectedCountBefore);
+      const blankBtnAfter = document.querySelector('[data-tile-id="test-blank-tile-b5"]');
+      check('blank tile click: never gets the selected class', !!blankBtnAfter && blankBtnAfter.className.indexOf('selected') === -1);
+    }
+    state.player.rack = state.player.rack.filter((t) => t.id !== 'test-blank-tile-b5');
+    state.selectedTileIds = [];
+    document.getElementById('word-input').value = '';
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+  }
+
   // Multi-phase boss traits (GOALS.md "FUN OVERHAUL 3/8"), live-DOM check:
   // force the in-progress fight's monster onto the Vowelmaw boss's 2-phase
   // traitPhases and confirm the rendered ".monster-weakness" text actually
