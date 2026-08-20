@@ -114,8 +114,17 @@
   mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 54, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
   mdef({ id: 'warden', name: 'The Hoarder', maxHp: 63, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
   mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
-  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
-  mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
+  // attack 4 -> 3 on JUST these two (2026-08-20 rebalance ROUND 5): round
+  // 4's n=40 sim (the largest, most trustworthy sample this ticket has
+  // run) put win rate at a clean 50% -- in band -- but flagged Binding
+  // Strap and Appendix specifically as HARD outliers (6.6 and 5.0 dmg
+  // taken vs. a 2.6 floor-1 average) and floor1-regular deaths ticked up
+  // to 16.7% (3/18), just over target 3's <=10% ceiling. serpent/raven
+  // were NOT flagged as outliers at attack 4, so only these two get
+  // dialed back -- a smaller, more surgical correction than reverting all
+  // four again.
+  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
+  mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
   // maxHp 85 -> 68 (2026-08-20 orchestrator gate-#2 outlier pass): this def
   // alone accounted for 3/14 regular deaths PLUS all 3/3 regular-tier
   // stalls at the OLD number -- the single worst outlier in the gate-#2

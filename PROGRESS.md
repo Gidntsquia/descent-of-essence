@@ -10526,3 +10526,35 @@ most of this round's correction):
 `npm test` **ALL CHECKS PASSED**. Given the demonstrated sampling noise,
 running a **larger n=40 sample** (not another n=30) for this round's
 confirmation; next entry has the result.
+
+**UPDATE 7 -- round 4's n=40 landed: win rate a clean 50% (top of band, but
+IN band). Small surgical follow-up (ROUND 5) for the two remaining misses.**
+
+| metric | round 4 (n=40) | target |
+|---|---|---|
+| win rate ("best") | **50%** (20/40) | 35-50% -- **IN BAND** (top edge) |
+| stall rate | 5% (2/40) | n/a |
+| floor1 death share | 22.2% (4/18) | <=50% -- PASS |
+| floor2 death share | 61.1% (11/18) | <=50%, toward floor3 parity -- still MISS |
+| floor3 death share | 16.7% (3/18) | toward floor2 parity |
+| floor1-regular deaths | **16.7%** (3/18) | <=~10% -- MISS (was ~0% before the attack restore; the restore worked for win rate but slightly overcorrected this specific metric) |
+| boss_vowelmaw (floor1) | 3% kills, 2.3 words | trending toward "real" |
+| boss_unabridged (floor2) | 8% kills, 1.4 words | improved from 0% |
+| boss_sovereign (floor3/final) | **still 0% kills** (0/20) even at maxHp 85, but avg words rose to 1.7 (from ~1.2-1.4) and dmg taken to 2.5 (from ~0.8-1.8) -- moving in the right direction every round even though the kill-rate needle hasn't crossed 0% yet | "meaningful spike" -- improving, not fully there |
+
+n=40 is the largest, most trustworthy sample this ticket has run (the
+per-monster outlier flags on this size are worth trusting more than the
+n=30 noise chase in updates 3-6). Two specific defs were flagged HARD
+outliers even after the round-4 restore: Binding Strap (6.6 dmg taken vs.
+2.6 floor avg) and The Appendix (5.0 vs. 2.6) -- serpent/raven were NOT
+flagged. **ROUND 5:** dialed attack back to 3 on JUST those two
+(`js/wordbound/monsters.js`), leaving serpent/raven at 4 -- a smaller
+correction than a full floor-1 revert, targeting exactly the two defs the
+data flagged rather than re-touching the whole tier. `npm test` **ALL
+CHECKS PASSED**. Running a large (n=50) confirmation given how much this
+ticket's own history has shown n=30 alone to be too noisy near a band
+edge; next entry has the result and, if the remaining targets are close
+enough after honest effort (floor2-share parity has proven the most
+structurally stubborn across every round -- see the round-3/3b/3c trail
+for why a rest-node-based fix didn't work, and it's shared with floor3
+via the same strong-tier defs), the final checkpoint/checkbox decision.
