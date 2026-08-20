@@ -9507,3 +9507,95 @@ gated. Then the small shop-consumable-odds BALANCE ticket. Note the concurrent
 second session on this same queue -- whoever picks up 8/8 should `git fetch`
 first and check GOALS.md for an already-landed 8/8 before starting, to avoid
 the double-work this run hit on 2/3 Phase 2.
+
+## 2026-08-20T18:09Z -- FUN OVERHAUL 8/8: celebration juice (v0.26 -> v0.27)
+
+**Task:** GOALS.md first unchecked item -- the LAST FUN OVERHAUL ticket,
+celebration juice for the systems built in 1/8-7/8. Completed fully, box
+checked, v0.26 -> v0.27. Committed 568b56c, pushed to main.
+
+**Housekeeping:** started on a detached HEAD; local `main` matched origin/main
+(f945089) already, so just hard-checked-out `main` from origin. Fetched first,
+confirmed no concurrent 8/8 had landed (last commit was 3/3's PROGRESS log).
+`npm install` (fresh container, jsdom+playwright absent) then `npm test` clean
+as a baseline before touching anything, per GOALS mandate.
+
+**What shipped (all 4 spec items):**
+- **Combo-chip bump (spec 1).** The combo chip is rebuilt via innerHTML each
+  render, so its base `comboPop` already fires once per word; added a dedicated
+  punchier `comboBump` keyframe (scale 1.25 overshoot, 0.15s) applied via a new
+  one-shot `state.comboBumped` flag ONLY on the render where the streak actually
+  advanced (a distinct, non-repeat play with combo > 0), so growing the combo
+  reads distinctly from it merely persisting. Flag set in submitWord, consumed
+  + cleared in renderCombat.
+- **CRUSHING! + screen shake (spec 2).** A word dealing >= 25 damage
+  (`CRUSHING_DAMAGE_THRESHOLD`) appends a `.crushing-floater` to monster-info
+  and adds `.combat-shake` to the combat panel for one 0.3s cycle. Done in a new
+  `celebrateHit()` called AFTER render() in both the survive and killing-blow
+  branches (same ordering + reasoning as animateDamage -- render()'s innerHTML
+  rebuild would otherwise wipe the appended element before it paints).
+- **MAGNIFICENT! banner + bonus gold (spec 3).** A 7+ letter word
+  (`MAGNIFICENT_WORD_LENGTH`) grants +5 gold (`MAGNIFICENT_BONUS_GOLD`, logged,
+  counts toward runStats.goldEarned) in the synchronous state-mutation section,
+  and celebrateHit appends a `.magnificent-banner` to the combat panel.
+- **Item-proc chip flash (spec 4).** `Items.runHook` now collects the ids of
+  items whose hook announced itself this word (reusing the EXISTING
+  ctx.messages proc signal -- "silent modifiers don't create builds", so no
+  per-item opt-in needed) into `ctx.proccedItemIds`. submitWord copies that to
+  `state.proccedItemIds`; renderItemsOwned flashes exactly those chips
+  (`.item-chip-proc`) for one render then clears the list (one-shot, like
+  settleTileIds). Message-less hook contexts (onPlayerDamaged/onRunStart) are
+  untracked.
+
+**Reduced-motion:** every animation gated on prefers-reduced-motion, matching
+the existing floater/screen-transition convention. The CRUSHING floater and
+MAGNIFICENT banner still APPEAR under reduced motion (they carry information --
+a big hit, bonus gold) but hold static instead of animating; the screen shake
+is pure motion with no information, so it's dropped entirely there (no static
+fallback). Combo bump and item-chip flash are emphasis-only, gated off.
+
+**No new mechanics / scope:** the only gameplay change is the +5 MAGNIFICENT
+gold; everything else is cosmetic. No combat math, item, or balance change.
+
+**Verified:**
+- `npm test` **ALL PASSED** (+18 new 8/8 jsdom checks): proc-track collection
+  (a proccing vs a silent item from one hook run; message-less contexts
+  untracked); celebrateHit DOM appends (CRUSHING present + text on a >=25 hit,
+  absent on a <25 hit; MAGNIFICENT banner present + text); item-chip-proc flash
+  applied to exactly the procced chip on the render after the proc and gone the
+  next render (one-shot); and a LIVE `Game.submitWord` play of a real 7-letter
+  word proving +5 gold lands, the MAGNIFICENT log line fires, and the advanced
+  combo chip renders with `.combo-chip-bump` (drove it through the real
+  startCombat path by un-clearing a combat node, since prior test sections had
+  cleared the floor).
+- `npm run test:qa` **ALL PASSED** (desktop combat path + boss reward,
+  zero errors).
+- `npm run test:mobile` **clean at 375/414px** (the new overlay/animation CSS
+  doesn't introduce horizontal overflow; touch-mode section still passes).
+- `npm run test:itch-build` **clean** (1.42 MB).
+- **Throwaway real-Chromium Playwright check (written, run, deleted):** started
+  a real run + fight, fired `_celebrateHit(30, true)`, and read each element's
+  `getAnimations()`. Under `no-preference`: CRUSHING runs `crushingRise`,
+  MAGNIFICENT runs `magnificentBanner`, panel carries `.combat-shake` running
+  `combatShake`. Under `reduce`: floater + banner still PRESENT but with NO
+  animation, and no shake class at all. Zero page/console errors in both
+  contexts. This is the real-browser confirmation jsdom can't give.
+
+**NOT verified (honest caveat):** the subjective FEEL/timing of the shake,
+pops, and banners on a real device -- the code, the CSS animations firing, and
+the reduced-motion gating are all confirmed present and correct in a real
+browser, but whether the shake amplitude / banner duration feel right is a
+judgment only Jaxon's eyes on a phone can make. Tune the numbers
+(CRUSHING_DAMAGE_THRESHOLD, shake px, durations) if they read as too much or
+too subtle. No audio surface touched.
+
+**State:** committed (568b56c) + pushed to main. Box checked in GOALS.md.
+v0.26 -> v0.27.
+
+**What's next:** the FUN OVERHAUL arc (1/8-8/8) is now COMPLETE. The remaining
+GOALS.md queue item is the small BALANCE ticket: FUN OVERHAUL 4/8's eight new
+items diluted the shop item:consumable pool from 15:3 to 23:3, so shops roll
+consumables less often -- fix by pinning one shop slot to the consumable pool
+(or reweighting) so a consumable is guaranteed/near-guaranteed per shop, with a
+seeded-rolls assertion in npm test. After that the GOALS queue is empty; check
+ROADMAP.md's known-gaps section for the next pull.
