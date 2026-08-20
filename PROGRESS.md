@@ -10439,6 +10439,45 @@ Effectively back to round 2's monster/player tuning plus the floor-3-boss
 buff. `npm test` **ALL CHECKS PASSED**. Balance-simulation n=30 running in
 the background to confirm this combination lands in band.
 
+**2026-08-20T23:34Z -- concurrent-session note, no code change.** A separate
+session was found actively working this exact ticket in real time (rounds
+3b/3c above, and the in-flight "checking for sampling noise" checkpoint at
+head) -- this run independently reached the identical round-3c revert
+(floor.js `hasRest` back to `floorNumber >= 2`, game.js rest-heal back to
+flat 0.5) before discovering the collision via `git fetch`, and discarded
+its own redundant local commit in favor of the already-pushed one rather
+than risk a conflicting push.
+
+Contributing one more independent n=30 data point at the SAME round-3c
+tuning (revert + `boss_sovereign` maxHp 65), since the ticket's own rule
+("if two consecutive full sim runs at the same tuning disagree by more
+than ~5 points, run more iterations before concluding anything") is
+exactly what's happening here: **win rate 53% (16/30)**, stalled 3/30
+softlocked 0. That's a THIRD independent reading at this tuning, alongside
+the concurrent session's 63%: 53%, 63%, and round 2's own 43% (a slightly
+different tuning -- boss_sovereign was 55 there, not 65, so not a perfect
+apples-to-apples 4th point, but close). All three sit at or above the
+35-50% band's top edge, with real spread (43-63%) purely from sampling at
+n=30 -- confirms n=30 is genuinely too noisy to lock in a tuning decision
+from a single run, exactly as the ticket warned. Recommend whoever
+converges this ticket run a larger sample (n=60-100) for the final
+go/no-go read rather than trusting any single n=30 result, mine included.
+
+Not making further tuning changes this run -- the concurrent session is
+already mid-iteration on this exact ticket and is the one that should
+finish it to avoid two sessions racing conflicting commits. Local repo
+reset clean to `origin/main` (97433f3), nothing uncommitted, nothing
+broken. Deliberately NOT touching the four tickets queued behind this one
+(CONTENT/VISUAL/AUDIO/QA) since GOALS.md's own note says they wait for the
+rebalance to finish, and the CONTENT ticket specifically depends on final
+monster/economy numbers that are still moving. Checked ROADMAP.md's known-
+gaps list for anything else automatable and unblocked: nothing found (the
+remaining gaps are explicitly Jaxon-only: physical-device touch test,
+itch.io upload, promotion). Idle on new work this run for that reason, not
+for lack of trying -- next run should re-check whether the rebalance
+ticket has landed (checked box or a clear Jaxon-flag) before picking
+between finishing it and starting the CONTENT ticket behind it.
+
 **UPDATE 6 -- the "round 2 was 43%, round 3c was 63%" gap turned out to be
 measurement noise, not a real difference. Re-baselined and starting ROUND 4.**
 
