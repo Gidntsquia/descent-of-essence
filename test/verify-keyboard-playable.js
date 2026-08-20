@@ -271,10 +271,12 @@ async function main() {
     await startServer();
     console.log('Starting keyboard playability verification...\n');
 
-    const browser = await chromium.launch({
-      executablePath: '/opt/pw-browsers/chromium',
-      headless: true
-    });
+    const sandboxChromiumPath = '/opt/pw-browsers/chromium';
+    const launchOpts = { headless: true };
+    if (fs.existsSync(sandboxChromiumPath)) {
+      launchOpts.executablePath = sandboxChromiumPath;
+    }
+    const browser = await chromium.launch(launchOpts);
 
     const page = await browser.newPage();
 

@@ -154,14 +154,19 @@ Rules for the routine:
       (the two interactions must stay mutually exclusive, per the original
       ticket). `npm test` 16/16.
 
-- [ ] TEST-INFRA: three Playwright test scripts hardcode the cloud-sandbox-
+- [x] TEST-INFRA: three Playwright test scripts hardcode the cloud-sandbox-
       only chromium path and can't run at all on a normal local checkout
       (confirmed today on Jaxon's local Mac: `browserType.launch: Failed to
       launch chromium because executable doesn't exist at
       /opt/pw-browsers/chromium`) -- the exact class of bug already found
       and fixed once for test/verify-mobile-layout.js (see this file's
       TEST-INFRA entry from earlier tonight), just never applied to the rest
-      of the test suite.
+      of the test suite. COMPLETED 2026-08-20T05:12Z: see PROGRESS.md for
+      what was actually left to do here (one of the three named scripts,
+      verify-touch-tap-fix.js, was already fixed as an opportunistic
+      side-effect of the touch-double-fire bug ticket above -- only
+      verify-keyboard-playable.js and measure-wordlist-load.js still needed
+      the fix, applied here with the same `fs.existsSync` pattern).
       AFFECTED: test/verify-touch-tap-fix.js line 4 (`chromium.launch({
       executablePath: '/opt/pw-browsers/chromium' })`, no fallback) -- this
       one ALSO separately hardcodes a cloud-sandbox-only file path (line 12,

@@ -49,9 +49,9 @@ async function startServer() {
 }
 
 async function measureLoadTime() {
-  const browser = await chromium.launch({
-    executablePath: '/opt/pw-browsers/chromium'
-  });
+  const sandboxChromiumPath = '/opt/pw-browsers/chromium';
+  const launchOpts = fs.existsSync(sandboxChromiumPath) ? { executablePath: sandboxChromiumPath } : {};
+  const browser = await chromium.launch(launchOpts);
   const page = await browser.newPage();
 
   // Track when major events happen
