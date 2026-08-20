@@ -5411,3 +5411,134 @@ Left at v0.10.
 the Foreword item's unused-tile-count double-subtraction
 (`js/wordbound/items.js` line 283), a one-line fix with a clear repro in
 the ticket text. Good pickup for the next run.
+
+---
+
+## 2026-08-20T06:41Z (QA pass, worker session)
+
+**Task:** scheduled real-browser QA pass (independent worker, not the hourly
+routine), pinned to tip commit `07e6d8d` ("Fix seeded-run determinism for
+event random outcomes, review B1"), one commit past `47d9239` (killing-blow
+combat feedback). Per standing instructions, pulled once at the start and did
+not pull again mid-pass; checked at the end and `origin/main` was still at
+`07e6d8d` -- no concurrent push landed this time.
+
+**Baseline -- all clean:**
+- `npm test` (dom-check.js): 23/23, including the killing-blow death-beat
+  assertions added alongside `47d9239`.
+- `npm run test:mobile`: zero overflow at 375px/414px, main menu + combat.
+- `npm run test:qa` (orchestrator-qa-boss-reward.js): 24/24.
+- `node test/verify-touch-tap-fix.js` (real `hasTouch` browser context,
+  not jsdom): 8/8 -- re-confirms `6275981`'s tap/drag-reorder fix still
+  holds: a single real tap appends exactly one letter and one
+  `selectedTileIds` entry, drag-to-reorder still works and still doesn't
+  also append a letter.
+
+**Pre-flight:** grepped every `state.screen =` assignment in game.js and
+cross-checked against the scratch QA scripts
+(`/Users/jaxon/.claude/jobs/73872751/tmp/qa-playthrough.js` and
+`qa-consumable-real-clicks.js`) -- no new screen values since the last pass;
+RUN/SHOP/TREASURE/EVENT/TILE_REWARD/BOSS_ITEM_REWARD plus the howto overlay
+remains the complete set. Also confirmed (GOALS.md checkbox state, plus a
+direct grep for `usedWords`/`combo` in game.js and combat.js, zero hits) that
+BALANCE (N1-N3) and FUN OVERHAUL 1/8 (repeat-word penalty/combo) have NOT
+landed at this commit -- both still `[ ]`. Nothing to test there this pass.
+
+**Priority 1 -- killing-blow death beat (`47d9239`): clean**, verified two
+ways beyond the jsdom suite:
+- Diagnostic (forced a 1-HP kill, polled state every 60ms): `monster.hp`
+  hits 0 immediately, `combatActive` correctly stays `true` with the rack
+  sitting at its post-kill/pre-redraw remnant for the full beat, then flips
+  to `combatActive=false` / `screen=TILE_REWARD` at t=720ms exactly --
+  matching `TILE_PLAY_ANIM_MS + MONSTER_DEATH_BEAT_MS` on the nose. No race,
+  no stuck state.
+- Rapid-click stress test: fired a killing blow, then fired 31 real clicks
+  (`#btn-submit-word` + rack tiles) across the ~850ms window a mashing
+  player would produce. Zero page/console errors, gold incremented exactly
+  once (a single kill's worth, not doubled), floor unchanged (non-boss
+  kill), landed cleanly on TILE_REWARD then RUN. Confirms the re-entrancy
+  guard (`if (state.monster.hp <= 0) return;` in `submitWord`, added with
+  `47d9239`) holds under real mashing, not just in theory.
+
+**Priority 2 -- seeded-run event determinism (`07e6d8d`): clean**, verified
+in an actual browser (prior coverage was jsdom-only). Found seed
+`detseed-0`, which places the `lucky_scroll` event (the 50/50 gold-or-HP
+roll named in the B1 ticket) at floor-1 node index 1. Ran two fresh browser
+contexts side by side, same character + seed, identical real clicks through
+the first fight and into the event, both clicking the risky "Read it"
+choice. Result: byte-identical gold, HP, rack (including tile ids), deck
+length, items, floor-layout fingerprint, and log message (both runs landed
+on the same "+25 gold" branch) -- zero page errors either side. Genuine
+real-UI coverage of the B1 bug class, complementing (not duplicating) the
+existing `test/verify-seeded-runs.js` Part 6 jsdom checks.
+
+**Priority 3 -- touch tap-to-play double-fire fix (`6275981`):** clean, per
+the baseline `verify-touch-tap-fix.js` run above.
+
+**Priority 4 -- balance retune / combo:** not on this commit (see
+pre-flight). Untested, not yet applicable.
+
+**General real-browser coverage:** `qa-playthrough.js` (2 full runs, real
+typed + tile-click word submission, panel-stacking checks, bonus-tile CSS
+checks, real seed-input entry) and `qa-consumable-real-clicks.js` (buy + use
+via real clicks) -- see script-fix note below for why the first attempt at
+each showed spurious failures. After the fix, both playthrough runs reached
+**VICTORY** cleanly (0 issues), and the consumable script bought + used an
+Index Card Shard via real clicks with the expected `bonusDamage` 0 -> 15
+effect. Node types visited across the two playthrough runs: combat, elite,
+shop, treasure, event, rest, boss, boss-item-reward. Zero uncaught page
+errors, zero console errors, zero panel-stacking, across every real-browser
+script run this pass.
+
+**Script fixes (scratch dir only, no game code touched) -- a shared blind
+spot in both reusable scripts, not a game bug:** the first attempt at
+`qa-playthrough.js` logged 28 "no-playable-word" issues (some racks tiny,
+some literally empty) despite both runs still reaching VICTORY;
+`qa-consumable-real-clicks.js` flat-out failed after 3 steps ("never managed
+to buy a consumable"). Traced both to the same cause: neither script knew
+about the killing-blow death beat from `47d9239` -- both saw
+`combatActive === true` immediately after a kill (correct, that's the beat)
+and tried to find/submit *another* word against the already-dead monster's
+transient post-kill rack, which can legitimately be tiny or empty before the
+redraw runs. `qa-playthrough.js` just logged a spurious warning and moved on
+(hence still reaching VICTORY despite the noise); `qa-consumable-real-clicks.js`'s
+combat branch treated a failed word-search as fatal and aborted the whole
+script. Confirmed with a throwaway diagnostic (`diag-deathbeat-rack.js`,
+polling state after a forced kill -- the same data behind the Priority 1
+writeup above) before touching either script, then fixed both the same way
+(check `monster.hp <= 0` first, wait out the beat instead of searching for a
+word) and re-ran to confirm: both pass clean now. Exactly the "double-check
+your own script logic before blaming the game" case -- the game's behavior
+here is correct and on-schedule; the scripts were just stale relative to a
+feature that shipped after they were last touched.
+
+**Not a bug, not ticketed:** actual HP loss occasionally exceeded the
+playthrough script's own "~N dmg" log prediction (e.g. a boss fight showing
+"~15 dmg: 120 -> 88 HP"). Traced to `MULT_ON_HOLD` bonus tiles (the
+`bonus-mult-hold` CSS class, observed and logged this run): `Lexicon.scoreWord`
+(what the script's word-finder calls) already includes `FLAT_ON_PLAY`/
+`MULT_ON_PLAY` bonuses per its own header comment, but `MULT_ON_HOLD` is
+deliberately applied later, in `combat.js` line 47 (`holdMult`), which the
+script's damage *prediction* never modeled. The actual game math isn't
+wrong; the script's estimate is just a lower bound by design. Also
+re-confirmed, not re-filed: the main-menu title-overflow ticket (already
+`[x]` FIXED 2026-08-20T03:14Z, font-metric-dependent, this sandbox still has
+no Georgia) and the "Sit and breathe"-skips-final-boss behavior (documented
+as deliberate/awaiting Jaxon's call in this pass's own briefing).
+
+**Genuinely bug-free pass:** zero real game bugs found. No GOALS.md tickets
+added -- queue is unchanged, top item remains the Foreword unused-tile-count
+bug (review B2).
+
+**Housekeeping:** fetched + compared HEAD against `origin/main` immediately
+before writing this up -- no concurrent push landed during this pass, still
+at `07e6d8d`. No game code modified (game.js, wordbound.html, css, etc.) --
+QA only. Scratch-dir fixes (`qa-playthrough.js`, `qa-consumable-real-clicks.js`)
+and new diagnostics/checks (`diag-deathbeat-rack.js`,
+`diag-deathbeat-rapidclick.js`, `find-event-seed.js`,
+`verify-seeded-event-realbrowser.js`) live only under
+`/Users/jaxon/.claude/jobs/73872751/tmp/`, not committed to this repo.
+
+**Current state:** v0.10, tip `07e6d8d` (unchanged by this pass). GOALS.md
+queue unchanged. Next unchecked item: BUG (review B2) -- the Foreword item's
+unused-tile-count double-subtraction.
