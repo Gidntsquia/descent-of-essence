@@ -17,6 +17,26 @@ body {
 
 .hidden { display: none !important; }
 
+/* Screen/panel transitions (GOALS.md FEEL review F3): map -> combat ->
+   reward -> map was a hard cut everywhere. These fire once, exactly when an
+   element's `hidden` class is removed (display:none -> its normal display),
+   because the animation only (re)starts when the element begins matching
+   `:not(.hidden)` -- a re-render that leaves `hidden` unchanged doesn't
+   retrigger it. Purely visual (opacity/transform only); nothing here delays
+   input, so elements are clickable the instant they appear. */
+@keyframes screenFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .screen:not(.hidden),
+  .node-map:not(.hidden),
+  .combat-panel:not(.hidden),
+  .treasure-panel:not(.hidden) {
+    animation: screenFadeIn 200ms ease-out;
+  }
+}
+
 .panel {
   background: linear-gradient(to bottom, #2a2418 0%, #241f17 100%);
   border: 2px solid #4a4130;

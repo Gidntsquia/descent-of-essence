@@ -7061,6 +7061,110 @@ tiny B6 cleanup batch.
 
 ---
 
+### 2026-08-20T10:43Z -- FEEL review F3 (hard-cut screen transitions), DONE
+
+**Why this task:** the BALANCE (Enrage-cap/win-rate) ticket is still the
+first unchecked GOALS.md item and stays blocked pending Jaxon's steer --
+three prior runs (two dedicated investigation runs plus everything since)
+have left it that way and the ticket itself says not to keep nerfing
+numbers blind. Following the now-established precedent (B4, B5, F2), took
+the next non-blocked queue item in order: F3.
+
+**What was wrong (confirmed by reading, matches the ticket):** every
+screen/panel swap in the game (`show()` toggling between
+screen-main-menu/screen-character-select/screen-run/screen-game-over/
+screen-victory, and `renderRun()` toggling node-map/combat-panel/
+treasure-panel/tile-reward-panel/boss-reward-panel/event-panel) is a raw
+`classList.toggle('hidden', ...)` with `.hidden { display: none
+!important; }` -- an instant cut, no transition of any kind. The only
+existing entrance animation in the whole game was the boss's
+`bossEntrance` scale-in on `#monster-info`.
+
+**Fix** (css/wordbound.css, right after the `.hidden` rule): one new
+`screenFadeIn` keyframe (opacity 0->1, `translateY(8px)` -> `translateY(0)`,
+200ms ease-out -- inside the ticket's 150-250ms window), applied via class
+selectors rather than IDs so it covers everything in one place:
+`.screen:not(.hidden)` (all 5 main screens share the `.screen` class),
+`.node-map:not(.hidden)`, `.combat-panel:not(.hidden)`, and
+`.treasure-panel:not(.hidden)` -- the last one is shared by
+`treasure-panel`, `tile-reward-panel`, `boss-reward-panel`, AND
+`event-panel` (all four use `class="treasure-panel ..."` in
+wordbound.html), so a single selector covers the whole reward/shop/event
+family the ticket's own list only named one member of. Wrapped the whole
+block in `@media (prefers-reduced-motion: no-preference)` per the
+ticket's explicit requirement -- reduced-motion users get the old instant
+cut, no JS branch needed.
+
+**Why this doesn't replay on every re-render (the exact bug class the
+top-of-file warning is about):** a CSS `animation` only (re)starts when
+the element begins matching the rule -- i.e. exactly when `hidden` is
+removed (`display:none` -> its normal display). `classList.toggle(cls,
+force)` is a no-op when the element's membership already matches `force`,
+so the many `renderRun()`/`render()` calls that happen mid-screen (every
+word played, every tile clicked) call `toggle('hidden', false)` on an
+already-visible panel and don't touch the DOM -- confirmed by reading
+`show()` and the toggle lines in `renderRun()` (game.js ~1211-1308), all
+of which pass a boolean `force` value rather than calling the two-arg
+`toggle(cls)` form that would flip state unconditionally. This also means
+the fix is purely additive to the panel *containers* (`.combat-panel`
+itself, not `#monster-info` which gets its innerHTML rebuilt every
+combat render) -- doesn't touch or reorder anything the death-beat/
+render-order warning at the top of this file is about.
+
+**Input availability:** no JS changes at all, this is CSS-only (opacity/
+transform, no `pointer-events` touched), so elements are clickable the
+instant they exist in the DOM regardless of the animation's visual
+progress -- exactly what the ticket requires ("do NOT delay input
+availability"). `test:qa`'s real rapid-click playthrough (below) is the
+proof, not just reasoning.
+
+**Tests:**
+- `npm test`: **98/98** (unchanged count -- pure CSS, no new jsdom-
+  checkable behavior; jsdom doesn't compute animations anyway). Clean, no
+  regressions from the CSS change touching anything the existing checks
+  assert on (hidden-class states, element presence, etc. all still
+  correct).
+- `npm run test:qa` (real Chromium, full two-boss-fight scripted
+  playthrough clicking through every screen/panel transition in the
+  game -- map, combat, tile reward, boss reward, back to map, twice):
+  **26/26 clean**, zero console/page errors. This is real proof the
+  animation doesn't block or delay any click in the existing fast-click
+  script.
+- `npm run test:mobile`: **clean** at both 375px and 414px on main menu
+  and combat screen (mandatory gate for this CSS-layout task per
+  top-of-file rules) -- no overflow/clipping introduced.
+- Visual "does it actually look/feel right" was not eyeballed with a
+  screenshot this run (the animation is a standard, low-risk fade+rise
+  pattern already proven functionally correct end-to-end by test:qa); if
+  Jaxon wants a look, it's a 200ms opacity+translateY(8px) fade on every
+  screen/panel entrance, reduced-motion-respecting.
+- `(npm install` was needed first -- `node_modules` wasn't present at the
+  start of this run, same as the previous run noted; installed cleanly
+  from the repo's own lockfile, no network issues.)
+
+**Version:** left at v0.14, no bump -- following the same precedent as
+F2/B4/B5 (polish/bug-fix to existing UX, not a new mechanic or
+player-facing number/content change).
+
+**Current state:** v0.14. `npm test` 98/98, `npm run test:qa` 26/26,
+`npm run test:mobile` clean. Working tree clean after this commit, pushed
+to `main`.
+
+**What's next:** the BALANCE (Enrage-cap/win-rate) ticket is still first
+in GOALS.md, still blocked pending Jaxon's steer -- FUN OVERHAUL 4/8
+onward stay correctly un-started until then. The next non-blocked queue
+items in order are the F4 polish batch (slider accent color, run-header
+wrap, empty message-log placeholder, randomized damage-number offset --
+all CSS-layout, `test:mobile` mandatory), F4.5 (tile-reward buttons
+restyled as letter tiles -- also CSS-layout, `test:mobile` mandatory),
+the N6 end-of-run stats feature, and the tiny B6 cleanup batch. (Note:
+an orchestrator decision landing right after this entry, timestamped
+2026-08-20T10:52Z below, gives the balance ticket an exact sim-gated
+spec to implement -- see that entry for the next run picking up combat
+balance work.)
+
+---
+
 ## 2026-08-20T10:52Z
 
 **Orchestrator: unblocked the balance-regression ticket with a design decision**

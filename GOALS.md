@@ -571,7 +571,7 @@ Rules for the routine:
       "no errors." `npm test` 98/98, `npm run test:qa` 26/26 (2 new
       checks). See PROGRESS.md for the audio-can't-be-heard caveat.
 
-- [ ] FEEL (review F3): every screen transition is a hard cut -- map ->
+- [x] FEEL (review F3): every screen transition is a hard cut -- map ->
       combat -> reward -> map all swap instantly via `hidden` class toggles;
       the only entrance animation in the game is the boss's
       (css/wordbound.css bossEntrance, line ~305). Add a short (150-250ms)
@@ -585,6 +585,14 @@ Rules for the routine:
       VERIFICATION: `npm test` 16/16, `npm run test:qa` 24/24 (real clicks
       through every transition), `npm run test:mobile` clean (CSS-layout
       task -> mandatory gate per top-of-file rules).
+      DONE 2026-08-20T10:43Z: see PROGRESS.md for the fix -- a single
+      `screenFadeIn` keyframe (opacity 0->1 + translateY(8px)->0, 200ms
+      ease-out) applied via class selectors (`.screen`, `.node-map`,
+      `.combat-panel`, `.treasure-panel` -- the last also covers
+      tile-reward-panel/boss-reward-panel/event-panel, which share that
+      class) so every hard-cut transition in the ticket is covered by 4
+      selectors, wrapped in `prefers-reduced-motion: no-preference`. `npm
+      test` 98/98, `npm run test:qa` 26/26, `npm run test:mobile` clean.
 
 - [ ] POLISH batch, small (review F4) -- four cheap visual fixes, one run:
       (1) the stock blue range slider (#music-volume) clashes with the
