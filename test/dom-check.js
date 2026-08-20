@@ -40,11 +40,18 @@ function check(label, cond) {
 }
 
 async function main() {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'wordbound.html'), 'utf8');
+  // Optional CLI arg: path to the HTML file to check (defaults to the repo's
+  // own wordbound.html). Lets the itch.io build script point this same check
+  // at a staged/unzipped index.html to prove the packaged file set is
+  // complete and its relative paths resolve, without duplicating this file.
+  const targetPath = process.argv[2]
+    ? path.resolve(process.argv[2])
+    : path.join(__dirname, '..', 'wordbound.html');
+  const html = fs.readFileSync(targetPath, 'utf8');
   const errors = [];
 
   const dom = new JSDOM(html, {
-    url: 'file://' + path.join(__dirname, '..', 'wordbound.html'),
+    url: 'file://' + targetPath,
     runScripts: 'dangerously',
     resources: 'usable',
     pretendToBeVisual: true,

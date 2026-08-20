@@ -214,7 +214,30 @@ Rules for the routine:
       of a different font substitution reintroducing this. `npm test` 16/16
       (this is CSS-only, shouldn't affect dom-check.js at all).
 
-- [ ] BUILD/LAUNCH: produce a packaged, itch.io-ready build of Wordbound.
+- [x] BUILD/LAUNCH: produce a packaged, itch.io-ready build of Wordbound.
+      COMPLETED 2026-08-20T03:20Z: added `tools/build-itch.js` (`npm run
+      build:itch`) -- stages the exact dependency list below into a temp
+      dir, copies wordbound.html to `index.html` in that dir, zips the dir's
+      CONTENTS (index.html at zip root) to `dist/wordbound-itch.zip`, fails
+      with a clear message if the `zip` binary is missing. `dist/` added to
+      .gitignore. Also added `test/verify-itch-build.js` (`npm run
+      test:itch-build`) as a re-runnable regression guard: builds fresh,
+      unzips to a scratch dir, asserts index.html is at the root, runs
+      dom-check.js against the unzipped copy (parameterized dom-check.js to
+      take an optional HTML-path CLI arg instead of hardcoding
+      wordbound.html, so this didn't need a duplicate script), and loads the
+      unzipped copy in a real headless-Chromium browser over a local static
+      server checking for zero 404s/failed requests. All three came back
+      clean across 4 full reruns -- zip size 0.66 MB (well under itch's
+      limits). One flaky dom-check.js failure was seen on the FIRST run
+      (damage-number/flash-damage checks failed) but reproduced as pure
+      pre-existing flakiness in dom-check.js's own unseeded random-word
+      selection + fixed 300ms animation timeout, NOT a build defect -- same
+      exact file (byte-diffed identical to wordbound.html) passed 3/3
+      reruns immediately after, and the full `test:itch-build` suite passed
+      4/4 clean reruns afterward. Left that flakiness alone as out of scope
+      for this ticket (not something the itch build introduced). `npm test`
+      16/16.
       Queued 2026-08-20 by the orchestrator from ROADMAP.md's known-gaps list
       (the top remaining LAUNCH blocker, queued behind the two bug tickets
       above from the parallel QA pass -- a game-breaking softlock and a red

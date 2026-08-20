@@ -4088,3 +4088,82 @@ Checked the box in GOALS.md. Committing and pushing to `main` now.
 **Current state:** v0.8, 6 unchecked tickets remain. Top of queue is now the
 UX/MOBILE ticket (Deck/Consumables button height + small text sizes on the
 combat screen at 375/414px) -- next hourly run should start there.
+
+
+---
+
+## 2026-08-20T03:20Z (hourly routine)
+
+Note on the previous entry (title-overflow ticket): a concurrent run pushed
+an equivalent fix to `origin/main` about a minute before this run tried to
+push its own (both added `overflow-wrap`/`word-break` plus a narrower
+font-size for small viewports, via slightly different mechanisms -- a fixed
+480px-breakpoint size vs. a `clamp()`). Rather than push a duplicate/
+conflicting commit for an already-completed ticket, this run reset to
+`origin/main` (their version, already verified and checked off) and moved on
+to the next queue item below. No functional gap either way -- both fixes
+are covered.
+
+Picked up the new top of queue: BUILD/LAUNCH, packaged itch.io-ready build.
+
+**What was built:**
+- `tools/build-itch.js` (`npm run build:itch`): stages Wordbound's exact
+  dependency list (css/wordbound.css, js/core/namespace.js, js/core/rng.js,
+  all 13 files under js/wordbound/) into a temp dir, copies wordbound.html
+  to `index.html` in that dir (itch.io's HTML5 upload needs index.html at
+  the zip ROOT; this repo's actual index.html is the other game, Descent of
+  Essence), and zips the staging dir's CONTENTS -- not the dir itself -- to
+  `dist/wordbound-itch.zip`. Checks for the `zip` binary up front and exits
+  with a clear message if missing rather than failing deep in a stack
+  trace. `dist/` added to .gitignore (build artifact).
+- `test/verify-itch-build.js` (`npm run test:itch-build`): a re-runnable
+  regression guard, not a one-off manual check. Builds fresh, unzips to a
+  scratch dir, asserts index.html is at the root and the key dependencies
+  are present, runs dom-check.js against the unzipped index.html, then
+  loads the unzipped copy in a real headless-Chromium browser over a local
+  static server (same pattern as verify-mobile-layout.js) and asserts zero
+  404s/failed subresource requests.
+- Parameterized `test/dom-check.js` to accept an optional HTML-file path as
+  its first CLI arg (defaults to wordbound.html as before) instead of
+  hardcoding the path -- this is what let verify-itch-build.js point the
+  same check at the unzipped index.html without duplicating the whole
+  script, per the ticket's own suggestion.
+
+**Verified:**
+- `npm run build:itch` succeeds, produces `dist/wordbound-itch.zip` at
+  **0.66 MB** (wordlist.js is 2.5MB raw/uncompressed but compresses well;
+  comfortably under itch.io's upload limits).
+- `npm run test:itch-build` (the full unzip -> dom-check -> real-browser
+  chain) passed clean on 4 separate full reruns. One dom-check.js failure
+  was seen on the very first run (the damage-number/flash-damage animation
+  checks) -- investigated directly rather than assumed innocent: rebuilt,
+  unzipped, and ran dom-check.js against the exact same staged index.html
+  three more times back-to-back (all 3 passed), and byte-diffed the staged
+  index.html against wordbound.html (identical). Concluded this is
+  pre-existing flakiness in dom-check.js's own mechanism (it picks a random
+  playable word each run and waits a fixed 300ms for the damage animation
+  to land -- unseeded RNG plus a fixed timeout is inherently a little
+  flaky), not something introduced by the build/staging process. Did not
+  attempt to fix that flakiness -- out of scope for this ticket, and it's a
+  pre-existing property of dom-check.js that predates this run (worth a
+  future small ticket if it keeps showing up: either seed the RNG for this
+  check or make the wait event-driven instead of a fixed timeout).
+- `npm test`: 16/16 (dom-check.js itself was touched, so ran the mandatory
+  gate).
+- Manually re-confirmed via `git status` that `dist/` is untracked/ignored
+  after building, so the zip artifact won't get committed.
+
+**NOT verified from this sandbox (as the ticket itself flagged as
+out-of-scope-for-here):** the actual itch.io upload and how itch's iframe
+HTML5 embed handles the game in practice (viewport sizing inside their
+embed frame, their own CSP if any, etc.) -- that step is Jaxon's to do by
+hand with the built zip.
+
+Checked off in GOALS.md. No version bump (build tooling, not a player-facing
+change).
+
+**Current state:** 5 unchecked tickets remain: (1) first-five-minutes
+onboarding/How-to-Play panel [now top of queue], (2) two standing mobile
+findings (30px-tall Deck/Consumables buttons, 8 sub-12px text elements),
+(3) gameplay GIF for README/itch, (4) seeded runs, (5) inline-SVG favicon.
+Next hourly run should start on the onboarding panel.
