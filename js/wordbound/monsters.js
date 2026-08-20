@@ -50,20 +50,26 @@
   mdef({ id: 'slime', name: 'The Vowel Slurper', maxHp: 20, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
   mdef({ id: 'gremlin', name: 'The Fidget', maxHp: 18, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
   mdef({ id: 'wisp', name: 'Filler Word', maxHp: 17, attack: 2, tier: 'weak', goldDrop: [1, 2], traitPhases: [{ hpThreshold: 1.0, traitId: 'plain' }] });
-  // attack 4 -> 3 on serpent/raven/bindingstrap/appendix (2026-08-20
-  // Jaxon-authorized difficulty rebalance, GOALS.md "BALANCE, high
-  // priority"): these four normal-tier defs, together with golempup
-  // (already attack 3), are the ONLY monsters floor 1 can roll (floor.js
-  // getAllowedTiers caps floor 1 at weak+normal) -- so a slow fight against
-  // any of them is effectively "the opening game," and balance-simulation.js
-  // showed floor-1 regular (non-elite, non-boss) deaths at ~38% of all
-  // deaths, well past the ticket's <=10% target. HP is untouched (still
-  // needs 2+ decent words, per the "regular monsters survive one hit" hard
-  // constraint) -- this only lowers the per-turn cost of a fight running
-  // long on a bad rack, which is what was compounding into deaths.
-  mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 56, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }] });
+  // attack 4 -> 3 -> 4 on serpent/raven/bindingstrap/appendix (2026-08-20
+  // Jaxon-authorized difficulty rebalance): round 1 cut these from 4 to 3
+  // when floor-1-regular deaths were ~38% of all deaths (target <=10%).
+  // That fix worked -- combined with the player-HP buff and (separately)
+  // the balance-simulation SHREDDER-harness fix, floor-1-regular deaths
+  // have read ~0% across every sim since (three independent n=30 samples,
+  // ROUND 2/3c/3c-confirm: 0/13, 0/16, 0/17 floor1-regular kills across
+  // every def, every sample). Meanwhile a POOLED reading across those same
+  // three samples (round2 43% + round3c 63%/57%, differing only in a
+  // still-trivial boss's own HP, which shouldn't matter -- see PROGRESS.md
+  // "ROUND 4" for the full reasoning) put this tuning's TRUE win rate at
+  // ~54%, above the 35-50% band -- round 2's single 43% reading was a
+  // low-side sampling fluke, not a stable measurement. Floor 1 has by far
+  // the most headroom of any lever (target 3's <=10% ceiling isn't even
+  // being approached), so restoring the original attack value here is the
+  // most targeted way to pull the pooled win rate down without touching
+  // floor 2's already-scrutinized strong-tier numbers again.
+  mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 56, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }] });
   mdef({ id: 'golempup', name: 'Echo Pup', maxHp: 58, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
-  mdef({ id: 'raven', name: 'Quoth', maxHp: 52, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
+  mdef({ id: 'raven', name: 'Quoth', maxHp: 52, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
   // `intents` (GOALS.md "FUN OVERHAUL 2/8"): signature moves this monster
   // can roll on TOP of Attack/Heavy Blow, but ONLY when it's fighting as an
   // elite (node.type === 'elite') -- these are the same defs the floor also
@@ -108,8 +114,8 @@
   mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 54, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
   mdef({ id: 'warden', name: 'The Hoarder', maxHp: 63, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
   mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
-  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
-  mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
+  mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
+  mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
   // maxHp 85 -> 68 (2026-08-20 orchestrator gate-#2 outlier pass): this def
   // alone accounted for 3/14 regular deaths PLUS all 3/3 regular-tier
   // stalls at the OLD number -- the single worst outlier in the gate-#2
@@ -153,7 +159,12 @@
     // touching target 3's floor-1-regular-death metric (bosses are
     // excluded from that count by the ticket's own wording) or floor 2's
     // already-too-high death share.
-    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 46, attack: 4, floor: 1, goldDrop: [15, 25],
+    // maxHp 46 -> 54 (2026-08-20 rebalance ROUND 4): still only 0-11% kill
+    // rate across every round-2/3c sample, and floor 1 has proven to have
+    // the most headroom of any lever (see the round-4 comment on the
+    // normal-tier attack restore above) -- pushing further alongside that
+    // restore.
+    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 54, attack: 4, floor: 1, goldDrop: [15, 25],
     // Floor-1 boss, kept to a single defensive signature (Mend) rather than
     // an offensive one -- this ticket's own judgment call, per this file's
     // history of the floor-1 boss already being the hardest fight in the
@@ -179,7 +190,16 @@
     // further boss-HP-only iterations before stopping. This second cut
     // targets ~6-7 words/fight at the same throughput. See PROGRESS.md for
     // the before/after sim numbers.
-    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 35, attack: 6, floor: 2, goldDrop: [25, 40],
+    // maxHp 35 -> 42 (2026-08-20 rebalance ROUND 4): trivial across every
+    // sample this ticket has run (0% kill rate every time). Left alone in
+    // rounds 2-3 because floor2's death SHARE was already over target and
+    // adding floor2-specific difficulty seemed like the wrong direction --
+    // but with floor 1 now doing more of the win-rate-correction work
+    // (round 4's attack restore + boss_vowelmaw bump above), and target 4
+    // wanting EVERY boss to be a real fight, a modest bump here is
+    // reasonable too. Kept smaller than the floor1/3 boss bumps
+    // specifically because of that floor2-share concern.
+    id: 'boss_unabridged', name: 'The Unabridged Terror', maxHp: 42, attack: 6, floor: 2, goldDrop: [25, 40],
     intents: ['hex', 'devour'],
     // lengthy -> rareSeeker: starts savoring long words, then (as suggested
     // directly by the ticket) gets pickier and starts collecting rare
@@ -208,12 +228,17 @@
     // surviving floors 1-2. HP-only (attack untouched, already the
     // highest in the game at 8, and Enrage already escalates over a long
     // fight -- no need to compound that with a bigger per-hit number too).
-    // maxHp 55 -> 65 (2026-08-20 rebalance ROUND 3): the round-2 bump to 55
-    // still measured 0/13 kills, avg 1.4 words/fight -- literally the
-    // easiest fight in the game despite being the final boss. Players
-    // arrive at this fight healthy (round-2 sim: avg 19.7/24 HP), so the
-    // ceiling is HP, not player attrition -- pushing further.
-    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 65, attack: 8, floor: 3, goldDrop: [40, 60],
+    // maxHp 55 -> 65 -> 85 (2026-08-20 rebalance ROUND 3, then ROUND 4):
+    // still 0/13 then 0/19 then 0/32-pooled kills at 65 -- the fight
+    // consistently resolves in ~1.2-1.9 words regardless of HP in the
+    // 45-65 range, meaning single-word damage against this boss simply
+    // outpaces every HP number tried so far by enough that it rarely
+    // survives to a second real counterattack. Pushing to a level that
+    // should require 3+ words (avg measured single-word damage vs. a
+    // non-resistant target is ~30-36, occasionally 45-74) so the boss gets
+    // at least 2 real turns to attack back -- the "escalating stakes
+    // finale" target 4 and this def's own design note ask for.
+    id: 'boss_sovereign', name: 'The Unabridged, Unbound', maxHp: 85, attack: 8, floor: 3, goldDrop: [40, 60],
     // Final boss: the only def with Enrage, so a run that drags this fight
     // out gets meaningfully harder over time -- the escalating-stakes finale
     // this ticket's design note asks for.

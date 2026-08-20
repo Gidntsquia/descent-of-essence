@@ -10438,3 +10438,52 @@ a 0%-kill non-event before it).
 Effectively back to round 2's monster/player tuning plus the floor-3-boss
 buff. `npm test` **ALL CHECKS PASSED**. Balance-simulation n=30 running in
 the background to confirm this combination lands in band.
+
+**UPDATE 6 -- the "round 2 was 43%, round 3c was 63%" gap turned out to be
+measurement noise, not a real difference. Re-baselined and starting ROUND 4.**
+
+Round 3c's n=30 (63%, 19/30) was suspicious: the ONLY functional diff from
+round 2 is `boss_sovereign`'s own HP, and that boss's kill rate is ~0% in
+every sample regardless of its HP -- it shouldn't be able to move the
+OVERALL win rate by 20 points. Diffed `js/wordbound/{floor,game,monsters}.js`
+against the round-2 commit to confirm nothing else differed (confirmed --
+pure comment-only diff in floor.js/game.js, one number in monsters.js).
+Per GOALS.md's own instruction ("if two consecutive full sim runs at the
+same tuning disagree by more than ~5 points, run more iterations before
+concluding anything"), ran a THIRD n=30 sample at the same tuning: **57%**
+(17/30). Pooling all three same-ish-tuning samples (round2's 13/30 +
+round3c's 19/30 + this confirm's 17/30): **49/90 = 54.4%** -- consistently
+above the 35-50% band. Conclusion: round 2's single 43% reading was a
+low-side sampling fluke (this game's balance-simulation has no run-to-run
+seed control, so floor generation, elite trait rolls, and character
+rotation all add real variance on top of pure win/loss binomial noise --
+n=30 alone isn't enough to trust a single reading close to a band edge).
+**Re-baselining on the pooled ~54% figure, not the earlier 43% one.**
+
+**ROUND 4 changes** (the pooled data also showed floor-1-regular deaths at
+~0% across all three of those same samples -- by far the most measurement
+headroom of any lever against target 3's <=10% ceiling, so floor 1 does
+most of this round's correction):
+- `serpent`/`raven`/`bindingstrap`/`appendix` attack: restored 3 -> 4 (undoes
+  round 1's cut -- that fix worked, floor1-regular deaths are essentially
+  zero now with the player-HP buff and SHREDDER-fix in place, so there's
+  room to add it back).
+- `boss_vowelmaw` (floor1) maxHp 46 -> 54: still only 0-11% kill rate.
+- `boss_sovereign` (floor3/final) maxHp 65 -> 85: STILL 0% kills pooled
+  across 32 encounters at 65 -- the fight keeps resolving in ~1.2-1.9
+  words regardless of HP in the 45-65 range because single-word damage
+  (~30-36 avg, up to 74) outpaces every number tried so far before a
+  second real counterattack lands. Pushing to a level that should need 3+
+  words.
+- `boss_unabridged` (floor2) maxHp 35 -> 42: smaller bump (left alone in
+  rounds 2-3 over floor2-share concerns) -- floor 1 is now doing more of
+  the win-rate work, and target 4 wants every boss to be real, so a modest
+  push here too.
+- floor2 strong-tier (sentinel/warden/spinesplinter) left UNCHANGED this
+  round -- floor1 is absorbing the correction instead, so floor2's already
+  cut-twice numbers get a chance to be re-measured without a third cut
+  compounding on top.
+
+`npm test` **ALL CHECKS PASSED**. Given the demonstrated sampling noise,
+running a **larger n=40 sample** (not another n=30) for this round's
+confirmation; next entry has the result.
