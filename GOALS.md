@@ -920,6 +920,22 @@ Rules for the routine:
       what jsdom can't confirm (shake/animation timing), consistent with
       house rules on animation claims. `npm run test:mobile`. Version bump.
 
+- [ ] BALANCE, small (orchestrator, from the 14:52Z QA pass): FUN OVERHAUL
+      4/8's eight new items diluted the shop's item:consumable pool ratio
+      from 15:3 to 23:3, so shops now roll consumables noticeably less
+      often -- the exact "shops never seem to have consumables" feel an
+      earlier ticket (2026-08-19 shop/consumable-availability pass) was
+      created to fix, regressed as a side effect rather than by intent.
+      FIX: guarantee at least one consumable slot per shop roll (pin one
+      of the shop's option slots to the consumable pool before filling
+      the rest from the combined pool), or weight consumables so the
+      effective roll odds match the pre-4/8 ratio -- implementing run's
+      call, note which in PROGRESS.md. Do NOT reduce the number of items
+      in the pool to fix this.
+      VERIFICATION: npm test with an added assertion that N simulated
+      shop rolls (e.g. 50 via seeded rng) each contain >= 1 consumable
+      (or hit the restored odds within tolerance); npm run test:qa.
+
 - [x] BUG, small (review B4): every fight opens with a doubled article --
       "A The Consonant Constrictor appears!" (js/wordbound/game.js line 371:
       `log('A ' + state.monster.name + ' appears!')` while nearly every
