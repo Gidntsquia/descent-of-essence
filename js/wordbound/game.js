@@ -1450,9 +1450,19 @@
     el.innerHTML = '';
     state.tileRewardOptions.forEach(function (tile) {
       var btn = document.createElement('button');
-      btn.className = 'treasure-choice';
+      var bonusClass = '';
+      if (tile.bonus) {
+        bonusClass = ' has-bonus';
+        if (tile.bonus.type === 'flatOnPlay') bonusClass += ' bonus-flat';
+        else if (tile.bonus.type === 'multOnPlay') bonusClass += ' bonus-mult-play';
+        else if (tile.bonus.type === 'multOnHold') bonusClass += ' bonus-mult-hold';
+      }
+      btn.className = 'treasure-choice treasure-choice-tile' + bonusClass;
       var bonusDesc = Tiles.describeBonus(tile.bonus);
-      btn.innerHTML = '<strong>' + escapeHtml(tile.letter) + '</strong>' + (bonusDesc ? '<br>' + escapeHtml(bonusDesc) : '');
+      var val = Lexicon.LETTER_VALUES[tile.letter] || 0;
+      var displayLetter = tile.letter === '?' ? '★' : tile.letter;
+      btn.innerHTML = '<span class="tile-reward-letter">' + escapeHtml(displayLetter) + '<sub>' + val + '</sub></span>' +
+        (bonusDesc ? '<span class="tile-reward-bonus">' + escapeHtml(bonusDesc) + '</span>' : '');
       btn.addEventListener('click', function () { Game.pickTileReward(tile.id); });
       el.appendChild(btn);
     });

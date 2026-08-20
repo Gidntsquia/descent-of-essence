@@ -7728,3 +7728,92 @@ safe, unblocked queue item is F4.5 (review F4.5, tile-reward restyling) --
 also a CSS/rendering task, `npm run test:mobile` + `npm test` + `npm run
 test:qa` all mandatory before checking its box per its own VERIFICATION
 line.
+
+---
+
+### 2026-08-20T12:00Z -- POLISH review F4.5: restyled tile-reward choices as letter tiles, checked off
+
+Fresh run, zero memory of prior sessions. Read GOALS.md top to bottom: the
+top-of-queue BALANCE ticket (win-rate band) is still unchecked and
+explicitly flagged for Jaxon's steer, and FUN OVERHAUL 4/8-8/8 are
+explicitly gated behind that ticket's gate passing -- neither is safe to
+touch overnight. Per the previous run's own stated "what's next," picked up
+F4.5 (review F4.5): the next safe, unblocked queue item.
+
+**The problem:** `renderTileReward()` (game.js) rendered each tile-reward
+option as a full-width `.treasure-choice` text bar with one small letter in
+it -- visually nothing like the nice `.letter-tile` rack styling directly
+above it in the same panel.
+
+**The fix, scoped exactly to the ticket:**
+- Confirmed first that "boss-tile contexts if shared" doesn't apply --
+  grepped `bossRewardOptions`/`pickBossItemReward`: boss rewards are always
+  `Items.ITEM_DEFS` entries, never tiles. Scope stayed to
+  `renderTileReward` / `#tile-reward-choices` only.
+- `renderTileReward()` now builds a `.tile-reward-letter` element per
+  choice reusing the exact rack-tile letter pattern (`letter<sub>point
+  value</sub>`, `Lexicon.LETTER_VALUES`, blank tile -> ★) plus a bonus
+  description line underneath, and adds the same
+  `has-bonus`/`bonus-flat`/`bonus-mult-play`/`bonus-mult-hold` classes the
+  rack tiles use so a bonus tile reward visually matches a bonus tile once
+  it's in the rack.
+- New CSS: `.treasure-choice-tile` (kept alongside `.treasure-choice` for
+  the shared button chrome/hover), `.tile-reward-letter` (copy of the core
+  `.letter-tile` visual, 46x46px badge), `.tile-reward-bonus` (small
+  description text), and the four bonus-glow variants copied verbatim from
+  the rack's existing box-shadow values, just re-scoped to the new nested
+  element. `#tile-reward-choices` in wordbound.html got an additive
+  `.treasure-choices-tiles` modifier (flex-row + wrap + centered) so every
+  OTHER panel sharing `.treasure-choices` (items, shop, deck viewer,
+  consumables, events) keeps its existing column layout untouched.
+- Folded `.tile-reward-letter sub` into the existing mobile
+  badge-legibility fix (`@media (max-width: 480px)` already grows
+  `.letter-tile sub`/`.staged-tile sub` past the 12px floor) for
+  consistency with the rack.
+
+**Verification (all three mandatory gates, per GOALS.md's own rules):**
+- `npm install` first (jsdom/Playwright weren't present in this container
+  yet -- installed cleanly, 63 packages, 0 vulnerabilities).
+- `npm test`: **115/115**, ALL CHECKS PASSED. Added 5 new targeted jsdom
+  assertions onto the existing killing-blow-reaches-TILE_REWARD flow: one
+  `.treasure-choice-tile` button per offered tile option, it contains a
+  `.tile-reward-letter`, that element has a non-empty point-value `<sub>`,
+  clicking a choice adds it to the deck, and picking resolves off the
+  TILE_REWARD screen.
+- `npm run test:mobile`: the existing script only exercised the main menu
+  and combat screen -- extended it with a third "tile-reward screen"
+  section (forces a killing blow via `window.Wordbound.Game._state` plus
+  the exposed `Lexicon`/`Traits`/`WORDLIST`, same technique dom-check.js
+  already uses for the identical purpose, then runs the script's own
+  `checkLayout` helper at 375/414px). Clean at both widths: zero
+  horizontal overflow, zero clipped elements, three tile buttons genuinely
+  sit side by side without wrapping even at 375px.
+- `npm run test:qa`: **26/26**, real Chromium, unchanged count but it does
+  click through the boss tile-reward panel live with the new styling
+  (`tile-reward panel visible after boss kill`, the skip-path checks) --
+  zero console/page errors.
+- Manual eyeball check: a scratch (uncommitted, deleted after use)
+  Playwright script screenshotted the tile-reward panel at 375px, 414px,
+  and 900px after a real forced kill -- three tile-shaped buttons side by
+  side, big letter with point value in the corner, bonus line underneath
+  when present, no overflow at any width, clearly reads better than the
+  old bars. One thing NOT independently confirmed: that specific run's
+  three offered tiles happened to be plain (no bonus), so the bonus-glow
+  variant was never actually seen on screen -- the CSS is copy-pasted
+  verbatim from the already-visually-proven rack-tile rules under a new
+  selector so the risk is low, but saying so plainly rather than claiming
+  a check that didn't happen.
+
+**Not touched:** N6 (end-of-run stats screen) and B6 (cleanup) remain
+below F4.5 in the queue, both still open for a future run. No version
+bump -- cosmetic-only restyle, no new mechanic or balance change, same
+no-bump precedent as the F2/F3/F4 tickets immediately above this one.
+
+**What's next:** top-of-queue BALANCE ticket is still unchecked, flagged
+for Jaxon (needs his steer on regular/strong-tier monster HP, per the
+detailed writeup already in GOALS.md -- not re-litigated this run). FUN
+OVERHAUL 4/8-8/8 stay gated behind that. The next safe, unblocked queue
+item after F4.5 is N6 (end-of-run stats screen) -- a state-tracking +
+two-existing-screen change, not a fresh panel, `npm test` plus
+`npm run test:mobile` mandatory (per its own VERIFICATION line, "if the
+end-screen layout changes structurally") before checking its box.

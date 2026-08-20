@@ -230,6 +230,65 @@ async function main() {
       console.log(`  ${hasIssues ? '⚠️  ' : '✓ '}Layout OK\n`);
     }
 
+    // Test tile-reward screen (GOALS.md POLISH review F4.5): three
+    // letter-tile-shaped choice buttons side by side must not overflow at
+    // these widths -- force a killing blow via the game's own internal
+    // hooks (window.Wordbound.Game._state, exposed for exactly this kind
+    // of headless/browser test inspection) rather than guessing at layout.
+    console.log('Testing tile-reward screen:\n');
+
+    await page.setViewportSize({ width: 414, height: 800 }); // roomiest width to search for a kill word
+    await page.waitForTimeout(200);
+
+    const reachedTileReward = await page.evaluate(async () => {
+      const Wordbound = window.Wordbound;
+      const state = Wordbound.Game._state;
+      if (!state.combatActive || !state.monster) return false;
+      const Lexicon = Wordbound.Lexicon;
+      const Traits = Wordbound.Traits;
+      const WORDLIST = Wordbound.WORDLIST || [];
+      const hpRatio = state.monster.maxHp > 0 ? state.monster.hp / state.monster.maxHp : 0;
+      const activeTraitId = Traits.activeTraitForHpRatio(state.monster.traitPhases, hpRatio);
+      const trait = Traits.TRAITS[activeTraitId];
+      let killWord = null;
+      for (let i = 0; i < WORDLIST.length; i++) {
+        const w = WORDLIST[i];
+        if (w.length < 2 || w.length > state.player.rack.length) continue;
+        if (!Lexicon.isValidWord(w)) continue;
+        const formed = Lexicon.canFormFromRack(w, state.player.rack);
+        if (!formed.possible) continue;
+        const score = Lexicon.scoreWord(w, formed.tilesUsed);
+        const mult = trait ? trait.multiplier(w, formed.tilesUsed) : 1;
+        if (Math.round(score.total * mult) > 0) { killWord = w; break; }
+      }
+      if (!killWord) return false;
+      state.monster.hp = 1; // force this word to be a killing blow
+      document.getElementById('word-input').value = killWord;
+      document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+      return true;
+    });
+
+    if (!reachedTileReward) {
+      console.log('  SKIP -- no damage-dealing word possible from this rack/trait, or combat did not start (not a layout bug, rerun to retry)\n');
+    } else {
+      // TILE_PLAY_ANIM_MS (220ms) + MONSTER_DEATH_BEAT_MS (500ms) both defer
+      // the screen switch; wait past both before checking.
+      await page.waitForFunction(() => window.Wordbound.Game._state.screen === 'TILE_REWARD', { timeout: 3000 }).catch(() => {});
+
+      for (const width of widths) {
+        console.log(`${width}px width:`);
+        const result = await checkLayout(page, width);
+        results.push(result);
+
+        const hasIssues = result.checks.overflowX ||
+                         result.checks.elementsClipped.length > 0 ||
+                         !result.checks.buttonSizesOK ||
+                         !result.checks.textReadable;
+
+        console.log(`  ${hasIssues ? '⚠️  ' : '✓ '}Layout OK\n`);
+      }
+    }
+
     await page.close();
     await browser.close();
 

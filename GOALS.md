@@ -797,7 +797,7 @@ Rules for the routine:
       balance change; matches the no-bump precedent set by the F2/F3
       tickets immediately above).
 
-- [ ] POLISH, small (review F4.5): tile-reward options render as three
+- [x] POLISH, small (review F4.5): tile-reward options render as three
       full-width bars each containing one small letter -- while the rack
       right above uses the game's nice .letter-tile styling. Restyle the
       tile-reward (and boss-tile contexts if shared) choices to LOOK like
@@ -809,6 +809,55 @@ Rules for the routine:
       VERIFICATION: `npm run test:mobile` clean (375/414 -- three tiles
       side by side must not overflow; wrap if needed), `npm test` 16/16,
       `npm run test:qa` 24/24 (it clicks these buttons).
+      DONE 2026-08-20T12:00Z: checked -- `bossRewardOptions` are always
+      items (grepped, confirmed), never tiles, so "boss-tile contexts if
+      shared" doesn't apply; scope stayed to `renderTileReward` /
+      `#tile-reward-choices` only, as the ticket's own line-number pointer
+      implied. Added a `.treasure-choice-tile` modifier class (kept
+      `.treasure-choice` too, for the shared hover/panel chrome) with a new
+      `.tile-reward-letter` element inside reusing the exact rack-tile
+      pattern (`letter<sub>value</sub>`, `Lexicon.LETTER_VALUES`, blank ->
+      ★) plus the same `has-bonus`/`bonus-flat`/`bonus-mult-play`/
+      `bonus-mult-hold` glow classes the rack already uses (copied
+      verbatim, same box-shadow values, just scoped to the nested letter
+      element) so a bonus tile reward visually matches a bonus tile in the
+      rack. `#tile-reward-choices` got a `.treasure-choices-tiles` modifier
+      (flex-row + wrap + centered, vs. the shared column layout every
+      other panel -- items, shop, deck viewer, consumables, events --
+      still uses) so this was additive, not a change to the shared
+      `.treasure-choice`/`.treasure-choices` rules. Also added the new
+      `.tile-reward-letter sub` selector to the existing mobile
+      badge-legibility fix (the `@media (max-width: 480px)` block that
+      already grows `.letter-tile sub`/`.staged-tile sub`) for consistency.
+      VERIFICATION: `npm test` **115/115** (5 new targeted jsdom
+      assertions added to the existing killing-blow-reaches-TILE_REWARD
+      flow: one `.treasure-choice-tile` per offered option, it contains a
+      `.tile-reward-letter`, that element has a non-empty point-value
+      `<sub>`, clicking a choice adds it to the deck, and picking resolves
+      off the TILE_REWARD screen). `npm run test:mobile`: the existing
+      script only covered the main menu and combat screen, so extended it
+      with a third "tile-reward screen" section (forces a killing blow via
+      `window.Wordbound.Game._state` + the wordlist/Lexicon, same pattern
+      dom-check.js already uses, then runs the same `checkLayout` helper)
+      -- clean at both 375px and 414px, zero overflow, zero clipped
+      elements, three tiles genuinely sit side by side without wrapping at
+      either width. `npm run test:qa` **26/26** real-Chromium, unchanged
+      count but it does click through the boss tile-reward panel with the
+      new styling live (`tile-reward panel visible after boss kill`, `skip
+      path` checks) -- zero console/page errors. Also eyeballed real
+      screenshots at 375px/414px/900px (scratch Playwright script, not
+      committed, deleted after use): three tile-shaped buttons side by
+      side, letter large with point value in the corner, bonus line
+      underneath when present, no overflow at any width, reads clearly
+      better than the old full-width bars. **Not independently visually
+      confirmed:** a reward tile that actually rolled a bonus (the run
+      used for screenshots happened to offer three plain tiles) -- the
+      bonus-glow CSS is copy-pasted verbatim from the already-visually-
+      proven rack-tile rules under a new selector, so risk is low, but
+      saying so plainly rather than claiming a screenshot check I didn't
+      actually get. No version bump -- cosmetic-only restyle, no new
+      mechanic or balance change, matching the no-bump precedent set by
+      the F2/F3/F4 tickets above.
 
 - [ ] FEATURE (review N6): end-of-run stats screen. Victory/game-over
       currently show one static line + the seed -- nothing to share or

@@ -676,6 +676,22 @@ async function main() {
 
       await new Promise((r) => setTimeout(r, 500)); // past MONSTER_DEATH_BEAT_MS (500ms)
       check('killing blow: tile-reward screen arrives after the death beat', state.screen === 'TILE_REWARD');
+
+      // Tile-reward restyle (GOALS.md POLISH review F4.5): choices should
+      // render as letter-tile-shaped buttons (big letter + point-value sub,
+      // bonus text underneath), not the old full-width text bars.
+      if (state.screen === 'TILE_REWARD') {
+        const tileChoiceButtons = Array.from(document.querySelectorAll('#tile-reward-choices .treasure-choice-tile'));
+        check('tile reward: one .treasure-choice-tile button per offered option', tileChoiceButtons.length === (state.tileRewardOptions || []).length && tileChoiceButtons.length > 0);
+        const firstLetterEl = tileChoiceButtons[0] && tileChoiceButtons[0].querySelector('.tile-reward-letter');
+        check('tile reward: choice button contains a .tile-reward-letter element', !!firstLetterEl);
+        const firstSub = firstLetterEl && firstLetterEl.querySelector('sub');
+        check('tile reward: .tile-reward-letter has a point-value <sub>', !!firstSub && firstSub.textContent.trim() !== '');
+        const deckSizeBefore = state.deck.length;
+        tileChoiceButtons[0].dispatchEvent(new window.Event('click', { bubbles: true }));
+        check('tile reward: clicking a tile choice adds it to the deck', state.deck.length === deckSizeBefore + 1);
+        check('tile reward: picking a tile resolves off the TILE_REWARD screen', state.screen !== 'TILE_REWARD');
+      }
     }
   }
 
