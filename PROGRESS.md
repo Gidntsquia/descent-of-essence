@@ -4867,16 +4867,18 @@ convention.
 
 Checked off in GOALS.md (favicon ticket + the new test:qa ticket).
 
-**Current state:** v0.10. GOALS.md's queue is now fully empty. Checked
-ROADMAP.md's "known gaps" section per the guardrail rule and found it stale
-(referenced the itch-build and seeded-run gaps as still-open, both of which
-were completed by earlier runs tonight) -- updated it to reflect current
-reality: everything genuinely resolvable from this sandbox has been
-resolved, and what's left (a physical-device touch test, a human feel/fun
-playtest, the actual itch.io upload, and an undefined meta-progression
-question) all explicitly needs Jaxon, not more automated work. Per GOALS.md's
-own guardrail ("only if that's also empty/exhausted, note idle and stop --
-don't invent busywork"), the next hourly run should treat both GOALS.md and
-ROADMAP.md as exhausted unless Jaxon has added something new, and should
-re-check both files fresh rather than trusting this sentence, in case that's
-changed by the time it runs.
+**Current state:** v0.10. GOALS.md's queue was empty at the point this
+entry was originally written, and ROADMAP.md's "known gaps" section was
+stale (referenced the itch-build and seeded-run gaps as still-open, both
+completed by earlier runs tonight) -- updated it to reflect current
+reality. **Superseded by a merge (see the next entry below, `cb75f1c`):** a
+concurrent QA-pass session pushed two new higher-priority tickets (touch
+tap-to-play double-fire; hardcoded Playwright chromium paths in three test
+scripts) while this run was in progress, landing above the now-completed
+favicon/test:qa entries in GOALS.md's queue. So the queue is NOT actually
+empty -- the next hourly run should pick up the touch double-fire bug
+ticket at the top of GOALS.md's Queue section, not treat the roadmap as
+exhausted. The ROADMAP.md update above is still accurate on its own terms
+(the gaps it lists as resolved really are resolved); it just doesn't
+account for the two brand-new GOALS.md tickets, which are a separate,
+freshly-discovered thing, not a known-gap-list item.
