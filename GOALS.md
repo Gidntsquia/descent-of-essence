@@ -3223,3 +3223,131 @@ Rules for the routine:
       screen recording -- don't fabricate or skip silently. COMPLETED 2026-08-19T16:00Z: Comprehensive
       README covering game pitch, features, play links, quickstart, project structure, development
       guide, design philosophy, credits, and GIF placeholder clearly marked as TODO.
+
+<!-- The 4 tickets below were queued 2026-08-20T19:17Z from Jaxon's REAL-DEVICE
+     playtest (iPhone, Safari, playing the live GitHub Pages build at v0.28) --
+     the physical-phone test ROADMAP.md has been flagging as the gap Playwright
+     emulation can't close. It immediately caught a real bug emulation missed.
+     Ordered: the stuck-drag bug first (game-breaking feel), then the
+     drag-to-rack feature (same pointer-gesture code area -- ideally the same
+     or adjacent run), then the damage preview, then the wordlist gap. -->
+
+- [ ] BUG, high priority (Jaxon, real iPhone/Safari playtest of v0.28,
+      2026-08-20): tiles sometimes get STUCK mid-drag. His screenshot shows the
+      staging area with a dragged tile (O1) frozen overlapping another staged
+      tile (N1) -- the drag never resolved, the tile just stayed wedged there,
+      and it persisted long enough to screenshot. Playwright touch emulation
+      passes clean, so this is a real-glass edge the emulation never exercises.
+      Investigate ALL of these known gesture-death paths before picking the fix
+      (js/wordbound/game.js, the staged-tile drag machinery from MOBILE INPUT
+      2/3 Phase 2 -- startTouchReorder/updateTouchReorder/endTouchReorder and
+      the staging-area drag handlers):
+      (a) `touchcancel` -- iOS Safari fires this instead of touchend whenever
+          the browser steals the gesture (page scroll starting, notification
+          banner, edge-swipe, incoming call, tab switch). If the drag handlers
+          only listen for touchend, a stolen gesture leaves the drag state
+          machine live and the ghost/transform frozen. This is the most likely
+          culprit -- check whether touchcancel is handled ANYWHERE in the drag
+          paths.
+      (b) passive-listener/preventDefault timing -- if the first touchmove
+          isn't preventDefault-ed (or the listener is passive), Safari may
+          start scrolling the page mid-drag, which both moves the coordinate
+          frame under the gesture and can trigger (a).
+      (c) pointer released outside the viewport or over a different element --
+          confirm the end handler is bound at document/window level, not on
+          the tile or container, so a finger lifted anywhere still ends the
+          drag.
+      (d) a second simultaneous touch (multi-touch) confusing a single-drag
+          state machine that doesn't track touch identifiers.
+      FIX SHAPE: every gesture-terminating event (touchend, touchcancel,
+      window blur, and -- belt-and-braces -- the start of any NEW drag while
+      one is somehow still active) must run one shared cleanup that clears the
+      drag state, removes any ghost/transform/z-index styling, and re-renders
+      once. Additionally make `render()` itself defensively clear any orphaned
+      drag artifacts (a stuck tile should never survive a re-render -- in the
+      screenshot it apparently did, or no render happened).
+      VERIFICATION: `npm test` clean with new assertions (dispatch a synthetic
+      `touchcancel` mid-drag in jsdom and assert the state machine + DOM fully
+      reset; same for a second touchstart mid-drag). `npm run test:qa` stays
+      clean. In Playwright, emulate a mid-drag interruption as closely as the
+      API allows (e.g. dispatchEvent touchcancel on the element mid-gesture)
+      and assert no tile is left transformed/overlapping. Say plainly in
+      PROGRESS.md that real-glass confirmation is Jaxon's -- but the
+      touchcancel repro is the strong proxy.
+
+- [ ] FEATURE (Jaxon, same real-device playtest): drag staged tiles BACK TO
+      THE RACK to unstage them, in addition to the existing tap-to-unstage.
+      Currently a staged tile can be tapped (unstages) or dragged out of the
+      staging area >~30px (removes). Jaxon expects the natural inverse of
+      staging: pick up a staged tile, drag it onto the rack area, drop -- it
+      returns to the rack (its home slot, with the same FLIP slide animation
+      unstageTile already triggers). Dropping anywhere over the rack container
+      counts; no need to target the specific empty slot (the tile always
+      returns to its own home slot regardless). This should reuse the existing
+      drag plumbing from MOBILE INPUT 2/3 (drag-out-to-remove already tracks
+      pointer position on release -- add the rack container's rect as an
+      explicit drop zone that routes to unstageTile). Works for BOTH touch and
+      mouse. Careful: this ticket sits in the exact code the stuck-drag BUG
+      ticket above touches -- do the bug first (or in the same run) so the
+      cleanup rework isn't done twice.
+      VERIFICATION: `npm test` with new assertions (simulate a drag from a
+      staged tile ending over the rack container -> tile back in rack, staging
+      empty, no lingering empty-slot or ghost); `npm run test:qa` clean;
+      `npm run test:mobile` clean at 375/414px.
+
+- [ ] FEATURE (Jaxon, same real-device playtest): show the staged word's
+      POTENTIAL damage/score before it's played. When >= 1 tile is staged,
+      display a live-updating damage preview somewhere clearly visible near
+      the staging area / Play Word button (e.g. on the Play Word button itself
+      -- "Play Word (~24)" -- or a small readout above it; implementing run's
+      call, but it must be visible on a 375px phone without pushing the layout
+      around -- reserve the space rather than reflowing when it appears).
+      REQUIREMENTS:
+      - It must use the SAME damage computation the actual submit path uses --
+        extract/reuse a pure function (word -> damage breakdown) from the
+        existing combat math rather than duplicating the formula, so the
+        preview can never drift from reality. Include everything knowable
+        pre-submit: tile values, length bonuses, the monster's weakness/trait
+        bonus, combo multiplier, item modifiers. If some component is
+        genuinely random-at-submit (crit-style rolls, gamble items), preview
+        the deterministic base and don't pretend otherwise.
+      - Update on every stage/unstage/reorder (reorder matters if any scoring
+        is position-sensitive; if it isn't, same-set reorders just show the
+        same number).
+      - If the staged tiles don't form a valid word yet, show a neutral state
+        (e.g. dimmed "--"), not a fake number and not an error.
+      - Works for the desktop typing path too (typed-so-far word previews the
+        same way) if that's cheap with the shared function; if the typing path
+        turns out structurally awkward, touch-first is acceptable -- say so in
+        PROGRESS.md.
+      VERIFICATION: `npm test` with assertions that for several staged words
+      (including a weakness-matching word and a combo-active state) the
+      previewed number equals the damage actually dealt on submit; `npm run
+      test:qa` clean; `npm run test:mobile` clean (the preview must not
+      introduce overflow at 375px).
+
+- [ ] CONTENT (Jaxon, same real-device playtest): more dictionary gaps --
+      "BORKS" rejected (see his screenshot; he tried ZORKS and BORKS, and
+      called out BORKS specifically as a word that should work). BORK/BORKS/
+      BORKED/BORKING are in Collins Scrabble Words but not ENABLE1 (our v0.22
+      union source). Approach:
+      1. Add a small curated SUPPLEMENT word set to the wordlist build (a
+         clearly-marked list in the wordlist source/build script -- check how
+         the ENABLE1 union was done in v0.22 and follow the same pattern) with
+         the BORK family as the first entries. This is the guaranteed
+         deliverable: BORKS must validate after this ticket.
+      2. JUDGMENT CALL (you have latitude here): evaluate whether a broader
+         modern/slang supplement is worth folding in at the same time (Collins-
+         only common words along the lines of the BORK family). Weigh source
+         licensing before vendoring anything wholesale -- Collins' list itself
+         is proprietary; a small hand-curated supplement of individual words is
+         fine, a bulk copy of CSW is not. Keep the supplement conservative --
+         real words people actually try, not junk that would validate garbage.
+      3. ZORKS: almost certainly not a legitimate word anywhere (Zork is a
+         proper noun); leave it OUT unless you find it in a reputable open
+         list, and note the decision either way.
+      VERIFICATION: `npm test` clean plus a new assertion that "BORKS" (and
+      the rest of the added supplement) validates through the game's actual
+      word-check path; `npm run test:itch-build` clean (the packaged build
+      must pick up the updated wordlist -- this manifest has silently drifted
+      before).
