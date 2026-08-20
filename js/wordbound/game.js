@@ -2644,6 +2644,49 @@
     // them (here, not inside renderStagingArea, which early-returns when the play
     // area is empty and would leave a rack-side settle to re-fire next render).
     if (state.settleTileIds.length) state.settleTileIds = [];
+    updateDamagePreview();
+  }
+
+  // GOALS.md FEATURE (staged-word damage preview): show what the currently
+  // staged (or typed) word WOULD deal before it's played, using the exact
+  // combat math the submit path uses -- Combat.previewWord runs the real
+  // playWord + item hooks on clones, so this number can never drift from
+  // reality. Neutral "--" whenever the tiles don't yet form a valid, formable
+  // word (not a fake number, not an error). Called at the end of every combat
+  // render (covers stage/unstage/reorder/clear -- all of which render()) and on
+  // desktop typing input (wired in Game.init).
+  function updateDamagePreview() {
+    var el = $('damage-preview');
+    if (!el) return;
+    function neutral() {
+      el.textContent = '--';
+      el.className = 'damage-preview preview-empty';
+    }
+    if (!state.combatActive || !state.monster) { neutral(); return; }
+    // Same word source the submit path uses: staged tiles in touch mode (input
+    // is hidden), the typed/mirrored input on desktop.
+    var word = state.touchMode ? stagedWord() : (($('word-input') && $('word-input').value) || '');
+    word = (word || '').trim();
+    if (!word) { neutral(); return; }
+    var preview = Combat.previewWord(state.player, state.monster, word, state.comboState, {
+      previousWord: state.previousWordThisFight,
+      wordsPlayedThisFight: state.wordsPlayedThisFightCount,
+      hexedTileId: state.hexedTileId
+    });
+    if (!preview || !preview.valid) { neutral(); return; }
+    var cls = 'damage-preview';
+    var label;
+    if (preview.multiplier === 0) {
+      cls += ' preview-noeffect';
+      label = '0 damage -- no effect';
+    } else {
+      if (preview.multiplier > 1) cls += ' preview-weak';
+      label = '⚔ ' + preview.damage + ' damage'
+        + (preview.multiplier > 1 ? ' -- weak point!' : preview.isRepeat ? ' -- repeat (x0.4)' : '');
+      if (preview.isRepeat) cls += ' preview-repeat';
+    }
+    el.className = cls;
+    el.textContent = label;
   }
 
   // MOBILE INPUT 1/3: the touch-mode blank-letter picker overlay. Toggled and
@@ -2780,6 +2823,10 @@
         this.value = '';
       }
     });
+    // GOALS.md FEATURE (staged-word damage preview): desktop typing has no
+    // per-keystroke render, so update the live preview directly as the player
+    // types (touch/click staging is covered by render()'s call instead).
+    $('word-input').addEventListener('input', function () { updateDamagePreview(); });
     $('btn-clear-word').addEventListener('click', function () {
       $('word-input').value = '';
       state.selectedTileIds = [];

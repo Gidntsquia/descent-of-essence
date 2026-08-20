@@ -688,6 +688,25 @@ h2 {
   opacity: 0.6;
 }
 
+/* GOALS.md FEATURE (staged-word damage preview): a fixed-height readout above
+   the Play Word button so the number appears/updates WITHOUT reflowing the
+   layout (the space is always reserved, even when it reads "--"). */
+.damage-preview {
+  min-height: 1.4em;
+  margin: 2px 0 4px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: bold;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  color: #e8dfc8;
+  transition: color 0.15s ease;
+}
+.damage-preview.preview-empty { color: #b8ac8a; opacity: 0.55; font-weight: normal; }
+.damage-preview.preview-weak { color: #ffd257; text-shadow: 0 0 6px rgba(255, 210, 87, 0.4); }
+.damage-preview.preview-repeat { color: #c99a6a; }
+.damage-preview.preview-noeffect { color: #9a8f74; }
+
 .staged-tile {
   display: flex;
   align-items: center;

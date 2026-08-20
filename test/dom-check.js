@@ -394,6 +394,115 @@ async function main() {
     }
   }
 
+  // Staged-word damage preview (GOALS.md FEATURE): Combat.previewWord must
+  // return the EXACT damage the real submit path would deal, and must not
+  // mutate any state (it's called on every keystroke/stage/render). The
+  // strongest anti-drift proof is to compare its number against an actual
+  // playWord + item-hook run on an identical fresh setup -- if they ever
+  // diverge, the preview is lying to the player. Isolated synthetic setup,
+  // same style as the combo/Foreword blocks; the live-DOM end-to-end check
+  // (preview == damage actually dealt on submit) is further down.
+  {
+    const Combat = window.Wordbound.Combat;
+    const Tiles = window.Wordbound.Tiles;
+    const Items = window.Wordbound.Items;
+    const freshRack = () => ['C', 'A', 'T', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+
+    // Mirror the exact math submitWord does: playWord, then item onWordPlayed
+    // hooks, on a throwaway setup, and read result.damage. previewWord must
+    // equal this for the SAME inputs.
+    const actualDamage = (items, word, prevWord, wordsPlayed, comboState) => {
+      const player = { rack: freshRack(), items: items, hp: 20, maxHp: 20 };
+      const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+      const result = Combat.playWord(player, monster, word, comboState);
+      if (!result) return null;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result,
+        previousWord: prevWord || null, wordsPlayedThisFight: (wordsPlayed || 0) + 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      return result.damage;
+    };
+
+    // (a) plain word, no items -> preview matches actual.
+    {
+      const player = { rack: freshRack(), items: [], hp: 20, maxHp: 20 };
+      const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+      const p = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, {});
+      const actual = actualDamage([], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
+      check('preview: plain word is valid and matches actual submit damage', p.valid && p.damage === actual);
+      // Non-mutation: the caller's player/monster/comboState are untouched.
+      check('preview: does not remove tiles from the real rack', player.rack.length === 7);
+      check('preview: does not mutate the real monster hp', monster.hp === 1000);
+    }
+
+    // (b) combo-active state (comboAtPlay 2 -> +24%) -> preview matches actual,
+    // and previewing does NOT advance the real combo (still 2 after).
+    {
+      const player = { rack: freshRack(), items: [], hp: 20, maxHp: 20 };
+      const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+      const combo = { combo: 2, usedWords: new Set(['DOG', 'PIG']) };
+      const p = Combat.previewWord(player, monster, 'CAT', combo, {});
+      const actual = actualDamage([], 'CAT', null, 0, { combo: 2, usedWords: new Set(['DOG', 'PIG']) });
+      check('preview: combo-active word matches actual submit damage', p.valid && p.damage === actual && p.comboAtPlay === 2);
+      check('preview: previewing does not advance the real combo streak', combo.combo === 2 && !combo.usedWords.has('CAT'));
+    }
+
+    // (c) a repeat word -> preview reports isRepeat and the x0.4 penalty, and
+    // matches the actual repeat damage.
+    {
+      const player = { rack: freshRack(), items: [], hp: 20, maxHp: 20 };
+      const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+      const combo = { combo: 3, usedWords: new Set(['CAT']) };
+      const p = Combat.previewWord(player, monster, 'CAT', combo, {});
+      const actual = actualDamage([], 'CAT', null, 0, { combo: 3, usedWords: new Set(['CAT']) });
+      check('preview: repeat word flagged isRepeat and matches actual (penalized) damage', p.valid && p.isRepeat === true && p.damage === actual);
+    }
+
+    // (d) an item-modified word (Consonant Cluster, +2/consonant) -> preview
+    // includes the item bonus (must run the hooks, not just base playWord).
+    {
+      const player = { rack: freshRack(), items: ['consonant_cluster'], hp: 20, maxHp: 20 };
+      const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+      const p = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, {});
+      const actual = actualDamage(['consonant_cluster'], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
+      const base = actualDamage([], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
+      check('preview: reflects item damage modifiers (Consonant Cluster +4 for CAT)', p.valid && p.damage === actual && p.damage === base + 4);
+    }
+
+    // (e) a sequence-sensitive item (Gilded Bookmark: first word x2) reads the
+    // wordsPlayedThisFight option (previewWord adds 1, matching submit).
+    {
+      const player = { rack: freshRack(), items: ['gilded_bookmark'], hp: 20, maxHp: 20 };
+      const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+      // wordsPlayedThisFight 0 -> previewWord treats this as the 1st word -> x2.
+      const p1 = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, { wordsPlayedThisFight: 0 });
+      const base = actualDamage([], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
+      check('preview: Gilded Bookmark doubles the previewed first word (wordsPlayed 0 -> word #1)', p1.valid && p1.damage === base * 2);
+      // wordsPlayedThisFight 1 -> this is the 2nd word -> no doubling.
+      const p2 = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, { wordsPlayedThisFight: 1 });
+      check('preview: Gilded Bookmark does not double a later previewed word (wordsPlayed 1 -> word #2)', p2.valid && p2.damage === base);
+    }
+
+    // (f) invalid / unformable words -> neutral (valid:false), no throw.
+    {
+      const player = { rack: freshRack(), items: [], hp: 20, maxHp: 20 };
+      const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+      check('preview: a non-word returns valid:false', Combat.previewWord(player, monster, 'ZZZZ', null, {}).valid === false);
+      check('preview: an unformable word (not enough tiles) returns valid:false', Combat.previewWord(player, monster, 'CATTT', null, {}).valid === false);
+      check('preview: an empty word returns valid:false', Combat.previewWord(player, monster, '', null, {}).valid === false);
+    }
+
+    // (g) hexedTileId option hides a locked tile from rack-matching, exactly as
+    // submitWord does -- a word needing only the locked tile can't be previewed.
+    {
+      const rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: [], hp: 20, maxHp: 20 };
+      const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+      const tId = rack[0].id; // the 'C'
+      check('preview: without a hex, CAT is previewable from a C/A/T rack', Combat.previewWord(player, monster, 'CAT', null, {}).valid === true);
+      check('preview: with the C tile hexed, CAT is no longer previewable', Combat.previewWord(player, monster, 'CAT', null, { hexedTileId: tId }).valid === false);
+    }
+  }
+
   // Multi-phase boss traits (GOALS.md "FUN OVERHAUL 3/8"): every boss should
   // have exactly 2 phases, both drawn from the SIMPLE (bonus-on-match, 1x
   // baseline) trait pool -- never the four 0.3x-floor resistance traits
@@ -1521,7 +1630,22 @@ async function main() {
     console.log('SKIP damage checks -- no damage-dealing word possible against ' + state.monster.name + ' from this starting rack (likely a legitimate trait immunity, not a bug -- rerun if you want to double check)');
   } else {
     const before = { monsterHp: state.monster.hp, playerHp: state.player.hp, rackIds: state.player.rack.map((t) => t.id) };
+
+    // Staged-word damage preview (GOALS.md FEATURE), live end-to-end check:
+    // type the word into the real input, fire the same 'input' event the
+    // browser would, and read the number the #damage-preview element actually
+    // shows -- then submit and confirm that previewed number equals the HP the
+    // monster ACTUALLY lost. This is the anti-drift guarantee end to end,
+    // through the real game.js updateDamagePreview -> Combat.previewWord path
+    // and the real DOM element, not just the isolated unit checks above.
+    const previewEl = document.getElementById('damage-preview');
+    check('damage-preview element exists (matches the id game.js looks up)', !!previewEl);
     document.getElementById('word-input').value = word;
+    document.getElementById('word-input').dispatchEvent(new window.Event('input', { bubbles: true }));
+    const previewText = previewEl ? previewEl.textContent : '';
+    const previewNum = parseInt((previewText.match(/(\d+)/) || [])[1], 10);
+    check('damage-preview shows a number for a valid staged word (not "--")', !isNaN(previewNum) && previewText.indexOf('--') === -1);
+
     document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
     // Rack cycling, the counterattack, and damage animations are deferred by
     // TILE_PLAY_ANIM_MS (game.js) so the tile-play animation is actually visible
@@ -1533,6 +1657,16 @@ async function main() {
 
     const after = { monsterHp: state.monster.hp, playerHp: state.player.hp, rackIds: state.player.rack.map((t) => t.id) };
     check('monster HP decreased', after.monsterHp < before.monsterHp);
+    // The previewed number must equal the damage actually dealt. Only assert
+    // when the monster SURVIVED -- a killing blow clamps the HP drop at the
+    // monster's remaining HP while the preview reports the full (unclamped)
+    // damage, so the two legitimately differ on a kill. Preview correctness on
+    // a kill is covered by the isolated unit checks above (same formula).
+    if (after.monsterHp > 0) {
+      check('damage-preview number equals the damage actually dealt on submit', !isNaN(previewNum) && previewNum === (before.monsterHp - after.monsterHp));
+    } else {
+      console.log('SKIP live preview-equals-dealt check -- the chosen word killed the monster (drop is HP-clamped; preview reports full damage, covered by isolated checks)');
+    }
     check('rack cycled (discard + redraw ran)', JSON.stringify(before.rackIds) !== JSON.stringify(after.rackIds));
     check('a damage-number element appeared and was still present right after the hit', document.querySelectorAll('.damage-number').length > 0);
     const hpFill = document.getElementById('monster-hp-fill');

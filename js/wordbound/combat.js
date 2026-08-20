@@ -113,6 +113,68 @@
     };
   };
 
+  // GOALS.md FEATURE (staged-word damage preview): compute the damage a word
+  // WOULD deal if played right now, WITHOUT mutating any game state. Runs the
+  // real playWord + item onWordPlayed hooks against shallow clones of the
+  // player/monster/comboState, so the previewed number can never drift from
+  // what submit actually deals -- no scoring/combo/item formula is duplicated
+  // here. Returns { valid:false } for an unformable/invalid word (caller shows
+  // a neutral state), else { valid:true, damage, isRepeat, multiplier,
+  // comboAtPlay }.
+  //   options: { previousWord, wordsPlayedThisFight, hexedTileId }
+  //     previousWord/wordsPlayedThisFight are the per-fight sequence state the
+  //     rule-changer item hooks read (previousWord for Illuminated Initial/
+  //     Palimpsest, a 1-based play count for Errant Footnote/Gilded Bookmark).
+  //     Pass wordsPlayedThisFight as the count BEFORE this word (what state
+  //     holds now); previewWord adds 1 to match Game.submitWord, which
+  //     increments before building the hook ctx. hexedTileId hides a locked
+  //     tile from rack-matching exactly as submitWord does, so the preview
+  //     reflects a word the player can't actually complete this turn.
+  // Mutates nothing: player.rack, monster.hp, player.hp, and comboState are all
+  // cloned first, so this is safe to call on every keystroke/stage/render.
+  Combat.previewWord = function (player, monster, word, comboState, options) {
+    var Lexicon = window.Wordbound.Lexicon;
+    var Items = window.Wordbound.Items;
+    options = options || {};
+    if (!player || !monster || !word) return { valid: false };
+    var upper = String(word).trim().toUpperCase();
+    if (!upper || !Lexicon.isValidWord(upper)) return { valid: false };
+
+    // Clone every piece playWord + the item hooks mutate. Tile objects are
+    // shared by reference (nothing in this path mutates a tile's own fields --
+    // only the rack ARRAY is spliced by removeTiles, and hp/combo live on the
+    // cloned wrappers).
+    var rack = (player.rack || []).slice();
+    if (options.hexedTileId) rack = rack.filter(function (t) { return t.id !== options.hexedTileId; });
+    var playerClone = Object.assign({}, player, { rack: rack });
+    var monsterClone = Object.assign({}, monster);
+    var comboClone = comboState
+      ? { combo: comboState.combo || 0, usedWords: new Set(comboState.usedWords || []) }
+      : undefined;
+
+    var result = Combat.playWord(playerClone, monsterClone, upper, comboClone);
+    if (!result) return { valid: false };
+
+    if (Items) {
+      var ctx = {
+        player: playerClone, monster: monsterClone, word: result.word,
+        tilesUsed: result.tilesUsed, result: result,
+        previousWord: options.previousWord || null,
+        wordsPlayedThisFight: (options.wordsPlayedThisFight || 0) + 1,
+        messages: []
+      };
+      Items.runHook('onWordPlayed', ctx, playerClone);
+    }
+
+    return {
+      valid: true,
+      damage: result.damage,
+      isRepeat: result.isRepeat,
+      multiplier: result.multiplier,
+      comboAtPlay: result.comboAtPlay
+    };
+  };
+
   Combat.monsterAttack = function (player, monster) {
     var damage = monster.attack || 0;
     player.hp = Math.max(0, player.hp - damage);

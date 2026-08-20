@@ -3357,7 +3357,7 @@ Rules for the routine:
       confirmation). The subjective feel on real glass is still Jaxon's to
       confirm, per the top-of-file drag caveat.
 
-- [ ] FEATURE (Jaxon, same real-device playtest): show the staged word's
+- [x] FEATURE (Jaxon, same real-device playtest): show the staged word's
       POTENTIAL damage/score before it's played. When >= 1 tile is staged,
       display a live-updating damage preview somewhere clearly visible near
       the staging area / Play Word button (e.g. on the Play Word button itself
@@ -3387,6 +3387,40 @@ Rules for the routine:
       previewed number equals the damage actually dealt on submit; `npm run
       test:qa` clean; `npm run test:mobile` clean (the preview must not
       introduce overflow at 375px).
+      DONE 2026-08-20T19:55Z, v0.30 -> v0.31. Added `Combat.previewWord`
+      (combat.js): a PURE function that computes the exact damage a word would
+      deal by running the REAL `Combat.playWord` + item `onWordPlayed` hooks on
+      shallow clones of player/monster/comboState -- zero formula duplication,
+      so the preview can never drift from what submit deals. Mutates nothing
+      (rack/hp/monster.hp/combo all cloned first). It reads the same per-fight
+      sequence state the rule-changer items use (previousWord, a 1-based play
+      count) and hides a Hex'd tile from rack-matching exactly as submitWord
+      does. A fixed-height `#damage-preview` readout (wordbound.html, between
+      staging area and the input row; CSS reserves the space so it never
+      reflows) shows "⚔ N damage" (+ "-- weak point!" when the trait multiplies,
+      "-- repeat (x0.4)" on a repeat, "0 damage -- no effect" on a 0x trait) or
+      a dimmed "--" when the staged/typed tiles don't form a valid, formable
+      word. `updateDamagePreview()` (game.js) runs at the end of every combat
+      render (covers stage/unstage/reorder/clear) and on the desktop word-input
+      `input` event -- so BOTH the touch staging path AND desktop typing preview
+      live. Reorder is handled naturally: the preview is built from the staged-
+      order word string, so a position-sensitive reorder (e.g. Illuminated
+      Initial's first-letter match) reflects immediately.
+      VERIFIED: `npm test` ALL CHECKS PASSED (+18 new assertions: 14 isolated
+      previewWord checks proving preview.damage EQUALS an actual playWord+hook
+      run for plain/combo-active/repeat/item-modified/sequence-item words, plus
+      non-mutation, invalid-word neutral state, and the hex-hiding option; plus
+      3 live-DOM checks that the real #damage-preview element shows a number and
+      that number equals the HP the monster ACTUALLY lost on submit through the
+      real btn-submit-word click). `npm run test:mobile` clean at 375/414px (the
+      reserved-height readout adds no overflow). `npm run test:qa` 26/26 real
+      Chromium, zero errors. PLUS a throwaway real-Chromium screenshot check
+      (written, run, deleted): the readout renders "⚔ 13 damage" for a typed
+      word in its reserved slot without shifting the layout, both touch-staging
+      and desktop-typing paths confirmed populating it. No audio or drag surface
+      touched. The subjective on-glass feel (does the number read at a glance
+      mid-fight on a real phone) is Jaxon's to confirm, but placement, math
+      accuracy, and no-reflow are all verified in a real browser.
 
 - [ ] CONTENT (Jaxon, same real-device playtest): more dictionary gaps --
       "BORKS" rejected (see his screenshot; he tried ZORKS and BORKS, and
