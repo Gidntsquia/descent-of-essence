@@ -3488,3 +3488,68 @@ Rules for the routine:
       NOT touched: game.js, wordbound.html markup/CSS beyond the version bump
       -- no rendering/event surface changed, so `npm run test:mobile` /
       `npm run test:qa` were not required by this ticket and were not run.
+
+- [ ] BALANCE, high priority -- JAXON-AUTHORIZED difficulty rebalance
+      (2026-08-20T22:25Z, his explicit "fix it" on the flagged win-rate
+      collapse). The balance sim (test/balance-simulation.js, recently given
+      elite tracking in commit 5437708) shows the bot's win rate has fallen
+      to 13-17%, from ~60% at v0.16, with floor-2 strong/elite damage as the
+      identified wall. Separately, PROGRESS.md's history flags that the three
+      rounds of boss-HP cuts were tuned partly against hex-bug-INFLATED sim
+      data, so bosses may now be easier than intended relative to the floors
+      before them. Jaxon has authorized fixing BOTH under one framework. This
+      is a curve-SHAPING job, not a global difficulty knob.
+
+      MEASURABLE TARGETS (the definition of done -- verify with the sim, not
+      by feel):
+      1. Overall bot win rate lands in the 35-50% band (the sim bot is a
+         mediocre proxy for a real player, so real players should sit a bit
+         above this). Run enough iterations for the estimate to be stable --
+         if two consecutive full sim runs at the same tuning disagree by more
+         than ~5 points, run more iterations before concluding anything.
+      2. No single floor is a cliff: no floor may account for more than ~50%
+         of all deaths, and floor-2's death share specifically must come down
+         from wherever it currently is toward parity with floor 3 (use the
+         sim's per-floor/elite tracking; report the before/after death
+         distribution in PROGRESS.md).
+      3. The FIRST fight of a run stays gentle -- a new player's opening
+         encounter should almost never kill (ROADMAP.md's "first five
+         minutes" priority). Sim proxy: deaths on floor-1 regular (non-elite,
+         non-boss) encounters <= ~10% of all deaths.
+      4. Bosses stay real fights: re-examine boss HP with the FIXED sim and
+         retune within this same framework. A boss should be a meaningful
+         difficulty spike relative to its own floor's regulars (not a relief),
+         but the final-boss kill rate must not single-handedly push the
+         overall win rate below the band in target 1.
+
+      HARD CONSTRAINTS (do not undo prior design rulings):
+      - Regular monsters must still survive one decent word -- the "fights
+        last multiple turns" fix from the big review stands. Don't restore
+        one-shot-everything by gutting monster HP.
+      - Bosses remain unskippable (Jaxon's standing ruling).
+      - Don't touch the word-scoring/damage formula itself (tile values,
+        length bonuses, weakness/trait multipliers, Combat.previewWord) --
+        the preview feature just shipped against it and players learn it.
+        Tune the MONSTER side (HP, attack damage, intent frequencies, elite
+        multipliers, scaling curves) and, if needed, the player-economy side
+        (heal amounts/costs, potion availability, starting HP) -- not how
+        words convert to damage.
+
+      LATITUDE: which specific knobs to turn is the implementing run's call
+      (that's why the sim exists) -- but change knobs incrementally, re-sim
+      after each adjustment, and log the tuning trail (knob, old -> new,
+      resulting win rate) in PROGRESS.md so the reasoning is auditable. If
+      after honest effort the targets genuinely conflict (e.g. floor-2 can't
+      come down without the overall rate overshooting), get as close as
+      possible, say plainly which target gave and why, and leave the box
+      UNCHECKED with a clear note for Jaxon rather than declaring victory.
+      This may take more than one run -- fine; leave a working intermediate
+      state and the tuning trail, per the standing multi-run convention.
+
+      VERIFICATION: the sim targets above, plus `npm test` clean (it asserts
+      on combat math paths -- update any assertions that hardcode old monster
+      stats, and say so), plus `npm run test:qa` clean (it drives real
+      fights; watch that tougher monsters don't break its scripted waits --
+      bump ITS timeouts if needed, not the game's). Bump the minor version
+      (player-facing balance change) and note the rebalance in ROADMAP.md's
+      known-gaps list as resolved.
