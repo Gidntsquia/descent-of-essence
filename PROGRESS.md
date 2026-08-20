@@ -7817,3 +7817,128 @@ item after F4.5 is N6 (end-of-run stats screen) -- a state-tracking +
 two-existing-screen change, not a fresh panel, `npm test` plus
 `npm run test:mobile` mandatory (per its own VERIFICATION line, "if the
 end-screen layout changes structurally") before checking its box.
+
+---
+
+### 2026-08-20T12:22Z -- FEATURE review N6: end-of-run stats screen, checked off (v0.14 -> v0.15)
+
+Fresh run, zero memory of prior sessions. Read GOALS.md top to bottom: the
+top-of-queue BALANCE ticket (win-rate band) is still unchecked and
+explicitly flagged for Jaxon's steer, FUN OVERHAUL 4/8-8/8 stay gated
+behind it, and F4/F4.5 below those are already done. Picked up N6 (review
+N6, end-of-run stats screen) as the previous run's own stated "what's
+next" -- the next safe, unblocked queue item.
+
+**Housekeeping, unrelated to game content:** this run's checkout started
+with local `main` detached-and-stale the same way a prior run flagged
+(2026-08-20T11:40Z entry above) -- but this time the locally-cached
+`origin/main` ref was ALSO stuck on the same stale 3-commit history
+(`115e324`/`30a3bec`/`bbf3169`), not just the local branch pointer. HEAD
+itself (detached) was correctly at `86720e2` (matching the working tree's
+actual 400KB+ GOALS.md/PROGRESS.md content). A fresh `git fetch origin
+main` confirmed the real remote tip is `86720e2` -- so this was another
+stale local ref cache in the container image, not an actual force-push or
+history rewrite on GitHub. Reset local `main` to `origin/main` (now
+correctly `86720e2`) before touching anything else, same fix pattern as
+last time, flagging again in case this recurs on a third run.
+
+**What shipped:** a `state.runStats` object tracking six things across a
+run -- words played, best word (word text + its damage), total damage
+dealt, monsters defeated, floors cleared, and gold earned -- reset in
+`Game.startRun`, incremented at the natural existing call sites rather
+than new hooks:
+- `submitWord` (game.js): after the Index Card Shard bonus-damage block
+  (so `result.damage` is fully final -- trait/combo/repeat multipliers and
+  any bonus already folded in, matching exactly what the log line and
+  damage-number animation show the player), increments `wordsPlayed` and
+  `totalDamage`, and updates `bestWord`/`bestWordDamage` if this word's
+  damage is a new high. Counts every successful play, repeats included --
+  this is a record of what the player actually did, not just their
+  best-strategy plays.
+- `onMonsterDefeated` (game.js): increments `monstersDefeated` and adds
+  `totalGold` (base + overkill bonus, same number already shown in the
+  kill-gold log line) to `goldEarned`.
+- `advanceFloor` (game.js): increments `floorsCleared` once per floor
+  completed, including the final floor on a victory run (so a full clear
+  shows 3/3, and a game-over on floor 2 correctly shows 1 -- only floor 1
+  was ever fully cleared).
+- `events.js`: the 3 gold-granting event choices (`blood_bargain` +20,
+  `lucky_scroll` +25 on the 50/50 win, `mysterious_coin` +10) each also
+  add to `state.runStats.goldEarned` at their existing `state.player.gold
+  +=` lines -- `state` passed into an event's `effect()` is the full game
+  state, confirmed by checking the one call site in game.js, so this
+  needed no new plumbing.
+
+**Deliberately did NOT reuse Achievements' existing max-damage tracker**
+despite the ticket's own "reuse/share rather than double-track if clean"
+suggestion: `achievements.js`'s `currentRunState.maxDamageDealt` is a
+private module variable with no public getter (only `trackDamage()` to
+write it), and it only stores a bare number, not the word text N6 also
+needs for "best word." Reading it back out would've meant adding a new
+Achievements API just to serve this one feature, which felt like more
+surface area than a second lightweight counter at the same call site
+(`submitWord`, right next to the existing `Achievements.trackDamage`
+call) -- judged this the actually-clean option the ticket was asking for,
+not a violation of it. Noting the reasoning here since it's a judgment
+call, not a mechanical instruction.
+
+**Display:** new `renderRunStats(containerId)` (game.js) builds a 6-row
+label/value block (THEME.md-voiced labels: "Words Spelled", "Best Word",
+"Damage Dealt", "Loose Words Defeated", "Floors Cleared", "Gold Earned"),
+called from both `renderGameOver`/`renderVictory` into new
+`#game-over-run-stats`/`#victory-run-stats` `<div>`s (wordbound.html),
+placed between each screen's existing one-line summary and the seed line
+-- "next to the seed" per the ticket. New `.run-stats-summary`/
+`.run-stat-row`/`.run-stat-label`/`.run-stat-value` CSS (wordbound.css),
+matching the existing panel/seed-display color palette (parchment/gold on
+dark), no new visual language introduced.
+
+**Verification (all three gates per GOALS.md's own mandatory rules,
+before checking the box):**
+- `npm install` first (fresh container, jsdom/Playwright not yet present
+  -- installed cleanly, 63 packages, 0 vulnerabilities).
+- `npm test`: **127/127**, ALL CHECKS PASSED (12 new targeted assertions
+  added to the existing real-UI-click flow in test/dom-check.js, appended
+  right after the existing tile-reward checks so they run against a run
+  that's already played multiple real words and killed one real monster
+  through actual DOM clicks, not synthetic state pokes: `runStats.wordsPlayed
+  > 0`, `totalDamage > 0`, `bestWord` is a non-empty string,
+  `bestWordDamage` positive and <= `totalDamage`, `monstersDefeated === 1`,
+  `goldEarned > 0` -- then both end screens are forced to render via the
+  existing `openDeckViewer`/`closeDeckViewer` re-render trick already used
+  elsewhere in this test file, and the actual rendered stats-block DOM is
+  checked for the right row count and values, not just that the
+  underlying state updated).
+- `npm run test:mobile`: extended with a 4th "game-over screen" section
+  (the ticket's own "if the end-screen layout changes structurally"
+  clause clearly applies here -- a former 2-line screen now has a 6-row
+  block) using the same forced-state-plus-real-render technique the
+  existing tile-reward section already established. Clean at 375px and
+  414px: zero overflow, zero clipped elements, readable text, tappable
+  buttons.
+- `npm run test:qa`: **26/26**, real Chromium, unchanged (this ticket
+  didn't touch anything test:qa's boss-fight/reward flow exercises
+  directly), zero console/page errors -- confirms the runStats plumbing
+  didn't break the normal floor-advance path across two full boss fights.
+- Not independently screenshotted in a real browser beyond the mobile
+  script's own computed-layout checks -- the mobile script's `checkLayout`
+  helper already does real Chromium rendering + overflow/clipping
+  measurement at both target widths, which is the standard this repo's
+  other CSS-touching tickets have used as sufficient (see F4/F4.5 above),
+  so not duplicating that with an extra manual scratch script this time.
+
+**Not touched:** B6 (the tiny 3-item cleanup ticket) remains below N6 in
+the queue, open for a future run.
+
+**Current state:** v0.15. `npm test` 127/127, `npm run test:mobile` clean
+(4 screens x 2 widths), `npm run test:qa` 26/26. Working tree clean after
+this commit.
+
+**What's next:** the top-of-queue BALANCE ticket is still unchecked,
+flagged for Jaxon (needs his steer on regular/strong-tier monster
+HP/damage, full data table already in GOALS.md -- not re-litigated this
+run). FUN OVERHAUL 4/8-8/8 stay gated behind that. The next safe,
+unblocked queue item is B6 (review B6, tiny cleanup: 3 drift/latent items
+in consumables.js comments, `Game.useConsumable`'s missing death-check
+guard, and monsters.js's stale header comment) -- small and
+self-contained, good next pickup for a future run.

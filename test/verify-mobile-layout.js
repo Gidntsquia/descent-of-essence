@@ -289,6 +289,31 @@ async function main() {
       }
     }
 
+    // Test game-over screen's new end-of-run stats block (GOALS.md review
+    // N6): a row-per-stat layout added to a screen that used to be just two
+    // lines of text -- confirm it doesn't overflow/clip at these widths.
+    console.log('Testing game-over screen (end-of-run stats block):\n');
+
+    await page.evaluate(() => {
+      const state = window.Wordbound.Game._state;
+      state.screen = 'GAME_OVER';
+      window.Wordbound.Game.openDeckViewer();
+      window.Wordbound.Game.closeDeckViewer();
+    });
+
+    for (const width of widths) {
+      console.log(`${width}px width:`);
+      const result = await checkLayout(page, width);
+      results.push(result);
+
+      const hasIssues = result.checks.overflowX ||
+                       result.checks.elementsClipped.length > 0 ||
+                       !result.checks.buttonSizesOK ||
+                       !result.checks.textReadable;
+
+      console.log(`  ${hasIssues ? '⚠️  ' : '✓ '}Layout OK\n`);
+    }
+
     await page.close();
     await browser.close();
 

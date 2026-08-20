@@ -695,6 +695,45 @@ async function main() {
     }
   }
 
+  // End-of-run stats (GOALS.md review N6): submitWord/onMonsterDefeated
+  // bookkeeping (state.runStats), and the stats block rendered on the
+  // game-over/victory screens. By this point in the script at least one
+  // word has been played and the one monster on this run has been killed
+  // (tile-reward flow above), so these should all be populated.
+  {
+    const rs = state.runStats;
+    check('run stats: wordsPlayed tracked the words submitted so far', !!rs && rs.wordsPlayed > 0);
+    check('run stats: totalDamage tracked and positive', !!rs && rs.totalDamage > 0);
+    check('run stats: bestWord recorded a word', !!rs && typeof rs.bestWord === 'string' && rs.bestWord.length > 0);
+    check('run stats: bestWordDamage is positive and no more than totalDamage', !!rs && rs.bestWordDamage > 0 && rs.bestWordDamage <= rs.totalDamage);
+    check('run stats: monstersDefeated incremented for the one kill so far', !!rs && rs.monstersDefeated === 1);
+    check('run stats: goldEarned tracked from the kill\'s gold drop', !!rs && rs.goldEarned > 0);
+
+    // Force the game-over/victory screens to render with these stats and
+    // confirm the new stats block actually displays them, not just that
+    // the underlying state updated.
+    const savedScreen = state.screen;
+    state.screen = 'GAME_OVER';
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    const gameOverStatsBlock = document.getElementById('game-over-run-stats');
+    check('game-over stats block rendered with rows', !!gameOverStatsBlock && gameOverStatsBlock.children.length > 0);
+    check('game-over stats block shows the words-spelled count', !!gameOverStatsBlock && gameOverStatsBlock.textContent.indexOf(String(rs.wordsPlayed)) !== -1);
+    check('game-over stats block shows the best word', !!gameOverStatsBlock && gameOverStatsBlock.textContent.indexOf(rs.bestWord) !== -1);
+    check('game-over stats block has a Loose Words Defeated row', !!gameOverStatsBlock && gameOverStatsBlock.textContent.indexOf('Loose Words Defeated') !== -1);
+
+    state.screen = 'VICTORY';
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    const victoryStatsBlock = document.getElementById('victory-run-stats');
+    check('victory stats block rendered with rows', !!victoryStatsBlock && victoryStatsBlock.children.length > 0);
+    check('victory stats block has a Gold Earned row', !!victoryStatsBlock && victoryStatsBlock.textContent.indexOf('Gold Earned') !== -1);
+
+    state.screen = savedScreen;
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+  }
+
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 }

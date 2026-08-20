@@ -859,7 +859,7 @@ Rules for the routine:
       mechanic or balance change, matching the no-bump precedent set by
       the F2/F3/F4 tickets above.
 
-- [ ] FEATURE (review N6): end-of-run stats screen. Victory/game-over
+- [x] FEATURE (review N6): end-of-run stats screen. Victory/game-over
       currently show one static line + the seed -- nothing to share or
       screenshot, right when v0.10 made seeds visible. Track during the run
       (in state, reset in startRun): words played, best word (highest
@@ -873,6 +873,43 @@ Rules for the routine:
       increments the counters and the game-over screen renders them.
       `npm run test:mobile` if the end-screen layout changes structurally.
       Version bump.
+      DONE 2026-08-20T12:22Z: new `state.runStats` object (wordsPlayed,
+      bestWord, bestWordDamage, totalDamage, monstersDefeated,
+      floorsCleared, goldEarned), reset in `Game.startRun`, incremented at
+      the natural call sites (submitWord for words/damage/bestWord,
+      onMonsterDefeated for kills+gold, advanceFloor for floors cleared,
+      plus the 3 gold-granting event choices in events.js). Deliberately
+      NOT reusing Achievements' internal maxDamageDealt tracker (review's
+      own "reuse/share if clean" caveat) -- it isn't exposed via a public
+      getter and only tracks a bare number, not word text, so a second
+      lightweight counter at the same call site was cleaner than adding a
+      new Achievements API just to read one private field back out.
+      `renderRunStats()` (game.js) builds a 6-row label/value block, reused
+      by both `renderGameOver`/`renderVictory` into new
+      `#game-over-run-stats`/`#victory-run-stats` containers (wordbound.html)
+      placed between the existing summary line and the seed line, per the
+      ticket's "next to the seed" placement. New `.run-stats-summary`/
+      `.run-stat-row` CSS (wordbound.css), consistent with the existing
+      panel/seed-display palette. Version bumped v0.14 -> v0.15
+      (player-facing feature, per the ticket's own instruction).
+      VERIFICATION: `npm test` 127/127, ALL CHECKS PASSED (12 new targeted
+      assertions: runStats fields populated correctly after a real word
+      play + kill via actual UI clicks, both end-screen stats blocks
+      render with the right rows/values when forced via the existing
+      openDeckViewer/closeDeckViewer re-render trick). `npm run
+      test:mobile` extended with a 4th "game-over screen" section (the
+      ticket's own "if the end-screen layout changes structurally" clause
+      applies -- a former 2-line screen now has a 6-row block) -- clean at
+      375px/414px, no overflow/clipping. `npm run test:qa` 26/26 unaffected
+      (drives two real boss fights + floor advances, zero errors, though it
+      doesn't assert on runStats directly -- dom-check.js already covers
+      that). Housekeeping: this run's checkout started with local `main`
+      (and, unusually this time, the locally-cached `origin/main` ref too)
+      pointed at the same stale unrelated 3-commit history a prior run
+      flagged (2026-08-20T11:40Z entry below) -- a fresh `git fetch origin
+      main` confirmed the real remote tip matches HEAD (`86720e2`), so this
+      was a stale local ref cache again, not an actual remote rewind; reset
+      `main` to track it properly before committing.
 
 - [ ] CLEANUP, tiny (review B6): three drift/latent items, one run:
       (1) js/wordbound/consumables.js -- comment says 12% drop chance, code

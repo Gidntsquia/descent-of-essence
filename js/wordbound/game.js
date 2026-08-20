@@ -106,7 +106,8 @@
     touchDragThresholdCrossed: false, // true once drag distance exceeds 10px threshold
     selectedTileIds: [], // tiles selected for staging (in click order)
     comboState: { combo: 0, usedWords: new Set() }, // word novelty + combo streaks, reset in startCombat
-    hexedTileId: null // set by a Hex monster intent, cleared when the rack that held it cycles away (see monster-intents ticket)
+    hexedTileId: null, // set by a Hex monster intent, cleared when the rack that held it cycles away (see monster-intents ticket)
+    runStats: null // { wordsPlayed, bestWord, bestWordDamage, totalDamage, monstersDefeated, floorsCleared, goldEarned } -- reset in startRun, shown on the game-over/victory screens (review N6)
   };
   Game._state = state; // exposed for headless/browser test inspection only
   Game._getMusicMode = function () { return currentMusicMode; }; // exposed for headless/browser test inspection only (review F2)
@@ -166,12 +167,17 @@
     state.currentNodeIndex = 0;
     state.messages = [];
     state.screen = 'RUN';
+    state.runStats = {
+      wordsPlayed: 0, bestWord: null, bestWordDamage: 0, totalDamage: 0,
+      monstersDefeated: 0, floorsCleared: 0, goldEarned: 0
+    };
     if (Achievements) Achievements.resetRunState();
     startBackgroundMusic(false);
     render();
   };
 
   function advanceFloor() {
+    if (state.runStats) state.runStats.floorsCleared += 1;
     state.floorNumber += 1;
     if (state.floorNumber > Floor.TOTAL_FLOORS) {
       endRun(true);
@@ -550,6 +556,20 @@
       state.player.bonusDamageUntilEndOfTurn = 0;
     }
 
+    // End-of-run stats (review N6): every successful word play counts,
+    // repeats included -- this tracks what the player actually did, same as
+    // the log line above, not just their best-strategy plays. result.damage
+    // is final by this point (trait/combo/repeat multipliers and any bonus
+    // damage above already folded in).
+    if (state.runStats) {
+      state.runStats.wordsPlayed += 1;
+      state.runStats.totalDamage += result.damage;
+      if (result.damage > state.runStats.bestWordDamage) {
+        state.runStats.bestWordDamage = result.damage;
+        state.runStats.bestWord = result.word;
+      }
+    }
+
     // Everything from here on rebuilds the rack (directly or via render()),
     // which would cut the tile-play animation short -- deferred by
     // TILE_PLAY_ANIM_MS so it's actually visible before that happens.
@@ -645,6 +665,10 @@
     var bonusGold = Math.min(goldDrop[1], Math.floor(overkill * 0.5));
     var totalGold = baseGold + bonusGold;
     state.player.gold += totalGold;
+    if (state.runStats) {
+      state.runStats.monstersDefeated += 1;
+      state.runStats.goldEarned += totalGold;
+    }
 
     var goldMsg = 'Defeated ' + state.monster.name + '! Gained ' + totalGold + ' gold';
     if (bonusGold > 0) goldMsg += ' (including ' + bonusGold + ' overkill bonus)';
@@ -1246,13 +1270,36 @@
     }
   }
 
+  // End-of-run stats block (review N6): a compact record of the run, shown
+  // on both the game-over and victory screens so there's finally something
+  // to screenshot/share besides the seed. THEME.md-voiced labels.
+  function renderRunStats(containerId) {
+    var stats = state.runStats || {
+      wordsPlayed: 0, bestWord: null, bestWordDamage: 0, totalDamage: 0,
+      monstersDefeated: 0, floorsCleared: 0, goldEarned: 0
+    };
+    var rows = [
+      ['Words Spelled', String(stats.wordsPlayed)],
+      ['Best Word', stats.bestWord ? stats.bestWord + ' (' + stats.bestWordDamage + ' dmg)' : '—'],
+      ['Damage Dealt', String(stats.totalDamage)],
+      ['Loose Words Defeated', String(stats.monstersDefeated)],
+      ['Floors Cleared', stats.floorsCleared + ' / ' + Floor.TOTAL_FLOORS],
+      ['Gold Earned', stats.goldEarned + ' 🪙']
+    ];
+    $(containerId).innerHTML = rows.map(function (r) {
+      return '<div class="run-stat-row"><span class="run-stat-label">' + r[0] + '</span><span class="run-stat-value">' + r[1] + '</span></div>';
+    }).join('');
+  }
+
   function renderGameOver() {
     $('game-over-stats').textContent = 'You reached floor ' + state.floorNumber + '.';
+    renderRunStats('game-over-run-stats');
     $('game-over-seed').textContent = 'Seed: ' + state.runSeed;
   }
 
   function renderVictory() {
     $('victory-stats').textContent = 'You cleared all ' + Floor.TOTAL_FLOORS + ' floors. Wordbound complete.';
+    renderRunStats('victory-run-stats');
     $('victory-seed').textContent = 'Seed: ' + state.runSeed;
   }
 

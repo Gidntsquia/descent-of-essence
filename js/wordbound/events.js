@@ -24,6 +24,7 @@
           effect: function (state) {
             state.player.hp = Math.max(0, state.player.hp - 5);
             state.player.gold += 20;
+            if (state.runStats) state.runStats.goldEarned += 20;
             return 'The tome glows warmly. A fair exchange, it seems.';
           }
         },
@@ -79,6 +80,7 @@
             var roll = state.rng.chance(0.5);
             if (roll) {
               state.player.gold += 25;
+              if (state.runStats) state.runStats.goldEarned += 25;
               return 'A fascinating passage! You pocket the page—and somehow it becomes gold.';
             } else {
               state.player.hp = Math.max(0, state.player.hp - 2);
@@ -150,6 +152,7 @@
           text: 'Save it: Pocket the coin for 10 gold later',
           effect: function (state) {
             state.player.gold += 10;
+            if (state.runStats) state.runStats.goldEarned += 10;
             return 'You pocket the warm coin. The Archive always takes its currency back, eventually.';
           }
         }
