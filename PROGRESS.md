@@ -7942,3 +7942,101 @@ unblocked queue item is B6 (review B6, tiny cleanup: 3 drift/latent items
 in consumables.js comments, `Game.useConsumable`'s missing death-check
 guard, and monsters.js's stale header comment) -- small and
 self-contained, good next pickup for a future run.
+
+---
+
+### 2026-08-20T12:44Z -- CLEANUP review B6, checked off (no version bump)
+
+Fresh run, zero memory of prior sessions. Read GOALS.md top to bottom and
+ROADMAP.md. Confirmed the established pattern from the last several runs:
+the top-of-queue BALANCE ticket (win-rate band, ~line 386) is still
+unchecked and explicitly flagged for Jaxon's judgment call -- extensive
+data table and reasoning already in GOALS.md from two prior gate
+iterations, not re-litigated this run, per the routine's own guardrail
+("Jaxon is asleep... keep making progress on OTHER queue items rather than
+stalling"). FUN OVERHAUL 4/8-8/8 stay gated behind that ticket's own gate
+condition, which hasn't passed. Picked up B6 (tiny cleanup, review B6) as
+the previous run's own stated "what's next" -- the next safe, unblocked
+item.
+
+**Housekeeping:** checkout started with local `main` detached from
+`refs/heads/main` (same class of stale-ref issue two prior runs already
+flagged, though this time as a detached HEAD rather than a stale branch
+pointer). `git fetch origin main` confirmed HEAD (`fb8fbeb`) already
+matched the real remote tip -- `git checkout -B main origin/main` reattached
+the local branch cleanly, no actual history divergence.
+
+**What shipped, three small fixes in one pass, exactly per the ticket:**
+1. `js/wordbound/consumables.js`: two stale comments fixed to match the
+   code they describe (no behavior change). `getConsumableDropChance`'s
+   comment said "12%" while the code has always returned `0.20` -- comment
+   now says 20%. `rollConsumableDrop`'s comment claimed "weighted by
+   rarity" while the code has always picked uniformly among all consumable
+   ids (`ids[Math.floor(rng.next() * ids.length)]`) -- comment now says
+   "uniform among all defs, not rarity-weighted."
+2. `Game.useConsumable` (game.js): added the missing post-effect death
+   guard the ticket flagged as latent risk. Captures `monsterHpBefore`
+   before calling the consumable's `effect()`, and if `state.monster.hp <=
+   0` afterward, routes through `onMonsterDefeated(monsterHpBefore -
+   state.monster.hp, monsterHpBefore)` -- the exact same function
+   `submitWord`'s kill branch already calls -- instead of falling through
+   to a bare `render()` that would leave a dead monster still "in combat."
+   No shipped consumable deals direct monster damage today (all three
+   manipulate `ctx.player`, not `ctx.monster`), so this is purely defensive
+   -- but per the ticket's own reasoning, the first damaging consumable
+   added in a future run would otherwise silently ship this exact bug
+   class again (same shape as the two 2026-08-19 bugs this whole test
+   regime exists to prevent).
+3. `js/wordbound/monsters.js`'s header comment: checked, already reads
+   "bosses have 2, so the puzzle changes as you wear them down" -- synced
+   correctly by the FUN OVERHAUL 3/8 (multi-phase bosses) ticket landing
+   after this B6 ticket was originally written. No change needed; noted in
+   GOALS.md rather than silently skipped so it's clear this was checked,
+   not missed.
+
+**Verification:** the ticket's own VERIFICATION line said a targeted test
+was needed "unless behavior should be unchanged" -- since a real guard was
+added (item 2), added one. No shipped consumable can trigger the new
+guard, so the new jsdom test registers a throwaway test-only consumable
+(`_test_lethal_strike`, sets `ctx.monster.hp = 0` directly) inside a
+temporarily-forced combat state (borrows the run's own already-fought
+monster, `hp` bumped to 1 and restored after), calls
+`Game.useConsumable('_test_lethal_strike')` through the real public API,
+and asserts the guard actually fired: `state.screen === 'TILE_REWARD'` and
+`state.combatActive === false` afterward, rather than a dead monster still
+sitting on the combat screen. Registered/deregistered the fake def and
+restored all touched state (`combatActive`, `monster.hp`, `screen`,
+`player.consumables`) immediately after, so it can't leak into any later
+test or a real player's save data.
+- `npm install` first (fresh container, jsdom/Playwright not present --
+  installed cleanly, 63 packages, 0 vulnerabilities).
+- `npm test`: **129/129**, ALL CHECKS PASSED (2 new assertions for the
+  useConsumable death guard, on top of the existing 127).
+- `npm run test:qa`: **26/26**, real Chromium, zero console/page errors --
+  confirms the game.js change (adding a check before the existing `render()`
+  call in `useConsumable`) didn't regress the normal boss-fight/tile-reward/
+  floor-advance flow it drives end to end.
+- `npm run test:mobile` NOT run -- this ticket touched no CSS/layout, only
+  two code comments and one JS logic guard, so GOALS.md's own mobile-gate
+  rule ("CSS layout/panels... positioning, sizing, media queries, flex/grid
+  behavior") doesn't apply here.
+
+**No version bump** -- internal comment fixes plus a defensive guard with
+zero player-facing behavior change today (no shipped consumable can even
+reach the new code path), consistent with the no-bump precedent set by
+other internal-cleanup/test-only tickets in this file.
+
+**Current state:** v0.15 (unchanged). `npm test` 129/129, `npm run test:qa`
+26/26. Working tree clean after this commit.
+
+**What's next:** the top-of-queue BALANCE ticket (win-rate band) remains
+unchecked, still flagged for Jaxon -- not re-litigated again this run,
+same reasoning as the last two runs. FUN OVERHAUL 4/8-8/8 stay gated
+behind it. With B6 now done, the queue has no further safe, unblocked
+`- [ ]` items above the gated FUN OVERHAUL tickets -- a future run should
+re-check GOALS.md's full unchecked-item list (`grep '^- \[ \]'`) at the
+start in case Jaxon has reviewed and unblocked the BALANCE ticket
+overnight, or provided new steer; if not, the honest state is that the
+routine is close to idle on new work until that ticket gets a human
+decision, per the routine's own guardrails (don't invent busywork, don't
+guess further on a flagged judgment call).

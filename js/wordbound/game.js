@@ -837,8 +837,16 @@
       return;
     }
     state.player.consumables.splice(idx, 1);
+    var monsterHpBefore = state.monster.hp;
     var result = Wordbound.Consumables.useConsumable(consumableId, { player: state.player, monster: state.monster });
     if (result.message) log(result.message);
+    // No shipped consumable deals direct damage today, but a future one
+    // might (via ctx.monster.hp) -- route through the same defeat path
+    // submitWord uses instead of re-rendering onto an already-dead monster.
+    if (state.monster.hp <= 0) {
+      onMonsterDefeated(monsterHpBefore - state.monster.hp, monsterHpBefore);
+      return;
+    }
     render();
   };
 

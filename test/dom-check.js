@@ -734,6 +734,50 @@ async function main() {
     window.Wordbound.Game.closeDeckViewer();
   }
 
+  // Cleanup ticket (GOALS.md review B6, item 2): Game.useConsumable now
+  // checks whether the monster died from a consumable's effect and routes
+  // through the same onMonsterDefeated path submitWord uses, instead of
+  // just re-rendering onto an already-dead monster. No shipped consumable
+  // deals direct monster damage today, so this force-registers a
+  // throwaway test-only consumable that does, to actually exercise the
+  // guard rather than leave it unverified.
+  {
+    const Consumables = window.Wordbound.Consumables;
+    const savedCombatActive = state.combatActive;
+    const savedMonsterHp = state.monster.hp;
+    const savedScreen2 = state.screen;
+    const savedConsumables = state.player.consumables.slice();
+
+    Consumables.CONSUMABLE_DEFS['_test_lethal_strike'] = {
+      id: '_test_lethal_strike',
+      name: 'Test Lethal Strike',
+      hint: 'test-only, not a real consumable',
+      rarity: 'common',
+      effect: function (ctx) {
+        ctx.monster.hp = 0;
+        return { message: 'Test Lethal Strike used.' };
+      }
+    };
+
+    state.combatActive = true;
+    state.monster.hp = 1;
+    state.screen = 'RUN';
+    state.player.consumables.push('_test_lethal_strike');
+
+    window.Wordbound.Game.useConsumable('_test_lethal_strike');
+
+    check('useConsumable death guard: killing the monster via a consumable routes to TILE_REWARD (not left rendering a dead monster)', state.screen === 'TILE_REWARD');
+    check('useConsumable death guard: combat is no longer active', state.combatActive === false);
+
+    delete Consumables.CONSUMABLE_DEFS['_test_lethal_strike'];
+    state.combatActive = savedCombatActive;
+    state.monster.hp = savedMonsterHp;
+    state.screen = savedScreen2;
+    state.player.consumables = savedConsumables;
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+  }
+
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 }

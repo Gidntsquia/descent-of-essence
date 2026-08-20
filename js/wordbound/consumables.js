@@ -80,12 +80,12 @@
     return result;
   };
 
-  // Chance of consumable drop from defeated enemy: 12%
+  // Chance of consumable drop from defeated enemy: 20%
   Consumables.getConsumableDropChance = function () {
     return 0.20;
   };
 
-  // Roll a random consumable drop (weighted by rarity)
+  // Roll a random consumable drop (uniform among all defs, not rarity-weighted)
   Consumables.rollConsumableDrop = function (rng) {
     var ids = Object.keys(CONSUMABLE_DEFS);
     if (ids.length === 0) return null;

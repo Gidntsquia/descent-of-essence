@@ -911,7 +911,7 @@ Rules for the routine:
       was a stale local ref cache again, not an actual remote rewind; reset
       `main` to track it properly before committing.
 
-- [ ] CLEANUP, tiny (review B6): three drift/latent items, one run:
+- [x] CLEANUP, tiny (review B6): three drift/latent items, one run:
       (1) js/wordbound/consumables.js -- comment says 12% drop chance, code
       returns 0.20; comment claims rarity-weighted roll, code picks
       uniformly. Fix the COMMENTS to match code (current behavior is fine),
@@ -927,6 +927,25 @@ Rules for the routine:
       above; sync whichever ships last.
       VERIFICATION: `npm test` 16/16 (behavior should be unchanged unless
       the useConsumable guard is added -- then add a targeted test for it).
+      DONE 2026-08-20T12:44Z: (1) fixed both
+      stale comments in consumables.js to match the actual code (20% drop
+      chance, uniform pick among all defs -- no rarity weighting exists).
+      (2) added the guard in `Game.useConsumable` (game.js): captures
+      `monsterHpBefore`, and if the monster's HP is <= 0 after the effect
+      resolves, calls the same `onMonsterDefeated(damageDealt,
+      monsterHpBefore)` path `submitWord`'s kill branch uses instead of a
+      bare `render()`. Added a targeted jsdom test (a throwaway test-only
+      consumable registered/deregistered inside the test, dealing direct
+      monster damage) proving a consumable kill now correctly reaches
+      TILE_REWARD with combat inactive, since no shipped consumable could
+      exercise this path today. (3) monsters.js's header comment already
+      correctly said "bosses have 2" (synced by the FUN OVERHAUL 3/8 ticket
+      landing after this one was written) -- confirmed, no change needed.
+      `npm test` 129/129 (2 new assertions), `npm run test:qa` 26/26 (real
+      Chromium, zero errors) -- no CSS/layout touched so `npm run
+      test:mobile` isn't required by this ticket's own gates. No version
+      bump (internal cleanup/comment-sync + a defensive guard with no
+      player-facing behavior change today).
 
 - [x] BUG, high priority: the touchscreen tap-to-play fix (commit a486e06,
       2026-08-20T00:59Z, "Fix touchscreen tap bug") double-fires on every
