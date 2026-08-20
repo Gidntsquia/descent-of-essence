@@ -9131,3 +9131,94 @@ typing on touch devices, tap-to-play only, blank-tile letter picker), then
 (input-feel juice), then FUN OVERHAUL 8/8 (celebration juice), then the small
 shop-consumable-odds BALANCE ticket. MOBILE 1/3 is a meaty, careful task
 (touch detection, focus() audit, blank picker overlay) -- a good next full run.
+
+## 2026-08-20T16:14Z -- MOBILE INPUT 1/3: touch-mode tap-only input + blank picker (v0.22 -> v0.23)
+
+**Task:** GOALS.md first unchecked item -- Jaxon's mobile directive: on touch
+devices there must be NO typing (the soft keyboard popping on every tap is the
+worst mobile annoyance). Tapping letters becomes the only mobile input.
+Completed fully, box checked.
+
+**What I did (all 5 spec items):**
+- **Touch detection.** New `Game.applyTouchModeFromMedia()` reads
+  `window.matchMedia('(pointer: coarse)')` at init and re-runs on the query's
+  `change` event, toggling a `touch-mode` class on `<body>` and setting
+  `state.touchMode`. Feature-checked -- environments without matchMedia (jsdom)
+  simply stay in desktop mode. Exposed so tests can mock matchMedia and
+  re-derive the mode after boot. Desktop behavior is 100% unchanged.
+- **Hide the typing box.** CSS `.touch-mode #word-input { display:none }`
+  (css/wordbound.css). Play Word / Clear stay visible. The two `.focus()` call
+  sites that popped the keyboard (`selectTileForWord` at the old game.js:1403,
+  the Clear handler at the old :2122) are now both gated on `!state.touchMode`.
+- **Submission source.** Extracted the `selectedTileIds -> word` mapping into a
+  new `stagedWord()` helper (a staged blank contributes its picker-assigned
+  letter; every other tile its own). Touch-mode `btn-submit-word` plays
+  `stagedWord()` instead of `input.value`; Clear empties `selectedTileIds` +
+  `blankAssignments` without focusing. Desktop typing + Enter path untouched.
+- **Blank tiles.** New `#blank-picker-overlay` (A-Z grid, same overlay/render
+  pattern as the how-to-play overlay, toggled in `render()` via
+  `renderBlankPicker()`). In touch-mode, tapping a `'?'` tile opens the picker;
+  picking a letter records it in a new `state.blankAssignments` map and stages
+  the tile; tapping a staged blank unstages it and forgets the letter. The
+  chosen letter feeds the word STRING that `Combat.playWord` re-resolves via
+  `Lexicon.canFormFromRack` -- which already prefers a real matching tile over
+  a blank, so if the player also holds that real letter it gets consumed
+  instead (player-favorable; not a parallel resolver, exactly as the ticket
+  asked). Staged blanks render their chosen letter in the staging area.
+- **Copy.** How-to-Play blank tip (`#howto-blank-tip`) swaps to tap-first
+  wording in touch-mode via `applyTouchModeCopy()`; reverts on desktop.
+
+**New state fields (game.js):** `touchMode`, `blankAssignments`,
+`blankPickerOpen`, `blankPickerTileId`; all reset in `startCombat` and cleared
+on submit/clear alongside the existing `selectedTileIds` reset.
+
+**Verified:**
+- `npm test` **292 checks, ALL PASSED** (~24 new touch-mode assertions: under
+  a mocked-coarse matchMedia the body gets `touch-mode` and the tip flips;
+  tapping tiles stages them and `stagedWord()` reflects them; a `focus()` spy
+  proves the input is NEVER focused while staging, clearing, or submitting; a
+  `submitWord`-argument spy (with the hidden input deliberately set to a
+  different value) proves Play Word submits the STAGED word, not the input;
+  the blank picker opens on a blank tap, renders 26 letters, assigns/stages on
+  pick, and unstages on re-tap; then the mode reverts cleanly to desktop and
+  the tip reverts). To keep the in-progress fight pristine for the later
+  variant/stats checks, the submit-source assertion STUBS `submitWord` to
+  capture its arg rather than playing a real word -- so the block mutates no
+  combat state (an earlier attempt that played a real word perturbed the
+  seeded RNG/rack and evicted a downstream log line from the 6-entry cap;
+  switched to the stub instead of a fragile full-fight rewind).
+- `npm run test:mobile` **clean at 375/414px**, PLUS a new real-browser
+  touch-mode section I added to verify-mobile-layout.js confirming the bits
+  jsdom can't compute: `#word-input` is actually `display:none`, Play Word /
+  Clear stay visible, and the A-Z picker grid (26 letters) fits 375px with 0
+  horizontal overflow.
+- `npm run test:qa` **26/26** (desktop combat path untouched, zero errors).
+- `npm run test:itch-build` **ALL CHECKS PASSED** (zip 1.41 MB, no new JS
+  file so no manifest change needed).
+- **Throwaway real-Chromium end-to-end** (written, run, deleted): forced
+  touch-mode on a 375px page, entered a real fight, TAPPED a word's tiles
+  ("AD"), confirmed `stagedWord()` matched and `#word-input` was
+  `display:none`, hit Play Word -> monster took real damage (57->54), the log
+  showed the played word + the monster's counterattack, and staging cleared;
+  then tapped an injected blank -> picker opened -> picked K -> staged as K.
+  **Zero page errors.** This closes the one gap jsdom left (it stubbed the
+  real submit): the actual tap -> Play Word -> damage path works in a browser.
+
+**NOT verified (honest caveat, per house rules):** whether the OS soft
+keyboard actually stays DOWN on a physical phone. That's the entire point of
+hiding the input + never focusing it, and both are confirmed present in a real
+browser -- but only Jaxon's real device can prove the keyboard never appears.
+No audio or drag-and-drop surface was touched by this change (2/3 is the drag
+work), so the usual jsdom blind spots for those don't apply here.
+
+**State:** committed (cb0916b) and pushed to main. Box checked in GOALS.md.
+Version v0.22 -> v0.23 (wordbound.html version-info).
+
+**What's next:** MOBILE INPUT 2/3 -- make tile play physically interactive
+(FLIP slide animations rack<->play area, staged tiles reorderable by drag,
+drag-out-to-remove; works with BOTH touch and mouse). It's a large, careful
+task (the ticket flags the render-innerHTML-mid-gesture hazard and the
+killing-blow death-beat window). Then 3/3 (input-feel juice), FUN OVERHAUL 8/8
+(celebration juice), and the small shop-consumable-odds BALANCE ticket. Note
+for 2/3: `stagedWord()` and `state.blankAssignments` from this ticket are the
+staging source of truth it will build the reorder/remove mechanics on top of.
