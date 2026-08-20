@@ -9012,3 +9012,59 @@ Jaxon is playing the deployed build on his phone and sent two directives:
 
 Queue order now: boss-skip DESIGN FIX -> wordlist -> MOBILE 1/3 -> 2/3 ->
 3/3 -> FUN 8/8 -> consumable-odds.
+
+## 2026-08-20T15:22Z -- Orchestrator DESIGN FIX: all bosses unskippable (v0.20 -> v0.21)
+
+**Task:** GOALS.md's first unchecked item -- Jaxon's ruling "You should not be
+able to skip the final boss fight for the win." Done exactly as spec'd.
+
+**What I did:**
+- `js/wordbound/game.js` `enterCurrentNode`: the pending-skip check now
+  special-cases `node.type === 'boss'` -- it `startCombat()`s the boss, logs
+  `The <boss name> will not be avoided.`, and LEAVES
+  `pendingEventSkipNextCombat` true so the paid-for skip carries to the next
+  regular combat. Removed the old `advanceFloor()`-on-skipped-boss branch and
+  its stale rationale comment (was game.js:234-239) -- unreachable for bosses
+  now. Regular/elite combat skip path unchanged (flag consumed, node cleared,
+  index bump).
+- `js/wordbound/events.js`: Empty Shelf "sit and breathe" choice text now ends
+  `(bosses will not be avoided)`.
+- `wordbound.html`: version-info v0.20 -> v0.21.
+- `test/dom-check.js`: 15 new boss-skip assertions (see below).
+- Elite nodes untouched -- still skippable, only `node.type === 'boss'`
+  triggers the new path. Confirmed by re-reading the branch.
+
+**Verified (npm test, jsdom):** 256 checks pass (was 241 + 15 new). New
+assertions drive the REAL flow (enterCurrentNode -> startCombat -> submitWord
+kill -> tile/boss reward -> advanceFloor), not synthetic calls:
+- (a) regular combat + pending skip -> no combat starts, flag cleared, node
+  cleared.
+- (b) boss node + pending skip -> combat STARTS, monster is the boss, flag
+  survives entry, `will not be avoided` line logged; killing the FINAL
+  (floor-3) boss still reaches VICTORY (confirms removing the skipped-boss
+  advanceFloor branch didn't break the real kill->win path).
+- (c) a non-final (floor-1) boss: flag survives the whole boss fight + floor
+  advance, then skips the first regular combat on floor 2 and is consumed
+  there.
+- (d) event choice text contains the new wording.
+Zero console/page errors across the whole boss-skip block.
+
+**Verified (npm run test:qa, real Chromium):** 26/26, unchanged, zero errors.
+
+**Not verified (honest caveat):** jsdom can't show the visible combat-log line
+render in a real browser. But the log message is a plain `state.messages`
+string push (no audio, no drag-and-drop), and the full state machine + screen
+transitions are confirmed end-to-end, so confidence is high. No audio/drag
+surface touched by this change.
+
+**State:** working tree clean, committed (c43a423) and pushed to main. Box
+checked in GOALS.md.
+
+**What's next:** GOALS.md's next unchecked items are FUN OVERHAUL 8/8
+(celebration juice -- combo chip pops, screen shake on big hits,
+"MAGNIFICENT!" banner + bonus gold on 7+ letter words, item-proc flashes; all
+must respect prefers-reduced-motion), then a small BALANCE ticket (FUN
+OVERHAUL 4/8's 8 items diluted the shop item:consumable ratio). 8/8 is
+animation-heavy -- jsdom can confirm class/state presence and the bonus-gold
+log/math but not shake/animation timing; plan to say so plainly per house
+rules.
