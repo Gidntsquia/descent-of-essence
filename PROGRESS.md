@@ -9068,3 +9068,66 @@ OVERHAUL 4/8's 8 items diluted the shop item:consumable ratio). 8/8 is
 animation-heavy -- jsdom can confirm class/state presence and the bonus-gold
 log/math but not shake/animation timing; plan to say so plainly per house
 rules.
+
+## 2026-08-20T15:45Z -- Wordlist ENABLE1 union (ZITS et al.), v0.21 -> v0.22
+
+**Task:** GOALS.md first unchecked item -- Jaxon hit `"ZITS" is not playable`
+live on his phone. Base dictionary omitted informal/newer words.
+
+**What I did:**
+- Confirmed the four probes (ZITS/ZIT/SNIT/LUTZ) were all missing from the
+  497,871-word WORDLIST while ZAGS/QUIZ/ADZE/WHIZ were present.
+- Fetched ENABLE1 (public domain,
+  https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt,
+  172,823 lines; contains all four probes). Filtered to purely A-Z, length
+  2-15, uppercased -> 168,551 kept.
+- Unioned into the existing FULLY-EXPANDED WORDLIST (i.e. after its runtime
+  -S/-ES/-IES/-ER/-IER/-ING generation, which I evaluated first by loading
+  the module). **Strictly additive: seeded the merge Set with the old
+  expanded list, then only added** -- zero removals, guaranteed by
+  construction and re-confirmed by pre-existing-word regression probes.
+- Added **50,764 new words**; total **497,871 -> 548,635**, deduped + sorted.
+- Rewrote `js/wordbound/wordlist.js` as a single fully-baked static `WORDS`
+  array. The old file generated regular inflections at runtime; those are now
+  baked in as literals, so this is NOT a behavior change -- the exact same
+  words the runtime produced, now static, plus the ENABLE1 union. Simpler and
+  faster to load. `WORD_SET` still built from `WORDS` at the bottom.
+- `Lexicon.isValidWord` uses `WORD_SET.has(upper)` (set membership), and all
+  QA scripts scan `WORDLIST`/`WORD_SET` directly, so validation AND word
+  search both pick up the new words with no other code change.
+
+**Separate pre-existing bug found and fixed (a real itch launch-blocker,
+NOT part of this ticket):** running `npm run test:itch-build` (per the
+ticket's own verification step) revealed the packaged build 404'd on
+`js/wordbound/intents.js` -- that file is loaded by wordbound.html but was
+never added to `tools/build-itch.js`'s `DEPENDENCIES` manifest when FUN
+OVERHAUL 2/8 introduced it. In the deployed itch build the whole monster-
+intents system (and thus combat) would break. Added the one missing manifest
+line; build is now clean. Flagging because it means any itch build cut
+between FUN OVERHAUL 2/8 and now was shipping broken.
+
+**File size:** wordlist.js 2.5MB -> 7.1MB on disk (all forms now static
+literals), but the itch ZIP only went 1.40 -> 1.41 MB -- the wordlist gzips
+to almost nothing. There is NO size gate in test:itch-build (it only reports
+the number), so nothing to raise.
+
+**Verified:**
+- `npm test` **267 checks, ALL CHECKS PASSED** (11 new wordlist probes in
+  dom-check.js: ZITS/ZIT/SNIT/LUTZ now valid, ZAGS/QUIZ/ADZE/WHIZ/CAT/GARDEN
+  still valid, WORD_SET size > 500000).
+- `npm run test:itch-build` **ALL CHECKS PASSED** (was FAILING before, on the
+  intents.js 404 -- now clean, real Chromium load, zero bad requests).
+- No audio or drag-and-drop surface touched by this change, so the usual
+  jsdom blind spots don't apply here.
+
+**Version:** v0.21 -> v0.22 (wordbound.html version-info) -- user-facing
+(rejected words now accepted).
+
+**State:** committed and pushing to main. Box checked in GOALS.md.
+
+**What's next:** GOALS.md next unchecked items are MOBILE INPUT 1/3 (no
+typing on touch devices, tap-to-play only, blank-tile letter picker), then
+2/3 (FLIP slide animations + drag reorder + drag-out-to-remove), 3/3
+(input-feel juice), then FUN OVERHAUL 8/8 (celebration juice), then the small
+shop-consumable-odds BALANCE ticket. MOBILE 1/3 is a meaty, careful task
+(touch detection, focus() audit, blank picker overlay) -- a good next full run.
