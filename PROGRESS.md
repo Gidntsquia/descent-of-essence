@@ -6130,3 +6130,138 @@ Next unchecked GOALS.md item: FUN OVERHAUL 2/8 -- monster intents
 (telegraphed next actions). Good pickup for the next run. Consider running
 a fuller n=20+ `balance-simulation.js` pass first if there's time, per the
 flag above, though it isn't blocking.
+
+---
+
+## 2026-08-20T08:36Z -- QA pass on `fd0396d` (v0.11): balance-retune math
+verified live in real browser, clean, no game bugs found
+
+**Commit tested:** `fd0396d034abdd41a127bce35a694f9c30e3763e` (2026-08-20
+08:13:17Z) -- the BALANCE N1/N2/N3 completion commit, HEAD at the start of
+this pass. **Origin moved mid-pass:** `85d3679` ("FUN OVERHAUL 1/8: word
+novelty + combo streaks, v0.11 -> v0.12") landed and was pushed while this
+pass's real-browser testing was already underway. Per this pass's own
+instructions ("if origin moves mid-pass, note it, don't chase"), it was
+fast-forward-pulled in before this entry was committed/pushed (so nothing
+gets lost or force-pushed over) but was **not** re-tested -- everything
+below was run against `fd0396d`, before the combo/novelty mechanic existed.
+Confirmed via grep (`usedWords`/`combo`/`COMBO` across game.js/combat.js/
+lexicon.js, plus `combo` across wordbound.html/css) that it genuinely had
+not landed yet at the tested commit -- matches GOALS.md showing that ticket
+unchecked at pull time, so this pass correctly did zero combo-specific
+verification (nothing to check).
+
+**Baselines (all on `fd0396d`):** `npm test` 25/25, `npm run test:mobile`
+clean at 375/414px on main menu + combat, `npm run test:qa` 24/24. All
+clean, no stale-cap or timing issues despite the task-doc's warning that
+longer post-retune fights might strain `test:qa`'s loop caps -- they had
+headroom.
+
+**Read GOALS.md's N1/N2/N3 ticket + PROGRESS.md's tail before testing** to
+judge against actual spec/shipped state, not the ticket's own starting
+hypothesis. Important correction: the ticket text's suggested starting
+bands (weak 15-20/normal 28-38/strong 45-60 HP) were superseded during
+implementation -- **numbers actually shipped and live at this commit are
+weak 17-22, normal 52-58, strong 82-88** (grounded in measured single-word
+damage output, not the starting hypothesis; see PROGRESS.md's
+`2026-08-20T08:11Z` entry for the full two-session history). Verified this
+directly against `js/wordbound/monsters.js` rather than trusting either the
+ticket text or the log.
+
+**Targeted real-browser verification of the retune's three user-visible
+claims** (new script, `verify-balance-retune.js`, added to the scratch dir
+for reuse): runs real game code (`Lexicon.scoreWord`, `Items.getRackCapacity`,
+`Game.submitWord`) inside actual Chromium, not a reimplementation of the
+formulas.
+- **(a) weak floor-1 monster survives a mediocre word:** forced a `slime`
+  (weak, 20 maxHp) into an organically-drawn rack's combat, played the
+  median-scoring (not best) playable word from that rack -- dealt ~4
+  damage, left the monster at 16/20 HP. Confirmed: no longer a reflexive
+  one-shot the way pre-retune 6-22 HP monsters were.
+- **(b) overkill gold capped at the monster's base-drop max:** engineered a
+  guaranteed-lethal ~59-overkill hit against the same monster (goldDrop
+  max 3) -- bonus gold came back as exactly 3 (total gold +5 = 2 base roll
+  + 3 capped bonus), matching `game.js`'s `Math.min(goldDrop[1],
+  Math.floor(overkill * 0.5))`.
+- **(c) bingo bonus gates on actual rack capacity, not hardcoded 7:**
+  confirmed `Items.getRackCapacity` dynamically reflects owned items
+  (adding `spare_satchel` raised it by exactly 1), then confirmed
+  `Lexicon.scoreWord`'s bingo gate directly: 7-of-8 tiles used at capacity
+  8 correctly gets **no** bingo bonus (the exact pre-retune bug), 8-of-8
+  correctly gets +15, and a plain 7-of-7 (no capacity item) still bingos
+  normally (no regression). Side note, not a bug: the QA scripts'
+  always-pick-character-0 convention means character 0 (The Archivist)
+  already starts with `spare_satchel`, so the baseline capacity read 8
+  rather than a bare 7 before the manual add-a-second-one step -- the
+  additive formula being tested doesn't care about the starting baseline,
+  but flagging so nobody reads "capacityBefore: 8" out of context later.
+- All 6 checks passed **after this pass caught and fixed a bug in its own
+  script**: the first draft reused a `best`-word snapshot computed from the
+  rack *before* an earlier word was played, but `cycleRackAfterWord()`
+  fully discards+redraws the rack after every play (confirmed in
+  `game.js`) -- the stale word was correctly rejected by the real
+  `Game.submitWord` ("not playable"), which the script initially
+  misreported as an "overkill-gold-capped" FAIL. Recomputing the lethal
+  word against the current rack immediately before use fixed it. Per this
+  pass's own instructions to triple-check script logic before trusting a
+  "bug": this was entirely the script's fault, not the game's, and was
+  never close to becoming a false ticket.
+
+**Full real-browser regression** (`qa-playthrough.js`, 2 runs, real clicks
++ real typed/tile-staged word submission alternating per turn, unmodified
+from last pass -- still fit for purpose since combo/novelty hadn't landed):
+- **Run 1: VICTORY.** Visited every node type the game generates --
+  combat, shop, treasure, event, boss, elite, rest -- plus `BOSS_ITEM_REWARD`
+  twice (floor 1 and floor 2 boss kills), each correctly sequenced (tile
+  reward panel, then boss-reward panel, never stacked), granting exactly
+  +1 item and advancing the floor each time. Seeded run (typed custom seed)
+  reflected correctly in `state.runSeed` and the on-screen seed display.
+  Dozens of fights, every played word distinct (naturally, since the
+  word-finder always takes the current rack's best word and the rack fully
+  cycles every turn -- no repeats to manage since novelty scoring doesn't
+  exist yet at this commit). Regular fights consistently took 2-4 words
+  now, matching the retune's target.
+- **Run 2: GAME_OVER.** Died on floor 1 after accumulating counterattack
+  damage across a few fights, including one turn where the best available
+  word was weak (~10 damage) and the monster hit back. Exactly the kind of
+  outcome the retune ticket intends (regular fights now carry real risk) --
+  per this pass's brief, GAME_OVER is a normal, non-bug outcome, and having
+  one VICTORY + one GAME_OVER across the two runs matches the ~50%-ish
+  skilled-play win rate the balance pass documented.
+- Zero console/page errors and zero softlocks across both runs. Panel-
+  stacking check, bonus-tile CSS-class check (`bonus-mult-play` observed),
+  and the How-to-Play overlay dismiss-once behavior all clean.
+
+**Consumable buy+use** (`qa-consumable-real-clicks.js`, unmodified): bought
+an Errata Slip via a real click in the shop, opened the consumables panel
+and used it via a real click -- HP went 12 -> 20 (correctly capped at
+maxHp), consumable count 3 -> 2. No page errors.
+
+**Result: clean pass, zero genuine game bugs found.** All three N1/N2/N3
+balance claims verified true in live real-browser play, not just by
+reading the diff. No GOALS.md tickets added.
+
+**What this pass did NOT cover** (flagging for the next QA pass rather
+than silently skipping): `85d3679` (v0.12, live on origin as of this
+entry) added combo/word-novelty scoring, a combo UI chip, and pitch-scaled
+SFX -- none of it was exercised by this pass's real-browser runs, since
+combo didn't exist yet when they ran. That commit's own PROGRESS.md entry
+already self-flags SFX pitch scaling as unverifiable in jsdom and wanting
+real-browser confirmation, plus a fuller n=20+ `balance-simulation.js`
+confirmation run beyond its own n=10 spot check -- both are good candidates
+for the next real-browser pass, alongside the combo chip's actual on-
+screen behavior (distinct words growing the multiplier and its display,
+a repeat word triggering the x0.4 penalty + visible combo reset).
+
+**Scripts:** `verify-balance-retune.js` added to the scratch dir
+(`/Users/jaxon/.claude/jobs/73872751/tmp/`) for reuse -- targeted formula-
+level checks for the three balance claims above, useful again after any
+future numeric retune. `qa-playthrough.js` and `qa-consumable-real-clicks.js`
+reused unmodified; still fit for purpose.
+
+**Current state:** HEAD now `85d3679` (v0.12) after fast-forward-pulling
+origin's mid-pass push -- this pass's own testing covers `fd0396d` (v0.11)
+only, see above. `npm test`/`npm run test:qa` were not re-run against
+`85d3679` by this pass (that commit's own entry already reports 34/34 and
+24/24 respectively). Next unchecked GOALS.md item: FUN OVERHAUL 2/8 --
+monster intents.
