@@ -5103,6 +5103,41 @@ or come back from a physical-device test with new findings to ticket.
 
 ---
 
+## 2026-08-20T05:15Z -- Idle run, no new work (queue and known-gaps still empty)
+
+**Context on entry:** same stale-local-`main`-ref situation the previous run
+flagged (container's local `main` pointed at an old commit, `HEAD` was
+detached at the real latest work). Confirmed with `git fetch origin main`
+that `origin/main` matches the detached `HEAD` (200920d) -- no data loss,
+just a stale local branch pointer from container init, same as last time.
+Reset local `main` to track `origin/main` (`git checkout -B main
+origin/main`) before doing anything else. Flagging again since this is now
+the second consecutive run hitting it -- worth Jaxon knowing this seems to
+happen on every fresh container, not a one-off.
+
+**Checked, per the routine's own guardrails, before concluding idle:**
+1. GOALS.md: `grep '^- \[ \]'` -- zero matches, every item still checked off.
+2. ROADMAP.md's "Current known gaps toward launch-readiness" section --
+   unchanged since the last run: every remaining item is either something
+   only Jaxon can do from a real device/browser (physical-phone touch test,
+   a feel/fun playtest, the actual itch.io upload) or a product-scope
+   decision only he can make (meta-progression beyond achievements,
+   deliberately left undefined). Nothing sandbox-actionable.
+3. Ran `npm install` (fresh container, `node_modules` didn't exist yet) then
+   `npm test` as a sanity check even though no code changed this run: 16/16
+   clean, no regressions since the last commit.
+
+**No changes made.** Not bumping the version, not touching GOALS.md or
+ROADMAP.md beyond this log entry -- there's genuinely nothing queued.
+
+**Current state:** v0.10, `npm test` 16/16, `main` in sync with
+`origin/main` at 200920d. **Idle, same as the prior run.** Future runs:
+re-read GOALS.md and ROADMAP.md fresh rather than trusting this entry --
+Jaxon may have added new tickets or come back from a physical-device test
+or playtest with new findings since this run.
+
+---
+
 ## 2026-08-20T05:40Z -- Full bugs/feel/fun review (Jaxon, live) -> 13 new tickets queued
 
 Jaxon asked live in-session for a three-pass review of Wordbound: bugs,
