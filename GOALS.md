@@ -51,10 +51,162 @@ Rules for the routine:
 
 ## Queue
 
-- [ ] BUILD/LAUNCH, highest priority: produce a packaged, itch.io-ready build of
-      Wordbound. Queued 2026-08-20 by the orchestrator from ROADMAP.md's known-gaps
-      list (now the top remaining launch blocker -- everything else on the old list
-      is resolved or ticketed below).
+- [ ] BUG, high priority (softlock, game-breaking): skipping a fight via the
+      "Sit and breathe" event choice permanently strands the run if the
+      skipped fight turns out to be that floor's boss. Found 2026-08-20 during
+      a real-browser Playwright QA pass (adapted qa-playthrough.js) testing
+      commit e4d9120 -- reproduced organically in one full run (Run 2 of 2),
+      then confirmed deterministically with an isolated repro that sets
+      `pendingEventSkipNextCombat = true` and fast-forwards to a floor's last
+      (boss) node before doing a REAL click on its node-map pill.
+      ROOT CAUSE: js/wordbound/game.js's `Game.enterCurrentNode` (lines
+      169-202), specifically the combat-skip branch at lines 173-183:
+      ```
+      if (node.type === 'combat' || node.type === 'elite' || node.type === 'boss') {
+        // Check if an event (like Empty Shelf) skipped this combat
+        if (state.pendingEventSkipNextCombat) {
+          state.pendingEventSkipNextCombat = false;
+          log('You skip the next encounter.');
+          node.cleared = true;
+          state.currentNodeIndex += 1;
+          render();
+          return;
+        }
+        startCombat(node);
+      }
+      ```
+      This skip path applies uniformly to combat/elite/boss nodes and just
+      bumps `currentNodeIndex` -- it has no floor-advance logic, unlike every
+      other way a boss node gets resolved (a real boss kill goes through
+      `onMonsterDefeated` -> `resolveTileReward` -> `resolveBossItemReward` ->
+      `advanceFloor()`, ~lines 529-601). Per js/wordbound/floor.js line 86
+      (`var types = ['combat'].concat(body).concat(['boss'])`), the boss node
+      is ALWAYS the last node in `state.floor.nodes`. So when the skip fires
+      on the boss specifically, `currentNodeIndex` becomes equal to
+      `floor.nodes.length` -- one past the end of the array. `state.screen`
+      stays `'RUN'`, `combatActive` is false, `currentNode()` returns
+      `undefined`, and `renderNodeMap()` has no node to render a
+      `.node-pill.node-current` for. Result: no combat, no clickable node, no
+      valid action of any kind -- the run is permanently stuck. The trigger is
+      js/wordbound/events.js's `empty_shelf` event (lines 100-111), whose
+      first choice ("Sit and breathe: Recover 3 HP, skip the next fight",
+      line 105) sets `state.pendingEventSkipNextCombat = true` unconditionally
+      -- nothing about that event knows or cares whether the next combat-type
+      node the player reaches is the boss.
+      REPRO (verified with a real click on the real pill, not synthetic
+      render forcing): set `state.pendingEventSkipNextCombat = true`, set
+      `state.currentNodeIndex = state.floor.nodes.length - 1` (the boss node),
+      trigger a real re-render (e.g. open/close the deck viewer), then click
+      `.node-pill.node-current` for real. Result observed: `currentNodeIndex`
+      8 on an 8-node floor (`floorNodeCount: 8`), `screen: 'RUN'`,
+      `combatActive: false`, zero `.node-pill.node-current` elements in the
+      DOM. No console/page errors -- it fails silently, which makes it worse
+      for a real player (no crash to notice, just an unresponsive map).
+      FIX: in the skip branch, check whether the skipped node was the boss and
+      route through the same floor-advance path a real boss kill uses instead
+      of a bare index increment:
+      ```
+      if (state.pendingEventSkipNextCombat) {
+        state.pendingEventSkipNextCombat = false;
+        log('You skip the next encounter.');
+        node.cleared = true;
+        if (node.type === 'boss') {
+          advanceFloor(); // boss is always the last node; a bare index bump strands the run
+          return;
+        }
+        state.currentNodeIndex += 1;
+        render();
+        return;
+      }
+      ```
+      `advanceFloor()` already resets `currentNodeIndex` to 0 for the new
+      floor, so no separate increment is needed on that branch. Deliberately
+      skip the tile-reward and boss-item-reward screens on this path (no
+      monster was actually defeated, so no kill rewards should be granted --
+      only the floor-advance itself is missing, not the boss's loot).
+      VERIFICATION: `npm test` (16/16). Add a targeted check (jsdom or
+      Playwright) that sets up this exact scenario -- pending skip flag true,
+      current node index at the floor's last (boss) node -- enters the node,
+      and confirms the run ends up on a valid, playable state afterward
+      (either a fresh floor's first node clickable, or VICTORY if it was floor
+      3's boss) rather than stuck with no current-node pill. Also re-run a
+      full Playwright playthrough or two to confirm no regression to the
+      normal (non-skip) boss-kill -> tile-reward -> boss-item-reward ->
+      next-floor flow, which is working correctly as of e4d9120 (verified
+      twice in this same QA pass, including the brand-new boss-item-reward
+      feature end to end).
+
+- [ ] BUG/TEST-INFRA: `npm run test:mobile` currently fails (exit code 1) on
+      this checkout due to the main-menu title overflowing at 375px width --
+      worth fixing both because it's a real overflow a narrow-phone player
+      could hit, and because it currently blocks the mandatory mobile-layout
+      gate GOALS.md's own top-of-file rules require for CSS-touching tasks.
+      Found 2026-08-20 while re-running `npm run test:mobile` on commit
+      e4d9120 as part of a QA pass; verified this is NOT a regression from
+      e4d9120 itself (that commit touched no CSS -- confirmed via `git diff
+      --stat`) by checking out the immediately-prior commit (7637929, the one
+      whose own PROGRESS.md entry claims "Main menu 375px/414px: zero
+      overflow... Layout OK clean") in a separate worktree and reproducing
+      the identical 25px overflow there too. So either that verification
+      didn't actually reproduce what it claimed, or (more likely, worth
+      checking) it's font-availability-environment-dependent -- see below --
+      but either way it's real and currently failing on this checkout today.
+      ROOT CAUSE: css/wordbound.css lines 32-37, `.game-title`:
+      ```
+      .game-title {
+        font-size: 2.6rem;
+        letter-spacing: 0.12em;
+        margin: 0 0 8px;
+        color: #f0d789;
+      }
+      ```
+      rendered as an `<h1>` (default bold) in `font-family: 'Georgia', 'Times
+      New Roman', serif` (body rule, css/wordbound.css line 5). "WORDBOUND" is
+      a single unbreakable word with no `white-space`/`overflow-wrap`
+      handling, so it can't wrap. Measured directly at 375px viewport width:
+      the H1's own box is 303px wide (`clientWidth`) but its rendered text
+      needs 364px (`scrollWidth`) at `700 41.6px Georgia` with 0.12em letter-
+      spacing -- a 61px internal overflow that pushes the whole document's
+      `scrollWidth` to 400px against a 375px `clientWidth`, a 25px horizontal
+      overflow. Confirmed visually with a Playwright screenshot at 375px: the
+      final "D" of "WORDBOUND" is clipped off the right edge of the panel and
+      the page. The existing `@media (max-width: 480px)` block added for the
+      earlier mobile-overflow fix (css/wordbound.css lines ~537-568) only
+      covers `.run-header`/`.run-header-actions`/`#music-volume`/
+      `.word-input-row`/`#word-input` (combat screen) -- it does not touch
+      `.game-title` or anything on the main menu at all, so this was never
+      actually fixed, just not exercised by whatever environment produced the
+      "clean" claim. Plausible explanation for the environment difference:
+      "Georgia" is a real installed font with fairly wide glyph metrics on
+      the machine this was tested on just now; a Linux sandbox without
+      Georgia installed would fall back to a narrower substitute serif font
+      and might genuinely render the title short enough to fit -- which would
+      make the bug intermittent across environments/devices rather than
+      fixed, and real phone browsers (the whole point of this test) are at
+      least as likely to lack "Georgia" as a Linux CI box is.
+      FIX: make `.game-title` robust regardless of which serif font actually
+      resolves, rather than relying on a specific font's metrics fitting by
+      luck -- e.g. reduce `font-size` (and/or `letter-spacing`) for narrow
+      viewports via a media query (add `.game-title` to the existing
+      `@media (max-width: 480px)` block, or a `clamp()`-based fluid font-size
+      that scales down before 375px), and/or add `overflow-wrap:
+      break-word`/`word-break: break-word` as a safety net so an unexpectedly
+      wide render degrades to wrapping instead of clipping off-screen.
+      VERIFICATION: `npm run test:mobile` exits 0 with zero horizontal
+      overflow reported on the main menu at both 375px and 414px (currently
+      the 414px case already passes; only 375px is broken). Since this
+      appears to be font-metric-sensitive, don't just trust a single clean
+      run -- also directly check `document.querySelector('.game-title')`'s
+      `scrollWidth` vs `clientWidth` is comfortably non-overflowing (some
+      margin, not just barely 0) so the fix isn't sitting right at the edge
+      of a different font substitution reintroducing this. `npm test` 16/16
+      (this is CSS-only, shouldn't affect dom-check.js at all).
+
+- [ ] BUILD/LAUNCH: produce a packaged, itch.io-ready build of Wordbound.
+      Queued 2026-08-20 by the orchestrator from ROADMAP.md's known-gaps list
+      (the top remaining LAUNCH blocker, queued behind the two bug tickets
+      above from the parallel QA pass -- a game-breaking softlock and a red
+      test gate come first).
       CONTEXT: itch.io's HTML5 upload takes a zip whose ROOT contains `index.html`
       as the entry point. This repo's `index.html` is Descent of Essence, a
       DIFFERENT game -- Wordbound lives at `wordbound.html`. So the build must
