@@ -62,12 +62,27 @@
   // ticket's own judgment call, noted in PROGRESS.md: sentinel (a collector)
   // hoards a tile and gets tougher; warden (the Hoarder, thematically) eats
   // tiles and heals; spinesplinter binds and devours.
-  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 88, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
+  // maxHp 88 -> 70 (2026-08-20 orchestrator gate-#2 outlier pass): the
+  // gate-#2 balance-simulation data (PROGRESS.md) found this def alone
+  // responsible for 3/14 regular deaths at the OLD number -- an outlier
+  // among strong-tier peers, not a global strong-tier problem (see
+  // PROGRESS.md for the full per-monster breakdown). Its intent pool
+  // (hex/enrage, weight 1 each vs. attack's 3) was checked against sibling
+  // strong defs warden/spinesplinter and found equally weighted, not
+  // disproportionately signature-heavy, so no pool-weight shift applied --
+  // HP-only per the orchestrator's own conditional.
+  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 70, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
   mdef({ id: 'warden', name: 'The Hoarder', maxHp: 82, attack: 6, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
   mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
   mdef({ id: 'bindingstrap', name: 'Binding Strap', maxHp: 57, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
   mdef({ id: 'appendix', name: 'The Appendix', maxHp: 54, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
-  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 85, attack: 5, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], intents: ['hex', 'devour'] });
+  // maxHp 85 -> 68 (2026-08-20 orchestrator gate-#2 outlier pass): this def
+  // alone accounted for 3/14 regular deaths PLUS all 3/3 regular-tier
+  // stalls at the OLD number -- the single worst outlier in the gate-#2
+  // data (PROGRESS.md). Same intent-pool check as Card Catalog above
+  // (hex/devour, weight 1 each vs. attack's 3, matches sibling strong
+  // defs) -- not disproportionately signature-heavy, HP-only fix.
+  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 68, attack: 5, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], intents: ['hex', 'devour'] });
 
   // Boss attack values tuned down from their original 6/8/10 on 2026-08-19 after
   // playtesting showed the player's fixed 20 max HP only survives 3-4 hits, which
