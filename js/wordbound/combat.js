@@ -33,6 +33,16 @@
 //     -> { damage } and mutates player.ink (clamped at 0). Flat damage for
 //        now (no player defense stat in this redesign -- deliberately
 //        simpler than the old game).
+//
+// INK SPEND (GOALS.md "FEATURE, STRUCTURAL... replace player HP with INK",
+// run 2/2-4): Overcharge is the "big plays can spend it" mana half of the
+// ink resource. Pass { overcharge: true } as playWord/previewWord's 5th
+// arg to spend Combat.OVERCHARGE_INK_COST ink (the CALLER's job -- this
+// file only knows how to multiply damage, not deduct a resource) for
+// Combat.OVERCHARGE_DAMAGE_MULTIPLIER extra damage on the word about to be
+// played. Baseline word play is entirely unaffected when the flag is
+// omitted/false, matching the ticket's "baseline word play stays FREE"
+// requirement.
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -42,7 +52,20 @@
   var COMBO_MAX_STACKS = 5;
   var REPEAT_WORD_PENALTY = 0.4;
 
-  Combat.playWord = function (player, monster, word, comboState) {
+  // Balance knobs (also read directly by game.js for the spend/UI side and
+  // by test/balance-simulation.js's bot policy -- single source of truth so
+  // nothing duplicates these numbers).
+  Combat.OVERCHARGE_INK_COST = 3;
+  Combat.OVERCHARGE_DAMAGE_MULTIPLIER = 1.5;
+  // Rewrite (the other ink spend, GOALS.md's "consumable-style activated
+  // ability" candidate): discard the whole rack and redraw fresh, for ink,
+  // without ending the turn. The redraw/discard mechanics live in game.js
+  // (they touch the draw pile and rack, not combat resolution) -- this is
+  // just the shared cost constant.
+  Combat.REWRITE_INK_COST = 4;
+
+  Combat.playWord = function (player, monster, word, comboState, options) {
+    options = options || {};
     var Lexicon = window.Wordbound.Lexicon;
     var Traits = window.Wordbound.Traits;
     var Tiles = window.Wordbound.Tiles;
@@ -86,6 +109,9 @@
     var boostedDamage = Math.round(score.total * holdMult * traitMultiplier * comboMultiplier);
     var damage = isRepeat ? Math.round(boostedDamage * REPEAT_WORD_PENALTY) : boostedDamage;
 
+    var overcharged = !!options.overcharge;
+    if (overcharged) damage = Math.round(damage * Combat.OVERCHARGE_DAMAGE_MULTIPLIER);
+
     monster.hp = Math.max(0, monster.hp - damage);
 
     if (comboState) {
@@ -108,6 +134,7 @@
       comboAtPlay: comboAtPlay,
       comboMultiplier: comboMultiplier,
       isRepeat: isRepeat,
+      overcharged: overcharged,
       damage: damage,
       monsterDied: monster.hp <= 0
     };
@@ -130,6 +157,9 @@
   //     increments before building the hook ctx. hexedTileId hides a locked
   //     tile from rack-matching exactly as submitWord does, so the preview
   //     reflects a word the player can't actually complete this turn.
+  //     overcharge: true shows the amplified damage while the player has the
+  //     Overcharge toggle armed, via the exact same playWord multiplier this
+  //     file uses -- never a duplicated formula.
   // Mutates nothing: player.rack, monster.hp, player.ink, and comboState are all
   // cloned first, so this is safe to call on every keystroke/stage/render.
   Combat.previewWord = function (player, monster, word, comboState, options) {
@@ -152,7 +182,7 @@
       ? { combo: comboState.combo || 0, usedWords: new Set(comboState.usedWords || []) }
       : undefined;
 
-    var result = Combat.playWord(playerClone, monsterClone, upper, comboClone);
+    var result = Combat.playWord(playerClone, monsterClone, upper, comboClone, { overcharge: !!options.overcharge });
     if (!result) return { valid: false };
 
     if (Items) {
@@ -171,7 +201,8 @@
       damage: result.damage,
       isRepeat: result.isRepeat,
       multiplier: result.multiplier,
-      comboAtPlay: result.comboAtPlay
+      comboAtPlay: result.comboAtPlay,
+      overcharged: result.overcharged
     };
   };
 

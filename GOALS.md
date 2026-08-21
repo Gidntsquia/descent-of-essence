@@ -4174,7 +4174,7 @@ Rules for the routine:
       iPhone/iPad, check the physical ringer switch first per the new
       in-game hint.
 
-- [ ] FEATURE, STRUCTURAL (Jaxon's decision, 2026-08-21): replace the
+- [x] FEATURE, STRUCTURAL (Jaxon's decision, 2026-08-21): replace the
       player's HP with INK -- one unified life + mana resource. Jaxon chose
       this explicitly over a Pages/Binding system and a no-lifebar
       corruption system. The chosen concept, verbatim from the option he
@@ -4217,6 +4217,83 @@ Rules for the routine:
       `npm run test:qa`, `npm run test:mobile` (new inkwell UI), sim in
       band, `npm run test:itch-build`. Minor version bump per completed
       phase.
+      DONE (run 2/2, 2026-08-21, v0.40 -> v0.41): run 1 (previous session,
+      v0.39 -> v0.40) did the pure rename/convert -- see that PROGRESS.md
+      entry. This run added the "mana" half and closes the ticket.
+      SPENDS implemented (two, as required):
+      (1) **Overcharge** -- a toggle button next to Play Word
+      (`#btn-overcharge`). Arms via `Game.toggleOvercharge()` (only when
+      affordable -- refuses + logs otherwise), spends
+      `Combat.OVERCHARGE_INK_COST` (3) ink on the NEXT successful word for
+      `Combat.OVERCHARGE_DAMAGE_MULTIPLIER` (1.5x) damage, single-use (auto-
+      disarms after one play, whether or not it fires). Both constants live
+      on `Combat` (js/wordbound/combat.js), not duplicated in game.js or the
+      test bot. `Combat.playWord`/`previewWord` take a 5th `{overcharge}`
+      arg -- the preview shows the exact amplified number while armed
+      (verified byte-identical to what submit actually deals, same anti-
+      drift standard the existing preview tests already hold everything
+      else to).
+      (2) **Rewrite** -- a button (`#btn-rewrite-rack`, `Game.rewriteRack()`)
+      that spends `Combat.REWRITE_INK_COST` (4) ink to discard the whole
+      rack and draw a fresh one, WITHOUT ending the turn (no counterattack).
+      Not a softlock fix -- `ensureRackIsPlayable()` already guarantees a
+      playable rack (pre-existing code) -- purely a "I don't like this hand"
+      tactical option, matching the ticket's "consumable-style activated
+      ability" candidate.
+      Baseline word play is untouched either way: both spends are `options`
+      params that default to off/false everywhere, and omitting them
+      reproduces exactly what run 1 already had (proven in test/dom-check.js
+      via a direct plain-vs-overcharged comparison).
+      Cost UI: both buttons always show their ink cost in their own label
+      ("-3 ink" / "-4 ink") and `.disabled` themselves below that cost --
+      verified at the DOM level in test/dom-check.js, not just in state.
+      Healing economy: already all `player.ink` as of run 1, rechecked here,
+      untouched.
+      BALANCE GATE: taught test/balance-simulation.js's "best" bot a
+      kill-secured-only Overcharge policy (arms it ONLY when the top word's
+      damage wouldn't kill this turn on its own but WOULD with the 1.5x
+      multiplier -- never spends for pure overkill). Worth recording since
+      it wasn't the first thing tried: an earlier version also added a flat
+      "ink comfortably above a buffer" trigger per the ticket's own "or
+      safe" wording, and a 5-run sanity check with it in showed the "best"
+      win rate collapse to 0/5 -- not a game-balance problem, a bot-policy
+      bug: a per-TURN affordability check re-fires almost every turn (ink
+      never regenerates passively), so it wasn't "spend when safe," it was
+      "spend nearly every turn," bleeding the bot's own ink faster than any
+      monster could. Removed that trigger entirely rather than tune its
+      threshold -- kill-securing is the one case where the spend is
+      unambiguously worth a fixed small cost, with no risk of wasting ink on
+      a fight that didn't need it. With ONLY that trigger: n=25/strategy
+      real run (not a small sanity sample) -- "best" 11/25 wins (44%),
+      squarely inside the established 35-50% band; "first" (weak baseline,
+      not the target) 0/25 as expected; 3 stalls out of 25 for "best" (a
+      pre-existing bot word-finding limitation per this script's own
+      LIMITATIONS header, not a new softlock -- 0 softlocks recorded either
+      strategy). `test/balance-simulation-results.json` in this commit is
+      from that real run, not a small placeholder sample.
+      VERIFICATION actually done: `npm test` 481/481 (up from 450 -- added
+      isolated Combat-level overcharge math checks alongside the existing
+      previewWord anti-drift block, plus a live-DOM block driving the real
+      buttons/click handlers through a full arm -> preview -> submit ->
+      spend -> disarm cycle and Rewrite's discard/redraw, including both
+      buttons' insufficient-ink refusal paths). `npm run test:mobile` clean
+      at 375/414px (the new `.ink-spend-row` wraps under the word-input row,
+      same pattern the row already used). `npm run test:run-header` clean
+      375-1280px. `npm run test:qa` clean, zero console errors across a full
+      real-Chromium click-through. `npm run test:itch-build` clean (packaged
+      build's dom-check + real-browser load, zero 404s). Version bumped
+      v0.40 -> v0.41 (feature completion, minor bump per convention).
+      **NOT independently verified beyond the above:** no human playtest of
+      how Overcharge/Rewrite actually FEEL in the hand (worth a UX pass --
+      is 1.5x/3 ink and discard-for-4 ink well-tuned for fun, not just for
+      staying in the win-rate band? the sim only proves the band holds, not
+      that the choice is interesting) -- flagged for Jaxon, not something a
+      sandboxed run can judge. Shop options priced in ink (the ticket's
+      third spend candidate) were NOT added -- two spends already satisfies
+      "at least two," and adding a third felt like scope creep against
+      "don't tax the core verb" once two were live and balance-verified.
+      GOALS.md's last queued ticket in this batch (CONTENT: ink-era items)
+      was explicitly gated on this box being checked -- it's unblocked now.
 
 - [ ] FEATURE, STRUCTURAL (Jaxon request): branching floor map with path
       choices. Replace the current linear node progression with a

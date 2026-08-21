@@ -30,6 +30,13 @@ If you ever bottom out, the Archive's official incident report reads: **the well
 dry** — dramatic, technically accurate, and exactly the kind of phrasing a library
 would file in triplicate.
 
+Two ways to spend it deliberately, once you're comfortable with the basics:
+**Overcharge** presses harder on the nib before a word lands, spilling more ink than
+the word alone would ask for in exchange for a heavier blow. **Rewrite** is the
+librarian's prerogative — pay to void the page and start the sentence over with a
+fresh hand, instead of working with what you were dealt. Both cost ink up front,
+shown before you commit; plain word play never does.
+
 ## Floors (TOTAL_FLOORS = 3, see js/wordbound/floor.js)
 
 1. **The Overdue Aisles** — where the easy, common Loose Words hang around, overdue for

@@ -681,6 +681,32 @@ async function main() {
       check('preview: without a hex, CAT is previewable from a C/A/T rack', Combat.previewWord(player, monster, 'CAT', null, {}).valid === true);
       check('preview: with the C tile hexed, CAT is no longer previewable', Combat.previewWord(player, monster, 'CAT', null, { hexedTileId: tId }).valid === false);
     }
+
+    // INK SPEND: Overcharge (GOALS.md INK ticket, run 2/2-4). playWord/
+    // previewWord's { overcharge: true } must apply the exact same
+    // multiplier -- previewed damage can never drift from what submit
+    // actually deals, same anti-drift standard as every other option above.
+    {
+      const player = { rack: freshRack(), items: [], ink: 20, maxInk: 20 };
+      const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+      const base = actualDamage([], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
+      const overchargedResult = Combat.playWord(
+        { rack: freshRack(), items: [], ink: 20, maxInk: 20 }, { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] },
+        'CAT', { combo: 0, usedWords: new Set() }, { overcharge: true }
+      );
+      check('overcharge: playWord applies OVERCHARGE_DAMAGE_MULTIPLIER', overchargedResult.damage === Math.round(base * Combat.OVERCHARGE_DAMAGE_MULTIPLIER));
+      check('overcharge: playWord flags result.overcharged', overchargedResult.overcharged === true);
+      const plainResult = Combat.playWord(
+        { rack: freshRack(), items: [], ink: 20, maxInk: 20 }, { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] },
+        'CAT', { combo: 0, usedWords: new Set() }
+      );
+      check('overcharge: omitting options entirely leaves damage/overcharged unaffected (baseline play stays free)', plainResult.damage === base && plainResult.overcharged === false);
+
+      const p = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, { overcharge: true });
+      check('overcharge: previewWord with overcharge:true matches the actual overcharged submit damage', p.valid && p.damage === overchargedResult.damage && p.overcharged === true);
+      const pOff = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, {});
+      check('overcharge: previewWord without the flag matches plain (non-amplified) damage', pOff.valid && pOff.damage === base && pOff.overcharged === false);
+    }
   }
 
   // Multi-phase boss traits (GOALS.md "FUN OVERHAUL 3/8"): every boss should
@@ -2815,6 +2841,141 @@ async function main() {
     // screen/combatActive itself before each of its own scenarios, same as
     // every other block in this file that ends mid-run, so no further
     // restoration is needed here.
+  }
+
+  // INK SPEND (GOALS.md INK ticket, run 2/2-4): Overcharge and Rewrite,
+  // driven through the real buttons/click handlers (not direct state
+  // mutation) against a live combat, on top of the isolated Combat-level
+  // math checks earlier in this file. Forces the monster to effectively
+  // unkillable/harmless (high hp, a 'plain' trait, a 0-damage intent) so
+  // this block tests the SPEND wiring in isolation, not kill/counterattack
+  // interactions covered elsewhere.
+  {
+    const Game = window.Wordbound.Game;
+    const Combat = window.Wordbound.Combat;
+    const Tiles = window.Wordbound.Tiles;
+    const Items = window.Wordbound.Items;
+    const Monsters = window.Wordbound.Monsters;
+
+    // Strip whatever items this continuous test player has accumulated from
+    // earlier blocks (elite drops, treasure, etc.) -- several real items hook
+    // onWordPlayed and adjust player.ink themselves (heal-per-word effects),
+    // which would silently throw off this block's exact ink-delta arithmetic
+    // if left in place. Restored at the end, same courtesy the elite block
+    // above pays for RULE_CHANGER_IDS.
+    const savedItems = state.player.items.slice();
+    state.player.items = [];
+
+    // Ink is set BEFORE entering combat (not after) so the render
+    // enterCurrentNode triggers already reflects it -- setting it afterward
+    // would leave the just-rendered buttons' disabled/label state stale
+    // until the next render, which is exactly the kind of drift this block
+    // means to catch, not cause.
+    state.player.maxInk = 20;
+    state.player.ink = 20;
+
+    state.screen = 'RUN';
+    state.combatActive = false;
+    const inkDefId = Object.keys(Monsters.MONSTER_DEFS)[0];
+    const inkNode = { id: 'ink-spend-test-combat', type: 'combat', defId: inkDefId, cleared: false };
+    state.floor.nodes.push(inkNode);
+    state.currentNodeIndex = state.floor.nodes.length - 1;
+    Game.enterCurrentNode();
+    await new Promise((r) => setTimeout(r, 60));
+    check('ink spend setup: fresh combat is active', state.combatActive === true);
+
+    state.monster.hp = 999999;
+    state.monster.maxHp = 999999;
+    state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+    state.monster.intent = { type: 'attack', value: 0 };
+    state.hexedTileId = null;
+    state.player.rack = ['C', 'A', 'T', 'D', 'O', 'G', 'S'].map((l) => Tiles.createTile(l, null));
+
+    const overchargeBtn = document.getElementById('btn-overcharge');
+    const rewriteBtn = document.getElementById('btn-rewrite-rack');
+    // "Every spend must show clear cost UI before committing" per the
+    // ticket, checked at the DOM level (labels AND affordability), against
+    // the real render enterCurrentNode already produced with ink=20 set.
+    check('ink spend: overcharge button exists and shows its ink cost', !!overchargeBtn && overchargeBtn.textContent.indexOf('-' + Combat.OVERCHARGE_INK_COST + ' ink') !== -1);
+    check('ink spend: rewrite button exists and shows its ink cost', !!rewriteBtn && rewriteBtn.textContent.indexOf('-' + Combat.REWRITE_INK_COST + ' ink') !== -1);
+    check('ink spend: overcharge button is enabled with plenty of ink', overchargeBtn.disabled === false);
+    check('ink spend: rewrite button is enabled with plenty of ink', rewriteBtn.disabled === false);
+
+    // -- Overcharge: arm via the real click handler, check the live preview,
+    // then submit and confirm the ink/damage/disarm all match what
+    // Combat.previewWord itself predicts (the same anti-drift contract the
+    // preview block earlier in this file already established).
+    overchargeBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+    check('ink spend: toggleOvercharge (via click) arms the flag', state.overchargeArmed === true);
+    check('ink spend: the armed button gets the .armed class', overchargeBtn.classList.contains('armed'));
+    check('ink spend: the armed button label reads "Overcharged!"', overchargeBtn.textContent.indexOf('Overcharged') !== -1);
+
+    const wordInput = document.getElementById('word-input');
+    wordInput.value = 'CAT';
+    wordInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+    const previewEl = document.getElementById('damage-preview');
+    check('ink spend: the live preview flags "(overcharged)" while armed', previewEl.textContent.indexOf('(overcharged)') !== -1);
+
+    const predicted = Combat.previewWord(state.player, state.monster, 'CAT', state.comboState, {
+      previousWord: state.previousWordThisFight, wordsPlayedThisFight: state.wordsPlayedThisFightCount,
+      hexedTileId: state.hexedTileId, overcharge: true
+    });
+    check('ink spend: predicted overcharged damage is valid and positive', predicted.valid && predicted.damage > 0);
+
+    const inkBeforeOvercharge = state.player.ink;
+    const monsterHpBeforeOvercharge = state.monster.hp;
+    state.messages = [];
+    Game.submitWord('CAT');
+    wordInput.value = '';
+    check('ink spend: submitting an armed word spends exactly OVERCHARGE_INK_COST ink', state.player.ink === inkBeforeOvercharge - Combat.OVERCHARGE_INK_COST);
+    check('ink spend: the log announces the overcharge spend', state.messages.some((m) => /Overcharged!/.test(m)));
+    check('ink spend: the toggle disarms itself after a successful play', state.overchargeArmed === false);
+    check('ink spend: the monster took exactly the predicted (amplified) damage', state.monster.hp === monsterHpBeforeOvercharge - predicted.damage);
+    await new Promise((r) => setTimeout(r, 800)); // let the deferred rack-cycle/counterattack settle before the next subtest
+
+    // -- Overcharge is a single-use flag: a plain (unarmed) word right after
+    // must NOT still be amplified.
+    check('ink spend: overcharge does not persist to the next word (baseline play stays free)', state.overchargeArmed === false);
+
+    // -- insufficient ink: the button refuses to arm and disables itself.
+    state.player.ink = 1;
+    state.messages = [];
+    Game.toggleOvercharge();
+    check('ink spend: toggleOvercharge refuses to arm below OVERCHARGE_INK_COST', state.overchargeArmed === false);
+    check('ink spend: an unaffordable overcharge attempt logs a refusal', state.messages.some((m) => /Not enough ink/.test(m)));
+
+    // -- Rewrite: discards the whole rack and draws a fresh one, spends ink,
+    // but does NOT end the turn (no counterattack -- ink drops by EXACTLY
+    // the rewrite cost, nothing else). Capacity compared against
+    // Items.getRackCapacity, not a hardcoded 7 -- with items stripped above
+    // it IS 7, but this stays correct if that ever changes.
+    state.player.ink = 20;
+    const capacity = Items.getRackCapacity(state.player);
+    state.player.rack = ['Q', 'X', 'Z', 'J', 'V', 'W', 'K'].slice(0, capacity).map((l) => Tiles.createTile(l, null)); // a rough, low-play rack
+    const rackIdsBefore = state.player.rack.map((t) => t.id).slice().sort();
+    const inkBeforeRewrite = state.player.ink;
+    state.messages = [];
+    rewriteBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+    const rackIdsAfter = state.player.rack.map((t) => t.id).slice().sort();
+    check('ink spend: rewrite spends exactly REWRITE_INK_COST ink, nothing else', state.player.ink === inkBeforeRewrite - Combat.REWRITE_INK_COST);
+    check('ink spend: rewrite fully replaces the rack (different tile ids)', rackIdsBefore.join(',') !== rackIdsAfter.join(','));
+    check('ink spend: rewrite keeps the rack at its normal capacity', state.player.rack.length === capacity);
+    check('ink spend: rewrite logs what happened', state.messages.some((m) => /rewrite your rack/.test(m)));
+    check('ink spend: rewrite does not end the turn (combat still active)', state.combatActive === true);
+
+    // -- Rewrite, insufficient ink: refuses, no state change.
+    state.player.ink = 1;
+    const rackIdsBeforeRefusal = state.player.rack.map((t) => t.id).slice().sort();
+    state.messages = [];
+    rewriteBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+    check('ink spend: an unaffordable rewrite is refused (ink unchanged)', state.player.ink === 1);
+    check('ink spend: an unaffordable rewrite leaves the rack untouched', state.player.rack.map((t) => t.id).slice().sort().join(',') === rackIdsBeforeRefusal.join(','));
+    check('ink spend: an unaffordable rewrite attempt logs a refusal', state.messages.some((m) => /Not enough ink/.test(m)));
+
+    check('ink spend block: produced zero errors', errors.length === 0);
+    if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+
+    state.player.items = savedItems;
   }
 
   // BUG (QA polish pass, GOALS.md 2026-08-21): render()'s deck-viewer-panel/

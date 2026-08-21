@@ -27,7 +27,7 @@
   <div id="screen-main-menu" class="screen">
     <div class="panel main-menu-panel">
       <h1 class="game-title">WORDBOUND</h1>
-      <p class="version-info">v0.40</p>
+      <p class="version-info">v0.41</p>
       <div id="dictionary-loading-indicator" class="dictionary-loading-indicator">
         <div class="loading-spinner"></div>
         <p>Loading dictionary...</p>
@@ -82,6 +82,10 @@
         <input id="word-input" type="text" maxlength="15" autocomplete="off" spellcheck="false" placeholder="Type or click letters..." />
         <button id="btn-submit-word" class="btn btn-primary">Play Word</button>
         <button id="btn-clear-word" class="btn btn-secondary">Clear</button>
+      </div>
+      <div class="ink-spend-row">
+        <button id="btn-overcharge" class="btn btn-secondary btn-overcharge" title="Spend ink to amplify your next word's damage">⚡ Overcharge</button>
+        <button id="btn-rewrite-rack" class="btn btn-secondary" title="Spend ink to discard your rack and draw a fresh one">🔄 Rewrite</button>
       </div>
     </div>
 
@@ -172,6 +176,7 @@
         <li>Every Loose Word shows a <strong>Weakness</strong> — match it for bonus damage.</li>
         <li>Your whole Rack refreshes after every word, played tiles and leftovers alike. Spend freely.</li>
         <li>Tile rewards and items pile up as you descend — a stacked Rack is the whole point by floor 3.</li>
+        <li><strong>Overcharge</strong> spends ink for a bigger hit on your next word; <strong>Rewrite</strong> spends ink to trade in your whole Rack for a fresh one. Both show their cost before you commit — plain word play is always free.</li>
         <li id="howto-blank-tip">★ blanks: just type any word — they fill in automatically.</li>
         <li id="howto-audio-tip" class="hidden">🔊 Hear nothing? On iPhone/iPad, the physical ringer (silent) switch mutes game sound — flip it to ring mode.</li>
       </ul>

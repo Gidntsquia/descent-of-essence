@@ -823,6 +823,27 @@ h2 {
 .damage-preview.preview-weak { color: #ffd257; text-shadow: 0 0 6px rgba(255, 210, 87, 0.4); }
 .damage-preview.preview-repeat { color: #c99a6a; }
 .damage-preview.preview-noeffect { color: #9a8f74; }
+.damage-preview.preview-overcharged { color: #ffd257; text-shadow: 0 0 8px rgba(255, 210, 87, 0.55); }
+
+/* INK SPEND (GOALS.md INK ticket, run 2/2-4): Overcharge/Rewrite sit below
+   the word-input row, same wrap behavior at mobile widths. */
+.ink-spend-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.btn-overcharge.armed {
+  background: linear-gradient(to bottom, #b8923a 0%, #8f6a1a 100%);
+  color: #fff4d6;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 10px rgba(255, 210, 87, 0.55);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
 
 .staged-tile {
   display: flex;

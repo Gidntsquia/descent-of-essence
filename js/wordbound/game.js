@@ -561,6 +561,7 @@
     state.comboState = { combo: 0, usedWords: new Set() };
     state.previousWordThisFight = null;
     state.wordsPlayedThisFightCount = 0;
+    state.overchargeArmed = false; // INK SPEND: Overcharge toggle, per-fight reset
     state.repeatedWordThisFight = false;
     state.hexedTileId = null;
     state.proccedItemIds = [];
@@ -718,7 +719,15 @@
       if (hexedTileIndex !== -1) hexedTile = state.player.rack.splice(hexedTileIndex, 1)[0];
     }
 
-    var result = Combat.playWord(state.player, state.monster, word, state.comboState);
+    // INK SPEND (GOALS.md INK ticket, run 2/2-4): Overcharge only ever fires
+    // if it's actually armed AND still affordable right now -- re-checked
+    // here rather than trusted from arm-time, since Game.toggleOvercharge
+    // only lets it arm when affordable, but nothing prevents the player's
+    // ink from having dropped in between (there's no such path today, but
+    // this is the one point where an invalid word can't accidentally get
+    // charged for, so the check belongs here regardless).
+    var overcharging = !!state.overchargeArmed && state.player.ink >= Combat.OVERCHARGE_INK_COST;
+    var result = Combat.playWord(state.player, state.monster, word, state.comboState, { overcharge: overcharging });
 
     if (hexedTile) {
       state.player.rack.splice(Math.min(hexedTileIndex, state.player.rack.length), 0, hexedTile);
@@ -730,6 +739,16 @@
       render();
       return;
     }
+
+    // The word actually went through -- spend the ink now (never before a
+    // valid word is confirmed) and disarm the toggle. Overcharge is
+    // single-use per successful play, matching "spend N ink -> amplify
+    // damage" on THIS word, not a standing buff.
+    if (overcharging) {
+      state.player.ink = Math.max(0, state.player.ink - Combat.OVERCHARGE_INK_COST);
+      log('Overcharged! -' + Combat.OVERCHARGE_INK_COST + ' ink for ' + Math.round((Combat.OVERCHARGE_DAMAGE_MULTIPLIER - 1) * 100) + '% bonus damage.');
+    }
+    state.overchargeArmed = false;
 
     // Clear staging area since word was submitted
     state.selectedTileIds = [];
@@ -939,6 +958,52 @@
         playCounterattackSound(dmgCtx.damage, state.monster.isBoss);
       }
     }, TILE_PLAY_ANIM_MS);
+  };
+
+  // INK SPEND 1/2 (GOALS.md INK ticket, run 2/2-4): arms/disarms Overcharge
+  // for the NEXT word submitted. Only arms when affordable right now -- the
+  // button itself is also disabled below that threshold (render()), this is
+  // the belt-and-suspenders check for any other caller (tests included).
+  // Ink is not spent here; Game.submitWord spends it only once a word
+  // actually goes through, and disarms the flag itself.
+  Game.toggleOvercharge = function () {
+    if (!state.combatActive || state.monster.hp <= 0) return;
+    if (!state.overchargeArmed) {
+      if (state.player.ink < Combat.OVERCHARGE_INK_COST) {
+        log('Not enough ink to overcharge (need ' + Combat.OVERCHARGE_INK_COST + ').');
+        render();
+        return;
+      }
+      state.overchargeArmed = true;
+    } else {
+      state.overchargeArmed = false;
+    }
+    render();
+  };
+
+  // INK SPEND 2/2: the other candidate from the ticket ("consumable-style
+  // activated abilities costing ink") -- discard the whole rack and draw a
+  // fresh one, for ink, WITHOUT ending the turn (no monster counterattack).
+  // A tactical option, not a softlock fix -- ensureRackIsPlayable() already
+  // guarantees the rack always has at least one playable word (see its own
+  // comment above), so this exists purely for "I don't like this hand."
+  Game.rewriteRack = function () {
+    if (!state.combatActive || state.monster.hp <= 0) return;
+    if (state.player.ink < Combat.REWRITE_INK_COST) {
+      log('Not enough ink to rewrite your rack (need ' + Combat.REWRITE_INK_COST + ').');
+      render();
+      return;
+    }
+    state.player.ink -= Combat.REWRITE_INK_COST;
+    state.pile.discardPile = state.pile.discardPile.concat(state.player.rack);
+    state.player.rack = [];
+    state.selectedTileIds = [];
+    state.blankAssignments = {};
+    state.hexedTileId = null; // the hexed tile itself just got discarded along with the rest of the rack
+    refillRack();
+    ensureRackIsPlayable();
+    log('You spend ' + Combat.REWRITE_INK_COST + ' ink to rewrite your rack.');
+    render();
   };
 
   function onMonsterDefeated(damageDealt, monsterHpBefore) {
@@ -2855,7 +2920,28 @@
     // them (here, not inside renderStagingArea, which early-returns when the play
     // area is empty and would leave a rack-side settle to re-fire next render).
     if (state.settleTileIds.length) state.settleTileIds = [];
+    renderInkSpendButtons();
     updateDamagePreview();
+  }
+
+  // INK SPEND: cost is always shown on the button itself (GOALS.md's
+  // "every spend must show clear cost UI before committing"), and each
+  // button disables itself once its cost is unaffordable -- the player
+  // never finds out by clicking and getting a log message instead.
+  function renderInkSpendButtons() {
+    var overchargeBtn = $('btn-overcharge');
+    var rewriteBtn = $('btn-rewrite-rack');
+    if (!overchargeBtn || !rewriteBtn) return;
+    var canOvercharge = state.player.ink >= Combat.OVERCHARGE_INK_COST;
+    overchargeBtn.disabled = !state.overchargeArmed && !canOvercharge;
+    overchargeBtn.classList.toggle('armed', !!state.overchargeArmed);
+    overchargeBtn.textContent = state.overchargeArmed
+      ? '⚡ Overcharged! (x' + Combat.OVERCHARGE_DAMAGE_MULTIPLIER + ')'
+      : '⚡ Overcharge (-' + Combat.OVERCHARGE_INK_COST + ' ink)';
+
+    var canRewrite = state.player.ink >= Combat.REWRITE_INK_COST;
+    rewriteBtn.disabled = !canRewrite;
+    rewriteBtn.textContent = '🔄 Rewrite (-' + Combat.REWRITE_INK_COST + ' ink)';
   }
 
   // GOALS.md FEATURE (staged-word damage preview): show what the currently
@@ -2882,7 +2968,8 @@
     var preview = Combat.previewWord(state.player, state.monster, word, state.comboState, {
       previousWord: state.previousWordThisFight,
       wordsPlayedThisFight: state.wordsPlayedThisFightCount,
-      hexedTileId: state.hexedTileId
+      hexedTileId: state.hexedTileId,
+      overcharge: state.overchargeArmed
     });
     if (!preview || !preview.valid) { neutral(); return; }
     var cls = 'damage-preview';
@@ -2895,6 +2982,13 @@
       label = '⚔ ' + preview.damage + ' damage'
         + (preview.multiplier > 1 ? ' -- weak point!' : preview.isRepeat ? ' -- repeat (x0.4)' : '');
       if (preview.isRepeat) cls += ' preview-repeat';
+    }
+    // INK SPEND: the toggle's own armed-ness already implies overcharge is
+    // affordable (toggleOvercharge won't arm it otherwise) -- the preview
+    // just needs to say so, not re-check.
+    if (preview.overcharged) {
+      cls += ' preview-overcharged';
+      label += ' (overcharged)';
     }
     el.className = cls;
     el.textContent = label;
@@ -3045,6 +3139,8 @@
       if (!state.touchMode) $('word-input').focus();
       render();
     });
+    $('btn-overcharge').addEventListener('click', Game.toggleOvercharge);
+    $('btn-rewrite-rack').addEventListener('click', Game.rewriteRack);
 
     $('btn-toggle-music').addEventListener('click', function () {
       var isMuted = toggleMusicMute();

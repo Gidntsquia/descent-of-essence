@@ -341,17 +341,50 @@ async function playRun(win, anagramMap, strategy, runIndex) {
         }, state.comboState);
         const word = chooseWord(candidates, strategy);
         if (!word) {
-          // The rack can spell NO valid word at all. There is no discard or
-          // redraw action in combat (only "Play Word" and "Clear", which just
-          // clears the text input), so a real player in this position is hard
-          // softlocked -- they cannot act, and the rack only cycles when a word
-          // is played. Recorded as its own outcome, not lumped in with stalls.
+          // The rack can spell NO valid word at all. ensureRackIsPlayable
+          // (game.js) guarantees this basically never happens against a real
+          // rack -- when it does here it's this bot's own word-finding gap
+          // (this file's header LIMITATIONS note: at most one blank per
+          // candidate word, etc.), not a real dead end a human player would
+          // hit (Rewrite, the INK ticket's other spend, is the human's actual
+          // out and isn't exercised here for exactly that reason -- it would
+          // paper over a bot gap rather than test the real game). Recorded
+          // as its own outcome, not lumped in with stalls.
           run.softlock = {
             monster: state.monster.name,
             floor: state.floorNumber,
             rack: state.player.rack.map((t) => t.letter).join(''),
           };
           break;
+        }
+
+        // INK SPEND bot policy (GOALS.md INK ticket, run 2/2-4, "teach the
+        // bot a simple spend policy -- e.g. overcharge when kill-secured or
+        // safe"): the "best" bot only -- "first" is the deliberately weak
+        // baseline and shouldn't get credit for an advanced play a player
+        // just discovering the game wouldn't reach for.
+        //
+        // Kill-secured ONLY, deliberately -- an earlier version of this
+        // policy also fired on a flat "ink is comfortably above a buffer"
+        // condition, and a per-TURN threshold check like that re-fires every
+        // single turn ink stays above it (ink never regenerates on its own
+        // here), so it wasn't "spend when safe," it was "spend almost every
+        // turn" -- a 5-run sanity check with it in showed win rate collapse
+        // to 0% (see PROGRESS.md), the bot bleeding itself dry via its OWN
+        // spending well before any monster could. That's a bot-policy bug,
+        // not a game-balance finding: a rational player doesn't pay ink for
+        // damage a fight didn't need. Kill-securing is the one case where
+        // the spend is unambiguously worth it (ends the fight a turn
+        // earlier, for a fixed, small ink cost) without ever wasting ink on
+        // overkill, so it's the only trigger here.
+        if (strategy === 'best') {
+          const Combat = win.Wordbound.Combat;
+          const top = candidates.find((c) => c.word === word);
+          const topDamage = top ? top.damage : 0;
+          const killSecured = state.player.ink >= Combat.OVERCHARGE_INK_COST &&
+            topDamage < state.monster.hp &&
+            Math.round(topDamage * Combat.OVERCHARGE_DAMAGE_MULTIPLIER) >= state.monster.hp;
+          if (killSecured) Game.toggleOvercharge();
         }
 
         const hpBefore = state.player.ink;

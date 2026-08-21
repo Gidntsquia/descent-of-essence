@@ -11639,3 +11639,153 @@ band before this can be checked off. Do NOT start the next queued ticket
 top-to-bottom queue rule (and note the LAST item in this same batch, the
 ink-era item content ticket, is separately gated on this one by name --
 "do not start it until the INK ticket above is checked").
+
+## 2026-08-21T06:03Z -- INK system run 2/2: spend mechanics, ticket CLOSED (v0.40 -> v0.41)
+
+Picked up the INK ticket exactly where the previous run left it (its own
+"Next run" note): run 1 (v0.39 -> v0.40) had done the pure HP->ink rename;
+this run adds the "mana" half GOALS.md's own sequencing called "run 2+" --
+and it turned out to fully close the ticket in one more run rather than
+needing the full 2-4 the ticket estimated. Full spec re-read in GOALS.md
+first, as instructed.
+
+**First, a git-checkout sanity check** (three prior runs in a row hit a
+stale-branch trap per PROGRESS.md's own repeated warnings): ran `git log
+main..origin/main` immediately -- empty, `main` was already correctly at
+`origin/main`'s real history (8d47081, matching HEAD). No repeat this time.
+Separately: this session's *initial* `git status` reported a DETACHED HEAD
+sitting at 8d47081 while the local `main` branch ref was stale at a
+3-commit "theme bible" fork with no common ancestor (`git merge-base`
+failed entirely) -- turned out to be a stale local remote-tracking cache,
+not real divergence: `git fetch origin main` confirmed `origin/main` is
+genuinely at the full history, and `git checkout main && git reset --hard
+origin/main` fixed it before touching anything. Noting the exact symptom
+(detached-HEAD-vs-stale-branch-ref, not the shallow-clone symptom earlier
+runs described) in case this recurs in a new form.
+
+**What was implemented (two ink spends, as the ticket requires "at least
+two"):**
+1. **Overcharge** -- `#btn-overcharge` toggle next to Play Word. Arms via
+   `Game.toggleOvercharge()` (refuses + logs if unaffordable), spends
+   `Combat.OVERCHARGE_INK_COST` (3 ink) on the next successful word for
+   `Combat.OVERCHARGE_DAMAGE_MULTIPLIER` (1.5x) damage, single-use (auto-
+   disarms after any successful play). `Combat.playWord`/`previewWord` both
+   take a new 5th `{overcharge}` option arg -- damage math lives in ONE
+   place (combat.js), so the live preview can never drift from what submit
+   actually deals; verified this explicitly (preview vs. actual, byte-for-
+   byte) the same way the pre-existing previewWord tests already prove for
+   combo/trait/item multipliers.
+2. **Rewrite** -- `#btn-rewrite-rack`, `Game.rewriteRack()`. Spends
+   `Combat.REWRITE_INK_COST` (4 ink) to discard the whole rack and draw a
+   fresh one, WITHOUT ending the turn (no counterattack). Explicitly NOT a
+   softlock fix -- found while reading game.js that `ensureRackIsPlayable()`
+   already guarantees a playable rack after every draw (pre-existing code,
+   predates this ticket) -- this is purely the ticket's "consumable-style
+   activated ability" candidate, a tactical "I don't like this hand"
+   option.
+Baseline word play is untouched: both are opt-in `options` params that
+default to off, and omitting them reproduces exactly run 1's numbers
+(proven via a direct plain-vs-spent comparison in the new tests, not just
+asserted). Cost UI: both buttons always show their ink cost in their own
+label and `.disabled` themselves below that cost -- checked at the DOM
+level, not just in state (the ticket's own "every spend must show clear
+cost UI before committing" line). Terminology/healing sweep was already
+done in run 1 and rechecked here (all `player.ink`, nothing missed).
+Third candidate from the ticket (ink-priced shop options) deliberately NOT
+added -- "at least two" was satisfied, and a third felt like scope creep
+once two were live and balance-verified; noted in GOALS.md's DONE note too.
+
+**BALANCE GATE -- hit a real bot-policy bug before getting a valid result,
+worth recording in full rather than glossing over:** taught
+test/balance-simulation.js's "best" bot to use Overcharge per the ticket's
+own suggested policy ("overcharge when kill-secured or safe"). First
+attempt implemented BOTH triggers literally -- kill-secured, plus a flat
+"ink is comfortably above a 3x-cost buffer" reading of "safe". A n=5 sanity
+run with that in produced a 0/5 win rate for "best", down from run 1's
+40%(n=5)/44%(n=25 pooled historical) baseline -- alarming enough to
+investigate rather than shrug off as sample noise. Root cause: a per-TURN
+affordability check re-fires on almost every turn, because ink never
+regenerates on its own -- so "spend when comfortably above a buffer" isn't
+"spend occasionally when safe," it's "spend nearly every turn until the
+buffer itself is gone," and the bot was bleeding its own ink faster than
+any monster's counterattack. This was a BOT-POLICY bug, not a game-balance
+finding -- confirmed by re-deriving the multiplier math independently
+(Combat-level unit tests) and finding it correct; the sim collapse was
+100% attributable to the policy, not the mechanic. Fix: dropped the "safe"
+trigger entirely rather than tune its threshold -- kill-securing is the one
+case where spending is unambiguously worth a small fixed cost with zero
+risk of wasting ink on a fight that didn't need it, which is what a
+rational player would actually do. Documented this whole investigation
+inline in balance-simulation.js's own comment, not just here, so a future
+run doesn't rediscover the same trap.
+
+With kill-secured-only: ran a REAL n=25/strategy pass (not a small sanity
+sample -- explicitly upgraded from run 1's n=5 "confirmation, not
+discovery" caveat since this run changes actual mechanics, not just names).
+Result: **"best" 11/25 wins (44%)**, squarely inside the established
+35-50% band; "first" (deliberately weak baseline, not the balance target)
+0/25 as expected, same as always. 3 stalls out of 25 for "best" (12%) --
+checked against this script's own LIMITATIONS header: stalls are a
+pre-existing bot word-finding gap (single-blank-per-word, greedy shop/event
+choices), not a new regression from this ticket; 0 softlocks either
+strategy. `test/balance-simulation-results.json` committed in this run IS
+from that real n=25 pass (verified its `runsPerStrategy: 25, runs: 50`
+after generation, not left as a stale small-sample artifact from earlier
+debugging runs against this same file).
+
+**Verification actually done, all real runs:** `npm test` -- **481/481**,
+up from 450 (31 new: isolated Combat-level overcharge math checks next to
+the existing previewWord anti-drift block, plus a full live-DOM block
+driving the real `#btn-overcharge`/`#btn-rewrite-rack` click handlers
+through arm -> live-preview -> submit -> spend -> disarm, and both
+buttons' insufficient-ink refusal paths). Hit and fixed two real test bugs
+of my own along the way, worth noting since they're a small cautionary
+tale about this file's shared continuous player object: an exact ink-delta
+assertion initially failed because the test player had accumulated
+ink-healing items from EARLIER test blocks in the same file (elite drops,
+treasure), whose onWordPlayed hooks were quietly offsetting the expected
+-3; fixed by stripping `state.player.items` for the block's duration (save/
+restore), matching the pattern the pre-existing elite-defeat block already
+uses. A second failure (rack capacity mismatch) had the same root cause via
+a different item (Spare Satchel changes capacity from 7) -- fixed by
+comparing against `Items.getRackCapacity()` live instead of a hardcoded 7.
+Also caught and fixed two "enabled with plenty of ink" button-state checks
+that read a STALE pre-mutation render (set `state.player.ink` directly
+after the combat-start render had already painted the buttons against
+whatever ink value existed before) -- fixed by setting ink BEFORE
+`Game.enterCurrentNode()` so the real render reflects it, rather than
+inventing a test-only render hook.
+`npm run test:mobile` clean at 375/414px on all 4 screens (the new
+`.ink-spend-row` wraps under `.word-input-row`, reusing that row's existing
+mobile wrap behavior, not a new pattern). `npm run test:run-header` clean
+375-1280px (unrelated markup, re-run because this touched combat-panel
+CSS). `npm run test:qa` clean, zero console errors across a full real-
+Chromium character-select -> combat -> boss -> reward click-through.
+`npm run test:itch-build` clean (packaged build's dom-check + a real-
+browser load, zero 404s).
+
+**NOT independently verified -- stated plainly, not claimed:** how
+Overcharge/Rewrite actually FEEL to a human in the hand. The sim proves the
+win-rate band holds with a rational bot policy; it says nothing about
+whether 1.5x-for-3-ink and discard-for-4-ink are fun, well-telegraphed, or
+worth reaching for over just playing another word -- that's a judgment call
+for Jaxon's own playtest, flagged in GOALS.md's DONE note too, not
+something this sandbox can assess. Audio for the new buttons: neither
+plays a distinct SFX on click (they reuse whatever ambient click sound, if
+any, buttons already get) -- not required by the ticket, not added, noting
+it only so it isn't assumed covered.
+
+Version bumped v0.40 -> v0.41 (`wordbound.html`) -- minor bump per
+convention (feature completion). **GOALS.md's ink ticket box is now
+CHECKED** -- full DONE writeup appended inline in GOALS.md itself (same
+style as the other closed tickets in that file), not just here.
+
+**State:** working tree clean, both games fully playable, every automated
+check green. **Next run:** the ink ticket's completion unblocks the LAST
+queued ticket in this batch (GOALS.md: "CONTENT... another item batch,
+8-12 items... designed for the INK economy... do not start it until the
+INK ticket above is checked" -- that gate is now satisfied). Per GOALS.md's
+top-to-bottom queue rule, though, the next run should pick up the ticket
+ABOVE it in the queue first (branching floor map with path choices, also
+FEATURE/STRUCTURAL and MULTI-RUN) unless it's judged blocked -- read that
+ticket's full spec in GOALS.md before starting, it's another large one.
