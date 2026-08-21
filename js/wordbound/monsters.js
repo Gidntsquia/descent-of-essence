@@ -186,7 +186,21 @@
     // the most headroom of any lever (see the round-4 comment on the
     // normal-tier attack restore above) -- pushing further alongside that
     // restore.
-    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 54, attack: 4, floor: 1, goldDrop: [15, 25],
+    // attack 4 -> 3 (2026-08-21 BALANCE re-confirm, large-n retune): a
+    // fresh 2x n=50 sim (pooled n=100) measured this boss at a 15.6% kill
+    // rate (12/77 boss encounters), by far floor 1's single biggest death
+    // source (every regular floor-1 def sits at 0-7% pooled) and a real
+    // jump from round 4's own 0-11% baseline -- something that landed
+    // since then (most likely the two-phase vowelHungry/doubled trait arc
+    // added by FUN OVERHAUL 3/8, same day) made this fight meaningfully
+    // harder without any HP/attack change. Average damage taken per fight
+    // (~3.0) isn't itself an outlier vs. floor 1's ~2.5 average, which
+    // points at variance (bad turns where the rack can't match the active
+    // trait, so no player damage lands while the boss still swings) rather
+    // than raw throughput -- an attack cut lowers the cost of exactly
+    // those bad turns without touching the trait puzzle itself, same lever
+    // (and same direction) as the original 5->4 cut above.
+    id: 'boss_vowelmaw', name: 'The Vowelmaw', maxHp: 54, attack: 3, floor: 1, goldDrop: [15, 25],
     // Floor-1 boss, kept to a single defensive signature (Mend) rather than
     // an offensive one -- this ticket's own judgment call, per this file's
     // history of the floor-1 boss already being the hardest fight in the
