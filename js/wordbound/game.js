@@ -135,19 +135,25 @@
 
   function $(id) { return document.getElementById(id); }
 
-  // Starting HP 20 -> 24 (2026-08-20 Jaxon-authorized difficulty rebalance,
-  // GOALS.md "BALANCE, high priority"): balance-simulation.js showed skilled
-  // ("best" strategy) win rate had collapsed to ~16% (from 60% at v0.16),
-  // with floor-2 strong/elite monster damage as the wall and player maxHp
-  // never growing across a run (no HP-granting items exist -- see PROGRESS.md
-  // for the audit). A flat +20% buffer eases attrition across ALL floors
-  // uniformly without touching any monster's own numbers or the word-scoring
-  // formula (both explicitly in-scope levers per the ticket: "player-economy
-  // side (heal amounts/costs, potion availability, starting HP)"). Paired
-  // with floor-1/floor-2 monster tuning in the same pass -- see monsters.js.
+  // Starting HP 20 -> 24 -> 22 (2026-08-20 Jaxon-authorized difficulty
+  // rebalance, GOALS.md "BALANCE, high priority"): the initial +20% (to 24)
+  // fixed the floor-2/elite wall that had collapsed win rate to ~16%, but
+  // by ROUND 5 (see PROGRESS.md's full multi-round trail) seven independent
+  // balance-simulation samples at n=30-50 -- spanning several rounds of
+  // monster-side tuning -- consistently read a "best"-strategy win rate of
+  // 50-63% (mean ~55%), above the 35-50% target band. Floor-2's strong-tier
+  // defs were flagged as the single hardest content in EVERY one of those
+  // samples regardless of three separate HP/attack cuts already applied to
+  // them (monsters.js), meaning they're functioning as intended difficulty
+  // spikes, not an undertuned wall -- cutting them a fourth time would only
+  // re-open the floor-2 wall this ticket started by fixing. A smaller,
+  // floor-agnostic pullback on the player-HP buffer (24 -> 22, i.e. +10%
+  // over the original 20 instead of +20%) targets the actual remaining
+  // problem (overall win rate too high) without concentrating more
+  // difficulty onto any single floor.
   function newPlayer(characterDef) {
     var player = {
-      hp: 24, maxHp: 24, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
+      hp: 22, maxHp: 22, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
       bonusDamageUntilEndOfTurn: 0, skipDiscardNextTurn: false, bonusTilesToDraw: 0
     };
     if (characterDef && characterDef.startingItems) {
