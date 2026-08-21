@@ -129,4 +129,169 @@
 
     return { floorNumber: floorNumber, nodes: nodes };
   };
+
+  // ---------------------------------------------------------------------
+  // BRANCHING MAP (GOALS.md FEATURE/STRUCTURAL ticket, started 2026-08-21):
+  // a small DAG replacing the single linear path above, so the player
+  // CHOOSES a route through each floor instead of walking one fixed
+  // sequence. This function is new and purely additive -- game.js still
+  // calls `generateFloor` above, so this run makes ZERO behavior change to
+  // the shipped game. The generation algorithm (the part most likely to
+  // have subtle correctness bugs: guaranteeing every path reaches the
+  // boss, a shop+rest exist on some path, an elite is always avoidable) is
+  // built and proven in isolation first, with its own seed-swept test
+  // suite (test/verify-branching-map.js), before the riskier next step of
+  // rewriting game.js's flow control and building the map UI -- see
+  // PROGRESS.md and this ticket's own queue entry for the wiring plan.
+  //
+  // Shape returned:
+  //   {
+  //     floorNumber, lanes (2-3), rows (encounter rows before the boss),
+  //     nodes: [{ id, row, lane, type, defId, eliteTraitId, cleared }],
+  //     edges: [[fromId, toId], ...],  // directed, row N -> row N+1
+  //     startNodeIds: [...],           // row-0 node ids, one per lane
+  //     bossNodeId,
+  //   }
+  // Guarantees (see test/verify-branching-map.js for the actual checks):
+  //   - every startNodeIds node can reach bossNodeId
+  //   - exactly one 'shop' node and (floors >= 2) exactly one 'rest' node,
+  //     both reachable from some start node (seated on a guaranteed spine)
+  //   - exactly one 'treasure' node, same guarantee
+  //   - on elite floors, at most one 'elite' node, only ever placed in a
+  //     row that has another node too, so a route to the boss that never
+  //     visits it always exists (avoidable-at-a-cost, never mandatory)
+  Floor.generateBranchingFloor = function (floorNumber, rng) {
+    var LANES = rng.randInt(2, 3);
+    var ROWS = rng.randInt(6, 8); // encounter rows; boss sits at row ROWS
+    var hasElite = Floor.ELITE_FLOOR_NUMBERS.indexOf(floorNumber) !== -1;
+    var hasRest = floorNumber >= 2;
+
+    var nodeAt = {}; // 'row,lane' -> node object
+    var edgeKeys = {}; // 'fromId>toId' -> true, dedupe
+    var edges = [];
+    var spine = null; // the guaranteed path (row0's path), seats required specials
+
+    function key(row, lane) { return row + ',' + lane; }
+
+    function ensureNode(row, lane) {
+      var k = key(row, lane);
+      if (!nodeAt[k]) {
+        nodeAt[k] = { id: 'node' + (nextNodeId++), row: row, lane: lane, type: null, defId: null, eliteTraitId: null, cleared: false };
+      }
+      return nodeAt[k];
+    }
+
+    function addEdge(fromNode, toNode) {
+      var ek = fromNode.id + '>' + toNode.id;
+      if (!edgeKeys[ek]) { edgeKeys[ek] = true; edges.push([fromNode.id, toNode.id]); }
+    }
+
+    for (var startLane = 0; startLane < LANES; startLane++) {
+      var lane = startLane;
+      var path = [{ row: 0, lane: lane }];
+      ensureNode(0, lane);
+      for (var r = 1; r < ROWS; r++) {
+        var delta = rng.choice([-1, 0, 1]);
+        var nextLane = Math.max(0, Math.min(LANES - 1, lane + delta));
+        addEdge(ensureNode(r - 1, lane), ensureNode(r, nextLane));
+        path.push({ row: r, lane: nextLane });
+        lane = nextLane;
+      }
+      if (startLane === 0) spine = path;
+    }
+
+    // Boss: single terminal node every row-(ROWS-1) node connects into.
+    var bossNode = { id: 'node' + (nextNodeId++), row: ROWS, lane: 0, type: 'boss', defId: pickBossDefId(floorNumber), eliteTraitId: null, cleared: false };
+    Object.keys(nodeAt).forEach(function (k) {
+      var n = nodeAt[k];
+      if (n.row === ROWS - 1) addEdge(n, bossNode);
+    });
+
+    // Row occupancy, needed for the "elite must be avoidable" placement rule.
+    var rowNodes = {};
+    Object.keys(nodeAt).forEach(function (k) {
+      var n = nodeAt[k];
+      rowNodes[n.row] = rowNodes[n.row] || [];
+      rowNodes[n.row].push(n);
+    });
+
+    // Row 0 is always 'combat' (ease-in, matches the old linear design).
+    rowNodes[0].forEach(function (n) { n.type = 'combat'; n.defId = pickCombatDefId(floorNumber, rng); });
+
+    // Seat the required specials on the guaranteed spine (rows 1..ROWS-1),
+    // so "reachable on some path" always holds regardless of how the rest
+    // of the DAG rolls.
+    var spineSlots = spine.slice(1).map(function (p) { return nodeAt[key(p.row, p.lane)]; });
+    var required = ['treasure', 'shop'];
+    if (hasRest) required.push('rest');
+    var slotPicks = rng.shuffle(spineSlots.map(function (_, i) { return i; })).slice(0, required.length);
+    required.forEach(function (type, i) { spineSlots[slotPicks[i]].type = type; });
+
+    // Elite: at most one, on a non-spine-required node whose row has
+    // another node too (so a route that skips it always exists).
+    if (hasElite) {
+      var eliteCandidates = [];
+      Object.keys(nodeAt).forEach(function (k) {
+        var n = nodeAt[k];
+        if (n.type || n.row === 0) return; // skip row0 and already-typed specials
+        if (rowNodes[n.row].length < 2) return; // must be avoidable
+        eliteCandidates.push(n);
+      });
+      if (eliteCandidates.length > 0) {
+        var eliteNode = rng.choice(eliteCandidates);
+        eliteNode.type = 'elite';
+        eliteNode.defId = pickEliteDefId(rng);
+        eliteNode.eliteTraitId = rng.choice(Floor.ELITE_RESISTANCE_TRAITS);
+      }
+    }
+
+    // Everything still untyped: mostly combat, occasional event.
+    Object.keys(nodeAt).forEach(function (k) {
+      var n = nodeAt[k];
+      if (n.type) return;
+      if (rng.chance(0.25)) {
+        var eventId = (window.Wordbound && window.Wordbound.Events) ? window.Wordbound.Events.pickRandomEvent(rng) : null;
+        if (eventId) { n.type = 'event'; n.defId = eventId; return; }
+      }
+      n.type = 'combat';
+      n.defId = pickCombatDefId(floorNumber, rng);
+    });
+
+    var nodes = Object.keys(nodeAt).map(function (k) { return nodeAt[k]; });
+    nodes.push(bossNode);
+
+    return {
+      floorNumber: floorNumber,
+      lanes: LANES,
+      rows: ROWS,
+      nodes: nodes,
+      edges: edges,
+      startNodeIds: rowNodes[0].map(function (n) { return n.id; }),
+      bossNodeId: bossNode.id,
+    };
+  };
+
+  // BFS helper over a branchingFloor's edge list, optionally excluding one
+  // node id entirely (used to prove an elite node is avoidable). Shared
+  // here rather than duplicated in tests because game.js's eventual map UI
+  // will need the same "what's reachable from here" traversal to light up
+  // choosable next nodes.
+  Floor.reachableNodeIds = function (branchingFloor, fromNodeIds, excludeNodeId) {
+    var adjacency = {};
+    branchingFloor.edges.forEach(function (e) {
+      if (excludeNodeId && (e[0] === excludeNodeId || e[1] === excludeNodeId)) return;
+      adjacency[e[0]] = adjacency[e[0]] || [];
+      adjacency[e[0]].push(e[1]);
+    });
+    var seen = {};
+    var queue = [];
+    fromNodeIds.forEach(function (id) { if (id !== excludeNodeId) { seen[id] = true; queue.push(id); } });
+    while (queue.length) {
+      var cur = queue.shift();
+      (adjacency[cur] || []).forEach(function (next) {
+        if (!seen[next]) { seen[next] = true; queue.push(next); }
+      });
+    }
+    return Object.keys(seen);
+  };
 })();

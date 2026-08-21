@@ -18,7 +18,9 @@
     "pretest:itch-build": "node tools/ensure-deps.js @playwright/test",
     "test:itch-build": "node test/verify-itch-build.js",
     "prerecord:gameplay": "node tools/ensure-deps.js @playwright/test",
-    "record:gameplay": "node tools/record-gameplay.js"
+    "record:gameplay": "node tools/record-gameplay.js",
+    "pretest:branching-map": "node tools/ensure-deps.js jsdom",
+    "test:branching-map": "node test/verify-branching-map.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

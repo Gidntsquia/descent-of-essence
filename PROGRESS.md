@@ -11789,3 +11789,126 @@ top-to-bottom queue rule, though, the next run should pick up the ticket
 ABOVE it in the queue first (branching floor map with path choices, also
 FEATURE/STRUCTURAL and MULTI-RUN) unless it's judged blocked -- read that
 ticket's full spec in GOALS.md before starting, it's another large one.
+
+## 2026-08-21T06:19Z -- Branching floor map, run 1/N: map-generation data model built + proven in isolation (no game.js changes yet)
+
+Picked up the queue's first unchecked item (GOALS.md: "FEATURE, STRUCTURAL
+(Jaxon request): branching floor map with path choices"), the ticket the
+previous run's own "Next run" note pointed at. Ticket is explicitly
+MULTI-RUN; this run scoped itself to the algorithmically hardest and
+riskiest-to-get-wrong part -- the map generation itself, and the
+invariants the ticket requires (boss always terminal, shop+rest
+reachable, elite avoidable-at-cost, seeded determinism) -- and built it in
+complete isolation from game.js, so this run makes ZERO behavior change to
+the shipped game. Rationale: the existing linear system is deeply wired
+into game.js (`state.currentNodeIndex`, `currentNode()`, and the index
+incrementing at 7+ call sites across combat/treasure/rest/shop/event/boss
+resolution, plus `renderNodeMap`) -- rewriting all of that AND designing a
+correct branching generator AND building new map UI in one hour risked
+leaving the game half-migrated and broken. Proving the generator correct
+first, on its own, means the next run can wire it into game.js against an
+already-trusted data source instead of debugging generation and
+integration bugs simultaneously.
+
+**What was built:**
+- `Floor.generateBranchingFloor(floorNumber, rng)` in `js/wordbound/floor.js`
+  (additive, `Floor.generateFloor` -- the linear one game.js still calls --
+  is completely untouched). Algorithm: picks 2-3 lanes and 6-8 encounter
+  rows per floor; walks one path per starting lane through the rows (each
+  step moves lane by -1/0/+1, clamped), collecting the union of visited
+  (row,lane) cells as nodes and the union of traversed steps as directed
+  edges -- this is what gives paths their branch/merge shape. Every row-0
+  node is `type: 'combat'` (ease-in, matches the old design's "first node
+  is always combat"). Every node in the last encounter row gets an edge
+  into a single terminal boss node. The FIRST path generated (lane 0's) is
+  treated as a guaranteed "spine": exactly one shop, one treasure, and (on
+  floors >= 2) one rest node are seated on it at random-but-guaranteed
+  rows, so "reachable on some path" always holds regardless of how the
+  rest of the DAG rolls. On elite floors, an elite is placed on at most
+  one node, and ONLY on a node whose row has another node too -- i.e. a
+  route to the boss that never touches it is structurally guaranteed to
+  exist (proven, not just argued, in the test below).
+- `Floor.reachableNodeIds(branchingFloor, fromNodeIds, excludeNodeId)` --
+  a small BFS helper, shared rather than duplicated in tests because
+  whatever map UI wires this in will need the same "what's reachable from
+  here" traversal to light up choosable next nodes.
+- `test/verify-branching-map.js` (new, jsdom-based, same loading pattern as
+  verify-seeded-runs.js): sweeps 60 seeds per floor number (180 total,
+  well past the ticket's own "50+ seeds" bar) and checks every guarantee:
+  lanes in [2,3], rows in [6,8], boss reachable from EVERY individual
+  start lane (not just the union), every generated node reachable from
+  some start (no orphans), exactly one treasure/shop every single
+  seed/floor, exactly one rest on floors 2-3 and zero on floor 1, zero
+  elites on floor 1, at most one elite on floors 2-3, and -- the one that
+  actually needed the BFS helper -- whenever an elite exists, a full
+  start-to-boss route excluding that exact node id also exists (real
+  graph-avoidance proof, not just "the row has 2 nodes so it's probably
+  fine"). Also asserts same-seed determinism (regenerating from an
+  identical seed string produces a byte-identical map) and that different
+  seeds produce different maps. All 180 seed-samples pass every check.
+  Wired into `package.json` as `npm run test:branching-map` (installs
+  jsdom via the same `tools/ensure-deps.js` pattern as the other jsdom
+  scripts) so it's discoverable and re-runnable by future runs, not just
+  a one-off script.
+- Caught one bug in the TEST itself before trusting the results: the first
+  fingerprint function compared raw `node.id` values, which are a
+  module-level counter that increments across every floor generated all
+  session (documented already in floor.js's own header, and in
+  verify-seeded-runs.js's existing fingerprint function, as unrelated to
+  the seed) -- so two calls with the identical seed always produced
+  different ids and every determinism check spuriously failed. Fixed by
+  fingerprinting edges via each node's (row,lane) position instead of its
+  raw id, matching the existing convention. Worth flagging since it's an
+  easy trap to fall into again: any future test touching these node ids
+  needs the same care.
+
+**Verification actually done:** `npm run test:branching-map` -- 180/180
+seed-samples clean, all listed above. `npm test` -- still fully clean
+(this run touched zero code any existing test exercises; confirms the
+addition is genuinely inert against the live game). Did not run
+`npm run test:mobile` or `npm run test:qa` -- neither applies, since no
+CSS, rendering, or event-handling code changed; nothing in game.js or
+wordbound.html was touched at all this run.
+
+**NOT done yet (this is 1 of N runs on this ticket, by design):**
+- game.js is NOT wired to this generator at all. `state.currentNodeIndex`
+  and the linear `currentNode()`/index-increment pattern are still exactly
+  what the live game uses. The next run's job is the harder half: replace
+  that with `state.currentNodeId` + `state.visitedNodeIds` (or similar),
+  update every one of the ~7 index-increment call sites (combat, treasure,
+  rest, shop, event, boss resolution) to instead mark the current node
+  cleared and present the set of next-choosable nodes via
+  `Floor.reachableNodeIds(floor, [state.currentNodeId], null)` filtered to
+  direct edges only (one hop, not full transitive reachability -- the UI
+  should only ever offer immediate neighbors, not the whole reachable set;
+  `reachableNodeIds` as built does full BFS, so the wiring step will need
+  either a same-row-neighbor filter or a small `Floor.directNextNodeIds`
+  addition -- noted here so the next run doesn't have to rediscover it).
+- No map UI at all yet -- the ticket wants a woodcut/manuscript-styled DAG
+  view (ink paths on parchment, node glyphs, current position + visited
+  path marked, 44px+ tap targets at 375px). `renderNodeMap` in game.js
+  still renders the old flat pill list and hasn't been touched.
+- `test/verify-seeded-runs.js` has NOT been extended yet for map
+  determinism through the real UI path (this run's own
+  `test/verify-branching-map.js` proves the generator alone is
+  deterministic, but the ticket specifically wants the extension to prove
+  it through `Game.startRun` end to end, same as the existing seeded-runs
+  checks do for the linear floor).
+- The sim/win-rate band re-check ("after landing, run the sim... sanity-
+  check the win-rate band still holds") can't happen until routing is
+  actually playable, i.e. after game.js wiring lands.
+- `npm run test:mobile` and a real-browser click-through of a full floor
+  are both still outstands, same reason.
+
+GOALS.md's box for this ticket is correctly left UNCHECKED -- this is
+partial, in-progress work on a ticket explicitly marked MULTI-RUN, not a
+completed task. **Next run:** read this entry, then wire
+`generateBranchingFloor`/`reachableNodeIds` into game.js's flow control
+(the state-shape migration above is the first concrete step), OR, if that
+feels too large to land cleanly in one hour, build the map UI against a
+small standalone harness first and defer the full game.js rewrite one more
+run -- implementer's judgment call, either is legitimate forward progress
+on a ticket this size. Don't skip ahead to the art/menu/variety/item
+tickets below it in the queue while this one has active partial state
+sitting in the repo unless this ticket becomes genuinely blocked (it
+isn't currently -- it's just large).
