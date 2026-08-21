@@ -13294,3 +13294,128 @@ ticket is NOT done. Two solid options, either is reasonable:
    judgment or Jaxon's.
 Either path is fine -- just don't check the box without ACTUALLY landing
 on one of them with real data, per this file's whole standing rule.
+
+---
+
+## 2026-08-21T15:41Z -- BALANCE re-confirm ticket CLOSED: round 3 retune (Hoarder) + band widened 35-50% -> 25-50%
+
+**Picked up:** the same BALANCE ticket the prior run left open, at the
+point it left off -- code state was round 1 + round 2 retunes already
+committed (boss_vowelmaw attack 3, sentinel/Card Catalog attack 4,
+spinesplinter/Spine Splinter attack 3), pooled post-round-2 reading 27%
+(n=100, two samples), band still 35-50%, box unchecked, two options
+offered (converge further or widen the band).
+
+**Chose "keep converging" first, with a real data-driven check before
+falling back to the band-widening option:**
+
+1. **Confirmation sample 3** (n=50, `timeout 900`, current code
+   unchanged from round 2): **32% (16/50)**. Per-monster breakdown
+   flagged **The Hoarder (floor 2, `warden`) at 50% kill rate (6/12)** --
+   the single biggest floor-2 outlier, and notably the ONE floor-2
+   strong-tier def round 2 had deliberately left uncut (it measured a
+   moderate 8% in that round's own sample). Card Catalog and Spine
+   Splinter, both cut in round 2, had dropped to 8% and 0% respectively
+   in this same sample -- direct evidence those cuts worked and Hoarder
+   is the real remaining problem, not noise, given this is the SECOND
+   consecutive post-round-2 sample flagging it (43% on tiny n=7 in round
+   2's own confirm, now 50% on n=12).
+2. **Round 3 retune** (commit 95f1d41, `js/wordbound/monsters.js`): cut
+   `warden`/The Hoarder attack 5 -> 4, matching the same surgical
+   attack-only precedent as every prior cut in this trail, bringing it to
+   the same attack value as sentinel (already cut once). HP left alone.
+   `npm test` clean.
+3. **Confirmation sample 4** (n=50, `timeout 900`, post-round-3 code):
+   **24% (12/50)**. Per-monster breakdown: **Hoarder still at 50% kill
+   rate (5/10)** -- literally unchanged from the pre-cut sample immediately
+   before it. This is the key finding of this run: a real, targeted,
+   correctly-aimed attack cut on the confirmed statistical outlier
+   produced ZERO measurable effect on that outlier's own kill rate. That's
+   strong direct evidence the win-rate gap here isn't attack-throughput-
+   shaped (at least not for this def) and that further blind stat cuts
+   are chasing noise, not a real problem the attack-tuning lever can fix.
+   (Aside, worth a future look if this def keeps showing up: Hoarder's
+   `devour`/`mend` intent kit -- tile removal + a 10%-maxHP self-heal,
+   see intents.js -- is the one thing that's never been touched across
+   any of the three rebalance passes this def has been through; if it
+   keeps flagging after an attack cut with no effect, the mechanism might
+   be there rather than in the attack stat.)
+
+**Decision: took the ticket's own offered exit ramp and widened the
+band, 35-50% -> 25-50%.** Full reasoning in GOALS.md's now-closed ticket
+and ROADMAP.md's updated known-gaps entry (search "RESOLVED 2026-08-21 --
+balance-sim win rate"). The core evidence, pooling ALL post-any-retune
+n=50 "best"-strategy samples taken across this and the prior run (5
+total, spanning rounds 1-3 as they landed): **40%, 26%, 22%, 32%, 24% --
+mean 28.8%, range 22-40%.** That 18-point spread matches the ~22-point
+single-sample noise floor already independently demonstrated on IDENTICAL
+code earlier in this investigation (prior run's entry above). Three
+rounds of real, conservative, correctly-targeted retuning are now on the
+board, the round-3 cut specifically showed no effect on its own target
+metric, and the mean sits solidly in the high-20s% -- consistently below
+35% but nowhere near the low-20s% this investigation would call "still
+genuinely broken." Read together, this is a band that was calibrated on
+fewer/smaller historical samples (the difficulty-rebalance ticket's own
+~41% reading came from just its two largest confirmation samples) rather
+than a game that needs a fourth attack cut against a target this
+harness's own variance can't reliably hit. Did NOT revert round 3's
+Hoarder cut -- no evidence of harm (kill rate didn't move either
+direction), conservative, consistent with precedent, and reverting it on
+"no measurable effect" alone would be exactly the noise-chasing this
+whole decision argues against.
+
+**Verification actually done:**
+- `npm test`: clean after the round-3 code change and again after the
+  GOALS.md/ROADMAP.md documentation-only changes (no game code touched in
+  the closing commit).
+- Balance-sim: 2 more `node test/balance-simulation.js 50` invocations
+  this run (confirmation samples 3 and 4 above) = 100 more "best"-strategy
+  runs, 100 more "first"-strategy runs (first-strategy stayed near-zero
+  win rate throughout, 0-2%, as expected -- it's the deliberately-weak
+  bot, not a signal this ticket tracks). Combined with the prior run's 5
+  samples, this investigation has now run 7 total n=50+ "best"-strategy
+  samples (350 runs) plus matching first-strategy samples across two
+  hourly runs. Full per-monster/per-floor breakdowns for both of this
+  run's samples are above; raw JSON for each is in
+  `test/balance-simulation-results.json`'s git history (commits 95f1d41
+  pre-round-3-confirm-data, 08df094 post-round-3-confirm-data -- note
+  the file is overwritten each invocation, not appended, so only the
+  MOST RECENT sample's raw per-run data survives in the working tree at
+  any commit).
+- `npm run test:mobile`: not run -- this run touched zero CSS/layout,
+  only monster stat numbers in monsters.js plus documentation (GOALS.md,
+  ROADMAP.md, PROGRESS.md).
+- No version bump: per the ticket's own explicit rule ("patch bump if
+  retuned, no bump if the band itself is just widened in documentation"),
+  this closes via the band-widening path, so no bump. `wordbound.html`
+  stays v0.48.
+
+**State:** working tree clean, all changes committed and pushed across
+three commits this run (95f1d41 round-3 retune + data, then this
+entry's closing commit 08df094 for GOALS.md/ROADMAP.md docs). GOALS.md's
+BALANCE ticket is now `[x]`, closed. `js/wordbound/monsters.js`'s
+`warden` (The Hoarder) now has attack 4 (was 5), joining `boss_vowelmaw`
+(attack 3), `sentinel` (attack 4), and `spinesplinter` (attack 3) as this
+investigation's four retuned defs.
+
+**Next run:** GOALS.md's queue is now EMPTY (verified with a fresh grep
+for `- [ ]` right before writing this entry). Checked ROADMAP.md's known
+gaps per the standing instruction before declaring idle -- every
+remaining gap is explicitly Jaxon-only, not something an hourly automated
+run can pick up:
+- Physical-device touch test (needs a real phone).
+- Difficulty-rebalance ticket's floor2-death-share target (explicitly
+  "GOALS.md's ticket box is left UNCHECKED pending Jaxon's read" --
+  floor2 may just be correctly the hard middle floor by design; only
+  Jaxon can make that call, per that entry's own text).
+- Run-to-run meta-progression beyond achievements (explicitly "a real
+  scope/design decision... left for Jaxon to define if he wants it
+  pursued").
+- Store page copy is already drafted (bottom of ROADMAP.md) awaiting
+  Jaxon's review/edit; a GIF/trailer and cover art aren't automatable
+  from this sandbox (no image/video generation tooling available here).
+With the queue empty and every open ROADMAP gap flagged Jaxon-only, this
+run is genuinely idle -- not inventing busywork, per GOALS.md's own
+rule. The next run should re-check both files fresh in case Jaxon added
+new GOALS.md tickets or ROADMAP gaps in the meantime; if still empty,
+staying idle and saying so is the correct outcome, not a failure.
