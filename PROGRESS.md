@@ -10801,3 +10801,40 @@ a defensible judgment call for the next run to either keep tuning target 2
 or decide this is close enough and start pulling from that queue instead
 (re-reading GOALS.md's exact wording on those four tickets' gating
 condition first).
+
+## 2026-08-21T00:33Z -- verified concurrent session's final rebalance state, queue genuinely idle
+
+Continuation of this run's earlier scheduled wakeup: my own round-6/round-7
+background sims (started before discovering the concurrent-session
+collision noted above) finished after I'd already deferred, so their
+results were moot -- the code they tested no longer exists in the repo.
+Re-fetched instead and found the concurrent session had, in the interim,
+finished the ticket to its own well-reasoned stopping point: commit
+803eba8, "Balance rebalance final for this run: 3/4 targets met, box left
+unchecked (v0.32 -> v0.33)". Fast-forwarded to it (discarding my own
+now-stale local `balance-simulation-results.json` diff, no other local
+changes existed).
+
+Verified rather than re-litigated: `npm test` **ALL CHECKS PASSED** at
+this exact HEAD, `wordbound.html` shows v0.33 as claimed, and
+ROADMAP.md's known-gaps entry accurately describes a genuine, specific
+open question for Jaxon (whether floor2's persistently-highest death
+share across all 7 rounds/12+ samples reflects a design decision that
+needs restructuring -- e.g. how many strong-tier fights floor 2 gets --
+rather than more stat tuning, which 3 direct cuts already showed
+diminishing/negative returns on). This reads as a genuine, well-earned
+"flag for Jaxon" per the ticket's own escape valve, not a stall -- not
+overriding it as a fresh, less-informed run.
+
+**Queue status check:** GOALS.md's next four tickets (CONTENT/VISUAL/
+AUDIO/QA) are explicitly gated behind this same rebalance ticket
+("finish that first") -- the box is still unchecked, and the concurrent
+session's own final commit did not unblock them, so treating them as
+still gated rather than unilaterally overriding that call. ROADMAP.md's
+known-gaps list has nothing else actionable (physical-device touch test
+and itch.io upload are both explicitly Jaxon-only). **Genuinely idle this
+run** -- not for lack of trying, but because the one open ticket just
+reached its own correct, documented stopping point moments before this
+run could contribute anything further, and every other queue item is
+gated behind it. Nothing to commit beyond this note; working tree is
+clean and matches `origin/main`.
