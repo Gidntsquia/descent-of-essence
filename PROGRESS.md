@@ -13419,3 +13419,31 @@ run is genuinely idle -- not inventing busywork, per GOALS.md's own
 rule. The next run should re-check both files fresh in case Jaxon added
 new GOALS.md tickets or ROADMAP gaps in the meantime; if still empty,
 staying idle and saying so is the correct outcome, not a failure.
+
+---
+
+## 2026-08-21T16:14Z -- idle run: queue confirmed still empty, no new work
+
+Fresh check per the standing rule (re-verify both files before declaring
+idle, in case Jaxon added something since the last run 33 minutes ago):
+
+- `grep -n "\[ \]" GOALS.md`: zero matches, confirmed with two different
+  patterns (`^- \[ \]` and the looser `\[ \]` to catch any indented
+  sub-items). Queue is genuinely empty, not just top-level-empty.
+- Re-read ROADMAP.md's "Current known gaps" section in full. Unchanged
+  since the prior entry: every open gap is explicitly flagged Jaxon-only
+  (physical-device touch test needs a real phone; the floor2-death-share
+  target is explicitly left for Jaxon's read per that entry's own text;
+  run-to-run meta-progression is an unscoped design decision left for
+  Jaxon to define; store-page copy is drafted and awaiting his review;
+  cover art/GIF need tooling this sandbox doesn't have).
+
+No git activity, no GOALS.md/ROADMAP.md changes since the last commit
+(08df094 / this entry's predecessor, 15:41Z) -- nothing for this run to
+pick up. Per GOALS.md's own rule against inventing busywork when the
+queue is empty, staying idle and saying so here.
+
+**Verification:** none needed, no code touched.
+**State:** working tree clean apart from this log entry.
+**Next run:** re-check both files fresh; if Jaxon hasn't added anything,
+idle is still the correct call, not a failure.
