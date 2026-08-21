@@ -1,6 +1,8 @@
 // Regression guard for the touch tap-to-play double-fire bug (fixed
 // 2026-08-20): a real touch tap on a rack tile must append the tapped
-// tile's letter to #word-input EXACTLY ONCE and push its id into
+// tile's letter to the staged word (Game._stagedWord(), read via
+// window.Wordbound.Game._state -- #word-input was removed by the UX ticket,
+// GOALS.md 2026-08-21 batch item 1/7) EXACTLY ONCE, and push its id into
 // state.selectedTileIds EXACTLY ONCE. A doubled letter (the bug this
 // guards) still satisfies a weaker "something got typed" check, which is
 // why this asserts exact values/counts, not just non-emptiness.
@@ -44,8 +46,8 @@ function check(label, ok) {
       await page.click('#btn-close-howto');
     }
 
-    const initialValue = await page.inputValue('#word-input');
-    check('word-input starts empty', initialValue === '');
+    const initialValue = await page.evaluate(() => window.Wordbound.Game._stagedWord());
+    check('staged word starts empty', initialValue === '');
 
     // ---- TEST 1: single tap plays the letter exactly once ----
     const firstTile = page.locator('.letter-tile').first();
@@ -61,8 +63,8 @@ function check(label, ok) {
     const bbox = await firstTile.boundingBox();
     await page.touchscreen.tap(bbox.x + bbox.width / 2, bbox.y + bbox.height / 2);
 
-    const afterTapValue = await page.inputValue('#word-input');
-    check('word-input gains exactly the tapped letter once (got ' + JSON.stringify(afterTapValue) +
+    const afterTapValue = await page.evaluate(() => window.Wordbound.Game._stagedWord());
+    check('staged word gains exactly the tapped letter once (got ' + JSON.stringify(afterTapValue) +
       ', expected ' + JSON.stringify(expectedLetter) + ')', afterTapValue === expectedLetter);
 
     const selectedIdsAfterTap = await page.evaluate(() => window.Wordbound.Game._state.selectedTileIds.slice());
@@ -78,7 +80,7 @@ function check(label, ok) {
     const tilesBeforeDrag = await page.locator('.letter-tile').all();
     check('at least 2 tiles present for a drag test', tilesBeforeDrag.length >= 2);
     if (tilesBeforeDrag.length >= 2) {
-      const wordInputBeforeDrag = await page.inputValue('#word-input');
+      const wordInputBeforeDrag = await page.evaluate(() => window.Wordbound.Game._stagedWord());
       const dragTileId = await tilesBeforeDrag[1].getAttribute('data-tile-id');
       const startBox = await tilesBeforeDrag[1].boundingBox();
       const targetBox = await tilesBeforeDrag[0].boundingBox();
@@ -103,8 +105,8 @@ function check(label, ok) {
         tileId: dragTileId,
       });
 
-      const wordInputAfterDrag = await page.inputValue('#word-input');
-      check('simulated touch-drag did NOT append a letter to word-input',
+      const wordInputAfterDrag = await page.evaluate(() => window.Wordbound.Game._stagedWord());
+      check('simulated touch-drag did NOT append a letter to the staged word',
         wordInputAfterDrag === wordInputBeforeDrag);
 
       const rackIdsAfterDrag = await page.evaluate(() => window.Wordbound.Game._state.player.rack.map(t => t.id));

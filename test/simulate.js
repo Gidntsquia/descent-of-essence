@@ -222,7 +222,12 @@ async function analyze() {
           if (w.length >= 2 && w.length <= rack.length) {
             const formed = Lexicon.canFormFromRack(w, rack);
             if (formed.possible) {
-              window.document.getElementById('word-input').value = w;
+              // UX ticket (GOALS.md 2026-08-21 batch item 1/7): word-building
+              // is click-tiles-only now -- #word-input is gone.
+              formed.tilesUsed.forEach((tile) => {
+                const tileBtn = window.document.querySelector('#rack-display [data-tile-id="' + tile.id + '"]');
+                if (tileBtn) tileBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+              });
               window.document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
               await new Promise((r) => setTimeout(r, 50));
               break;

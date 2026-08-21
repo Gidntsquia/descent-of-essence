@@ -46,7 +46,7 @@
       <button id="btn-new-run" class="btn btn-primary">New Run</button>
       <button id="btn-how-to-play" class="btn btn-secondary" style="margin-top: 10px;">How to Play</button>
       <div class="menu-colophon">
-        <p class="version-info">v0.53</p>
+        <p class="version-info">v0.54</p>
         <div id="achievements-display"></div>
       </div>
     </div>
@@ -91,8 +91,7 @@
       <div id="rack-display" class="rack-display"></div>
       <div id="staging-area" class="staging-area"></div>
       <div id="damage-preview" class="damage-preview preview-empty" aria-live="polite">--</div>
-      <div class="word-input-row">
-        <input id="word-input" type="text" maxlength="15" autocomplete="off" spellcheck="false" placeholder="Type or click letters..." />
+      <div class="word-actions-row">
         <button id="btn-submit-word" class="btn btn-primary">Play Word</button>
         <button id="btn-clear-word" class="btn btn-secondary">Clear</button>
       </div>
@@ -190,7 +189,7 @@
         <li>Your whole Rack refreshes after every word, played tiles and leftovers alike. Spend freely.</li>
         <li>Tile rewards and items pile up as you descend — a stacked Rack is the whole point by floor 3.</li>
         <li><strong>Overcharge</strong> spends ink for a bigger hit on your next word; <strong>Rewrite</strong> spends ink to trade in your whole Rack for a fresh one. Both show their cost before you commit — plain word play is always free.</li>
-        <li id="howto-blank-tip">★ blanks: just type any word — they fill in automatically.</li>
+        <li id="howto-blank-tip">★ blanks: click the blank tile, then pick any letter from the grid.</li>
         <li id="howto-audio-tip" class="hidden">🔊 Hear nothing? On iPhone/iPad, the physical ringer (silent) switch mutes game sound — flip it to ring mode.</li>
       </ul>
       <button id="btn-close-howto" class="btn btn-primary">Got it</button>

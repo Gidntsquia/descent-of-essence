@@ -166,7 +166,20 @@ async function main() {
 
     const oscStartsBefore = await page.evaluate(() => window.__oscStarts);
     if (wordToPlay) {
-      await page.fill('#word-input', wordToPlay);
+      // UX ticket (GOALS.md 2026-08-21 batch item 1/7): word-building is
+      // click-tiles-only now -- #word-input is gone. Resolve to the specific
+      // rack tile instances (same as the real submit path) and click each
+      // one via real Playwright clicks.
+      const tileIds = await page.evaluate((w) => {
+        const state = window.Wordbound.Game._state;
+        const Lexicon = window.Wordbound.Lexicon;
+        const rackPool = state.player.rack.filter((t) => t.id !== state.hexedTileId);
+        const formed = Lexicon.canFormFromRack(w, rackPool);
+        return formed.possible ? formed.tilesUsed.map((t) => t.id) : null;
+      }, wordToPlay);
+      for (const tileId of tileIds || []) {
+        await page.click('[data-tile-id="' + tileId + '"]');
+      }
       await page.click('#btn-submit-word');
       // playCombatSound is deferred behind a setTimeout(TILE_PLAY_ANIM_MS =
       // 220ms in game.js) so the tile-play CSS animation is visible before

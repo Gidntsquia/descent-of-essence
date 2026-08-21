@@ -311,7 +311,17 @@ async function main() {
       }
       if (!killWord) return false;
       state.monster.hp = 1; // force this word to be a killing blow
-      document.getElementById('word-input').value = killWord;
+      // UX ticket (GOALS.md 2026-08-21 batch item 1/7): word-building is
+      // click-tiles-only now -- resolve to the specific rack tile instances
+      // (same as the real submit path) and click each one, same as the
+      // Hex-aware helper in test/dom-check.js.
+      const rackPool = state.player.rack.filter((t) => t.id !== state.hexedTileId);
+      const formed = Lexicon.canFormFromRack(killWord, rackPool);
+      if (!formed.possible) return false;
+      formed.tilesUsed.forEach((tile) => {
+        const btn = document.querySelector('#rack-display [data-tile-id="' + tile.id + '"]');
+        if (btn) btn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      });
       document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
       return true;
     });
@@ -363,12 +373,14 @@ async function main() {
     }
 
     // MOBILE INPUT 1/3 (GOALS.md, Jaxon 2026-08-20), real-browser touch-mode
-    // check: on coarse-pointer devices the typing box must be CSS-hidden (no
-    // soft keyboard) and the tap-only blank-letter picker must fit small
-    // screens. jsdom can't compute display:none from the stylesheet or lay out
-    // the grid, so this is the piece only a real browser can confirm. Force
-    // touch-mode by mocking matchMedia coarse in-page and re-deriving the mode
-    // (independent of whether headless Chromium reports a coarse pointer).
+    // check: the tap-only blank-letter picker must fit small screens. jsdom
+    // can't lay out the grid, so this is the piece only a real browser can
+    // confirm. Force touch-mode by mocking matchMedia coarse in-page and
+    // re-deriving the mode (independent of whether headless Chromium reports
+    // a coarse pointer). #word-input no longer exists (UX ticket, GOALS.md
+    // 2026-08-21 batch item 1/7 removed it -- word-building is
+    // click/tap-tiles-only on every device now, so there's no separate
+    // "hide the typing box in touch-mode" behavior left to check here).
     console.log('Testing touch-mode input (coarse pointer):\n');
     let touchModeOK = true;
     {
@@ -385,19 +397,16 @@ async function main() {
       await page.waitForTimeout(100);
 
       const touchState = await page.evaluate(() => {
-        const input = document.getElementById('word-input');
-        const cs = window.getComputedStyle(input);
         return {
           bodyHasClass: document.body.classList.contains('touch-mode'),
-          inputHidden: cs.display === 'none',
           submitVisible: window.getComputedStyle(document.getElementById('btn-submit-word')).display !== 'none',
           clearVisible: window.getComputedStyle(document.getElementById('btn-clear-word')).display !== 'none',
         };
       });
-      console.log('  <body>.touch-mode:', touchState.bodyHasClass, '| #word-input display:none:', touchState.inputHidden);
+      console.log('  <body>.touch-mode:', touchState.bodyHasClass);
       console.log('  Play Word visible:', touchState.submitVisible, '| Clear visible:', touchState.clearVisible);
-      if (!touchState.bodyHasClass || !touchState.inputHidden || !touchState.submitVisible || !touchState.clearVisible) {
-        console.log('  ⚠️  touch-mode input row not in the expected state');
+      if (!touchState.bodyHasClass || !touchState.submitVisible || !touchState.clearVisible) {
+        console.log('  ⚠️  touch-mode action row not in the expected state');
         touchModeOK = false;
       }
 

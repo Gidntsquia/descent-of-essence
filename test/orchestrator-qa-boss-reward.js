@@ -9,9 +9,11 @@
 //
 // Coverage:
 //   1. Organic path: main menu -> New Run -> character select -> node map ->
-//      first combat, playing real words typed into #word-input, all via
-//      Playwright's actionability-checked .click() (fails on hidden/covered
-//      elements, unlike jsdom).
+//      first combat, playing real words by clicking real rack tiles (UX
+//      ticket, GOALS.md 2026-08-21 batch item 1/7, removed #word-input --
+//      word-building is click-tiles-only now), all via Playwright's
+//      actionability-checked .click() (fails on hidden/covered elements,
+//      unlike jsdom).
 //   2. Boss kill -> tile reward (real click) -> boss item reward panel
 //      (rare/legendary only) -> real click an item -> item chip appears,
 //      floor advances. Panels asserted strictly sequential, never stacked.
@@ -124,8 +126,23 @@ const FIND_WORD_FN = `
 async function playOneWord(page) {
   const word = await page.evaluate(FIND_WORD_FN);
   if (!word) return null; // ensureRackIsPlayable should make this impossible
-  await page.fill('#word-input', '');
-  await page.type('#word-input', word);
+  // UX ticket (GOALS.md 2026-08-21 batch item 1/7): word-building is
+  // click-tiles-only now -- resolve the target word to the SPECIFIC rack
+  // tile instances (Lexicon.canFormFromRack, same as the real submit path,
+  // and excluding any Hex'd tile the same way Game.submitWord does) and
+  // click each one in order. FIND_WORD_FN already excludes blanks, so no
+  // blank-picker handling is needed here.
+  const tileIds = await page.evaluate((w) => {
+    const state = window.Wordbound.Game._state;
+    const Lexicon = window.Wordbound.Lexicon;
+    const rackPool = state.player.rack.filter((t) => t.id !== state.hexedTileId);
+    const formed = Lexicon.canFormFromRack(w, rackPool);
+    return formed.possible ? formed.tilesUsed.map((t) => t.id) : null;
+  }, word);
+  if (!tileIds) return null;
+  for (const tileId of tileIds) {
+    await page.click('[data-tile-id="' + tileId + '"]');
+  }
   await page.click('#btn-submit-word');
   // TILE_PLAY_ANIM_MS (220ms) defers defeat/counterattack processing; a
   // killing blow additionally holds a MONSTER_DEATH_BEAT_MS (500ms) beat

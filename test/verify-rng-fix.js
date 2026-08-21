@@ -97,8 +97,15 @@ async function main() {
   const beforeScreen = state.screen;
   const beforeMonsterHp = state.monster.hp;
 
-  // Play the word
-  document.getElementById('word-input').value = word;
+  // Play the word by clicking the real rack tiles (UX ticket, GOALS.md
+  // 2026-08-21 batch item 1/7: word-building is click-tiles-only now,
+  // #word-input is gone).
+  const rackPool = state.player.rack.filter((t) => t.id !== state.hexedTileId);
+  const formed = Lexicon.canFormFromRack(word, rackPool);
+  formed.tilesUsed.forEach((tile) => {
+    const btn = document.querySelector('#rack-display [data-tile-id="' + tile.id + '"]');
+    if (btn) btn.dispatchEvent(new window.Event('click', { bubbles: true }));
+  });
   document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 50));
 

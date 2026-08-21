@@ -3,8 +3,11 @@
  * Verify the game is keyboard-playable without a mouse.
  *
  * Checks:
- * - Can tab to word-input field and submit with Enter
- * - Can tab through rack tiles and activate with Space/Enter
+ * - Can tab to a rack tile and stage it with Space/Enter (UX ticket,
+ *   GOALS.md 2026-08-21 batch item 1/7: #word-input is gone, word-building
+ *   is click/tap-tiles-only now -- native <button> Enter/Space activation
+ *   is the keyboard path)
+ * - Can tab to Play Word and submit the staged word with Enter
  * - Can tab through UI buttons (shop, treasure, events, panels)
  * - Close buttons are keyboard accessible
  */
@@ -63,7 +66,8 @@ function warn(name, message) {
 }
 
 async function test(page) {
-  // Test 1: Word input via keyboard
+  // Test 1: Word input via keyboard (tile clicks only -- UX ticket, GOALS.md
+  // 2026-08-21 batch item 1/7)
   console.log('\n=== WORD INPUT ===');
 
   // Start a run - click "New Run" first
@@ -95,50 +99,61 @@ async function test(page) {
     return document.getElementById('combat-panel').classList.contains('hidden') === false;
   }, { timeout: 5000 }).catch(() => {});
 
-  // Focus on word input
-  const wordInputFocused = await page.evaluate(() => {
-    const input = document.getElementById('word-input');
-    input.focus();
-    return document.activeElement === input;
+  // Focus a rack tile and activate it with the keyboard (native <button>
+  // Enter/Space activation -- no bespoke keyboard wiring needed since rack
+  // tiles are real <button> elements, checked below).
+  const firstRackTile = page.locator('#rack-display .letter-tile').first();
+  const rackTileFocused = await firstRackTile.evaluate((el) => {
+    el.focus();
+    return document.activeElement === el;
   });
 
-  if (wordInputFocused) {
-    pass('Word input field is focusable');
+  if (rackTileFocused) {
+    pass('Rack tile is focusable');
   } else {
-    fail('Word input field is not focusable');
+    fail('Rack tile is not focusable');
   }
 
-  // Type a word
-  await page.fill('#word-input', 'THE');
+  const stagedBeforeEnter = await page.evaluate(() => window.Wordbound.Game._state.selectedTileIds.length);
+  await firstRackTile.press('Enter');
+  await page.waitForTimeout(100);
+  const stagedAfterEnter = await page.evaluate(() => window.Wordbound.Game._state.selectedTileIds.length);
 
-  // Submit with Enter
-  const beforeText = await page.evaluate(() => {
-    return document.getElementById('word-input').value;
-  });
+  if (stagedAfterEnter === stagedBeforeEnter + 1) {
+    pass('Pressing Enter on a focused rack tile stages it');
+  } else {
+    fail('Pressing Enter on a focused rack tile did not stage it');
+  }
 
-  await page.press('#word-input', 'Enter');
+  // Tab/focus to Play Word and submit with Enter. A single random letter is
+  // essentially never a valid word, so this doesn't assert staging cleared
+  // (that only happens on a SUCCESSFUL play) -- it asserts the Enter key
+  // actually reached the real submit handler, via the log message every
+  // submit (valid or "not playable") always appends.
+  const submitBtn = page.locator('#btn-submit-word');
+  const messagesBeforeSubmit = await page.evaluate(() => window.Wordbound.Game._state.messages.length);
+  await submitBtn.evaluate((el) => el.focus());
+  await submitBtn.press('Enter');
   await page.waitForTimeout(400);
 
-  const inputCleared = await page.evaluate(() => {
-    return document.getElementById('word-input').value === '';
-  });
+  const messagesAfterSubmit = await page.evaluate(() => window.Wordbound.Game._state.messages.length);
 
-  if (inputCleared) {
-    pass('Word submission works with Enter key');
+  if (messagesAfterSubmit > messagesBeforeSubmit) {
+    pass('Play Word submits the staged word with Enter (a new message was logged)');
   } else {
-    fail('Word submission with Enter key did not work');
+    fail('Pressing Enter on Play Word did not reach the submit handler');
   }
 
   // Test 2: Rack tiles keyboard access
   console.log('\n=== RACK TILES ===');
 
-  const rackTiles = await page.locator('.rack-tile').count();
+  const rackTiles = await page.locator('.letter-tile').count();
   if (rackTiles > 0) {
     pass(`Rack has ${rackTiles} tiles`);
 
     // Check if rack tiles have proper keyboard support
     const tileKeyboardSupport = await page.evaluate(() => {
-      const tiles = Array.from(document.querySelectorAll('.rack-tile'));
+      const tiles = Array.from(document.querySelectorAll('.letter-tile'));
       const hasClickHandler = tiles.some(t => {
         // Check if element or parent has click listener
         return t.onclick !== null || t.hasAttribute('data-click') || t.hasAttribute('tabindex');

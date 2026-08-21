@@ -125,8 +125,8 @@
     suppressNextStagingClick: false, // MOBILE INPUT 2/3 Phase 2: set true after a real staging drag so the synthesized post-pointerup click doesn't immediately unstage the just-reordered tile; reset on the next pointerdown
     settleTileIds: [], // MOBILE INPUT 3/3: tile ids to give a one-shot land-settle animation on the NEXT render only (a tile just staged into the play area or unstaged back to the rack); consumed + cleared during renderStagingArea
     selectedTileIds: [], // tiles selected for staging (in click order)
-    blankAssignments: {}, // MOBILE INPUT 1/3: tileId -> chosen letter, for blanks staged via the touch-mode letter picker (desktop stages blanks by typing, never populates this)
-    touchMode: false, // MOBILE INPUT 1/3: true on coarse-pointer devices -- no typing, tap-to-play only. Set from matchMedia('(pointer: coarse)') at init; desktop behavior is unchanged when false
+    blankAssignments: {}, // MOBILE INPUT 1/3: tileId -> chosen letter, for blanks staged via the letter picker (opens on click/tap on every device now that typing is gone -- see the UX ticket, GOALS.md 2026-08-21 batch item 1/7)
+    touchMode: false, // MOBILE INPUT 1/3: true on coarse-pointer devices. Set from matchMedia('(pointer: coarse)') at init; word-building is click/tap-tiles-only on every device now (UX ticket, GOALS.md 2026-08-21 batch item 1/7) -- touchMode remains for any future touch-specific tuning but no longer gates the typing-vs-tapping split, since typing doesn't exist
     blankPickerOpen: false, // MOBILE INPUT 1/3: true while the touch-mode A-Z blank-letter picker overlay is showing
     blankPickerTileId: null, // MOBILE INPUT 1/3: which blank tile the open picker is choosing a letter for
     comboState: { combo: 0, usedWords: new Set() }, // word novelty + combo streaks, reset in startCombat
@@ -1934,17 +1934,15 @@
     markSettle(tileId); // MOBILE INPUT 3/3: settle where it lands back in the rack
     hapticTick();
     playSfx('tileUnstage', 'tileTap', playTileUnstageSound);
-    syncWordInput();
     render();
     flipTile(fromRect, tileElIn('rack-display', tileId));
   }
 
   // MOBILE INPUT 1/3: the word being built from the staged tiles, in click
   // order. selectedTileIds is the source of truth; a staged blank contributes
-  // whatever letter the touch-mode picker assigned it (blankAssignments),
-  // every other tile contributes its own letter. This is what the touch-mode
-  // submit path plays, and what the (hidden-in-touch) word-input mirrors on
-  // desktop.
+  // whatever letter the picker assigned it (blankAssignments), every other
+  // tile contributes its own letter. This is what the submit path plays and
+  // what the damage preview reads on every device.
   function stagedWord() {
     return state.selectedTileIds.map(function (id) {
       var t = state.player.rack.find(function (rt) { return rt.id === id; });
@@ -1954,27 +1952,19 @@
     }).join('');
   }
 
-  // Keep the desktop typing box in sync with the staged tiles WITHOUT focusing
-  // it -- focusing is what pops the soft keyboard on mobile (MOBILE INPUT 1/3),
-  // so the focus() call is gated on desktop mode at every call site instead.
-  function syncWordInput() {
-    $('word-input').value = stagedWord();
-  }
-
   function selectTileForWord(tile) {
     // A Hex'd tile (monster intent, "FUN OVERHAUL 2/8") is locked for this
     // turn -- greyed out in the rack (see renderCombat) and a no-op here so
     // neither a click nor a touch tap can stage it.
     if (tile.id === state.hexedTileId) return;
     if (tile.letter === '?') {
-      // Desktop: a blank has no letter to append on click, so tapping one is a
-      // no-op -- the player types the word and blanks fill in automatically.
-      if (!state.touchMode) return;
-      // Touch-mode: typing is gone, so a blank needs a letter chosen for it.
-      // If it's already staged, tapping it again unstages it (and forgets its
-      // chosen letter); otherwise open the A-Z picker to assign one.
+      // A blank has no letter of its own, so clicking/tapping one opens the
+      // A-Z picker to assign it a letter -- every device now stages blanks
+      // this way (UX ticket, GOALS.md 2026-08-21 batch item 1/7 removed
+      // typing, which used to fill blanks in automatically on desktop). If
+      // it's already staged, clicking again unstages it (and forgets the
+      // chosen letter) instead of reopening the picker.
       if (state.selectedTileIds.indexOf(tile.id) !== -1) {
-        // Already staged -- tapping again unstages it (and forgets the letter).
         unstageTile(tile.id);
       } else {
         openBlankPicker(tile.id);
@@ -1997,11 +1987,6 @@
     markSettle(tile.id); // MOBILE INPUT 3/3: settle where it lands in the play area
     hapticTick();
     playSfx('tileStage', 'tileTap', playTileStageSound);
-    // The selection array is the source of truth; rebuild the input from it
-    // rather than surgically edit the string, so removals from the middle
-    // work correctly too.
-    syncWordInput();
-    if (!state.touchMode) $('word-input').focus();
     render();
     flipTile(fromRect, tileElIn('staging-area', tile.id));
   }
@@ -2042,7 +2027,6 @@
     }
     state.blankPickerOpen = false;
     state.blankPickerTileId = null;
-    syncWordInput();
     render();
   }
 
@@ -2165,7 +2149,6 @@
     var adj = insertIndex > dragIndex ? insertIndex - 1 : insertIndex;
     if (adj === dragIndex) { ids.splice(dragIndex, 0, tileId); return; } // no move -> restore, no re-render
     ids.splice(adj, 0, tileId);
-    syncWordInput();
     render();
   }
 
@@ -3234,13 +3217,12 @@
   }
 
   // GOALS.md FEATURE (staged-word damage preview): show what the currently
-  // staged (or typed) word WOULD deal before it's played, using the exact
-  // combat math the submit path uses -- Combat.previewWord runs the real
-  // playWord + item hooks on clones, so this number can never drift from
-  // reality. Neutral "--" whenever the tiles don't yet form a valid, formable
-  // word (not a fake number, not an error). Called at the end of every combat
-  // render (covers stage/unstage/reorder/clear -- all of which render()) and on
-  // desktop typing input (wired in Game.init).
+  // staged word WOULD deal before it's played, using the exact combat math
+  // the submit path uses -- Combat.previewWord runs the real playWord + item
+  // hooks on clones, so this number can never drift from reality. Neutral
+  // "--" whenever the tiles don't yet form a valid, formable word (not a
+  // fake number, not an error). Called at the end of every combat render
+  // (covers stage/unstage/reorder/clear -- all of which render()).
   function updateDamagePreview() {
     var el = $('damage-preview');
     if (!el) return;
@@ -3249,10 +3231,7 @@
       el.className = 'damage-preview preview-empty';
     }
     if (!state.combatActive || !state.monster) { neutral(); return; }
-    // Same word source the submit path uses: staged tiles in touch mode (input
-    // is hidden), the typed/mirrored input on desktop.
-    var word = state.touchMode ? stagedWord() : (($('word-input') && $('word-input').value) || '');
-    word = (word || '').trim();
+    var word = (stagedWord() || '').trim();
     if (!word) { neutral(); return; }
     var preview = Combat.previewWord(state.player, state.monster, word, state.comboState, {
       previousWord: state.previousWordThisFight,
@@ -3404,29 +3383,15 @@
     $('btn-close-howto').addEventListener('click', Game.closeHowToPlay);
 
     $('btn-submit-word').addEventListener('click', function () {
-      var input = $('word-input');
-      // MOBILE INPUT 1/3: in touch-mode the input is hidden and typing is
-      // disabled, so the staged tiles are the only word source.
-      var word = state.touchMode ? stagedWord() : input.value;
+      // UX ticket (GOALS.md 2026-08-21 batch item 1/7): typing is gone on
+      // every device -- the staged tiles are the only word source now.
+      var word = stagedWord();
       hapticTick(); // MOBILE INPUT 3/3: a tick on submit (feature-checked, reduced-motion-gated)
       Game.submitWord(word);
-      input.value = '';
     });
-    $('word-input').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') {
-        Game.submitWord(this.value);
-        this.value = '';
-      }
-    });
-    // GOALS.md FEATURE (staged-word damage preview): desktop typing has no
-    // per-keystroke render, so update the live preview directly as the player
-    // types (touch/click staging is covered by render()'s call instead).
-    $('word-input').addEventListener('input', function () { updateDamagePreview(); });
     $('btn-clear-word').addEventListener('click', function () {
-      $('word-input').value = '';
       state.selectedTileIds = [];
       state.blankAssignments = {};
-      if (!state.touchMode) $('word-input').focus();
       render();
     });
     $('btn-overcharge').addEventListener('click', Game.toggleOvercharge);
@@ -3532,9 +3497,10 @@
 
   // MOBILE INPUT 1/3: apply (or clear) touch-mode from the current
   // pointer-coarse media state. Exposed so tests can mock window.matchMedia
-  // and re-derive the mode after the page has already booted. Toggling the
-  // <body> class is what CSS keys off (hidden #word-input, tap-first copy);
-  // all JS behavior keys off state.touchMode.
+  // and re-derive the mode after the page has already booted. Kept as
+  // groundwork for any future touch-specific tuning, though no JS behavior
+  // (word-building is click/tap-tiles-only on every device -- UX ticket,
+  // GOALS.md 2026-08-21 batch item 1/7) or CSS currently keys off it.
   Game.applyTouchModeFromMedia = function () {
     var coarse = false;
     if (window.matchMedia) {
@@ -3543,18 +3509,5 @@
     }
     state.touchMode = coarse;
     if (document.body) document.body.classList.toggle('touch-mode', coarse);
-    applyTouchModeCopy(coarse);
   };
-
-  // MOBILE INPUT 1/3, spec item 5: swap player-facing "type" copy for
-  // tap-first wording in touch-mode (the input placeholder is hidden anyway;
-  // the How-to-Play blank tip is the copy that actually matters).
-  function applyTouchModeCopy(coarse) {
-    var tip = $('howto-blank-tip');
-    if (tip) {
-      tip.innerHTML = coarse
-        ? '★ blanks: tap the blank tile, then pick any letter from the grid.'
-        : '★ blanks: just type any word — they fill in automatically.';
-    }
-  }
 })();

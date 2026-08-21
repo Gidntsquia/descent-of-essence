@@ -30,7 +30,6 @@ async function stageTwoTiles(page) {
   return page.evaluate(() => {
     const state = window.Wordbound.Game._state;
     state.selectedTileIds = [];
-    document.getElementById('word-input').value = '';
     window.Wordbound.Game.openDeckViewer();
     window.Wordbound.Game.closeDeckViewer();
     const rackBtns = Array.from(document.querySelectorAll('#rack-display .letter-tile'))

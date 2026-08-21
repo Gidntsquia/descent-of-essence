@@ -14024,3 +14024,152 @@ already resolved. The floor2-share-of-deaths note (difficulty-rebalance
 entry) is left as Jaxon's call, not a re-open-able task. If nothing concrete
 turns up there either, the next run should say so plainly in PROGRESS.md
 rather than inventing busywork, per the guardrails.
+
+## 2026-08-21T19:39Z -- desktop playtest batch item 1/7 closed: typing removed, click/tap-tiles-only on every device (v0.53 -> v0.54)
+
+**Housekeeping note first:** this run started on a detached HEAD at commit
+0bb7706 (the local `main` ref in this shallow clone was stale, still
+pointing at a years-old, unrelated pre-rewrite history -- `git merge-base`
+between them returned nothing). A `git fetch origin main` while mid-task
+revealed origin/main had *also* moved past 0bb7706 to 0b03c6c (another
+session filed a follow-up BALANCE ticket, GOALS.md-only, while this run was
+in progress). Resolved by resetting local `main` to origin/main and
+reapplying this run's stashed working-tree changes on top -- a clean apply,
+no conflicts, since the other session's commit only touched GOALS.md. Net
+effect: this run's commit lands as a normal fast-forward on the real
+current main, nothing lost or overwritten. Flagging this because a future
+run seeing "diverged branches" or an empty merge-base should suspect a
+stale local ref in this shallow clone, not actual repo corruption.
+
+**The ticket (queue item 1/7 of Jaxon's desktop-playtest batch):** removed
+`#word-input` and the keyboard letter-entry path entirely. Word-building on
+every device is now click/tap-tiles-only, exact parity with mobile (the
+existing touch-mode tile-staging system, MOBILE INPUT 1-3, already built
+this out for mobile in an earlier ticket -- this run just extended it to
+also be the ONLY path, on every device, instead of a touch-only branch
+alongside typing).
+
+**What changed:**
+- `wordbound.html`: `<input id="word-input">` removed; the row it lived in
+  (`.word-input-row` -> renamed `.word-actions-row`) now holds just Play
+  Word / Clear. The how-to-play blank tip (line ~193) rewritten from "just
+  type any word" to "click the blank tile, then pick any letter from the
+  grid" -- static now, since blanks stage identically on every device (see
+  below), no more mode-dependent copy swap.
+- `css/wordbound.css`: removed `#word-input` styling, the
+  `.touch-mode #word-input { display: none }` rule (nothing left to hide),
+  and the mobile-width `#word-input` override. Renamed `.word-input-row` ->
+  `.word-actions-row` throughout (including the narrow-mobile flex-wrap
+  rule).
+- `js/wordbound/game.js`: removed `syncWordInput()` and all 4 call sites (it
+  mirrored staged tiles into the now-gone input); removed the two
+  `if (!state.touchMode) $('word-input').focus()` calls (nothing to focus);
+  removed the touchMode branch in `selectTileForWord` that made a blank-tile
+  click a no-op on desktop -- blanks now ALWAYS open the letter picker on
+  click/tap, matching what touch-mode already did (this is the one real
+  behavior change beyond "delete dead code": desktop blanks used to fill in
+  automatically from what you typed; now every blank needs an explicit
+  letter pick, same interaction on every device). `updateDamagePreview()`
+  and the `btn-submit-word`/`btn-clear-word` handlers in `Game.init` now
+  unconditionally read `stagedWord()` -- no more `state.touchMode ? staged
+  : input.value` ternary. Removed the input's `keydown`/`input` listeners
+  entirely (Enter-to-submit was the input's own keydown handler, not an
+  independent global shortcut -- grepped the file for any other `'Enter'`/
+  `keydown` binding and found none, so there was nothing standalone to
+  keep, per the ticket's "keep Enter-to-submit only if independent" clause).
+  `applyTouchModeCopy()` deleted along with its call (the copy it swapped no
+  longer varies by mode). `state.touchMode` / the `.touch-mode` body-class
+  detection mechanism itself (matchMedia coarse-pointer listener) is KEPT,
+  just now unused by any current behavior -- left as groundwork per the
+  "don't refactor beyond what's asked" guardrail rather than ripped out,
+  since it's harmless and a future touch-specific tweak might want it.
+
+**Tests/QA scripts updated (the ticket's explicit "sweep for dependents"
+clause) -- every script that drove `#word-input` now drives real rack-tile
+clicks instead, resolving the target word to the exact tile instances via
+`Lexicon.canFormFromRack` (same lookup the real submit path uses,
+Hex'd-tile-excluded the same way `Game.submitWord` excludes it) and
+dispatching real clicks on those tiles' buttons, not synthetic state pokes:**
+- `test/dom-check.js` (the mandatory `npm test` gate): added
+  `stageWordViaTiles(word)` / `submitStagedWord()` / `playWordViaTiles(word)`
+  helpers near the top of the combat section; ~26 call sites converted.
+  Rewrote the "MOBILE INPUT 1/3 touch-mode" block (it used to prove
+  touch-mode did tile-tap-with-no-typing vs. desktop's typing path -- that
+  contrast is gone, so it now just proves tile-tap staging/blank-picker/
+  Clear all work, plus that the touchMode-detection mechanism itself still
+  flips correctly) and the "blank tile click is a no-op on desktop" B5
+  regression check (now proves the OPPOSITE -- a blank click opens the
+  picker on desktop too, not a no-op, since that's the new correct
+  behavior).
+- New `test/verify-desktop-tile-play.js` (+ `npm run test:desktop-tile-play`
+  in package.json): the ticket's explicit "a Playwright pass playing a word
+  tiles-only on desktop viewport" requirement. Real Chromium, 1366x768,
+  `hasTouch: false`. Asserts `#word-input` doesn't exist in the DOM,
+  keyboard typing does nothing, and a full word gets built and played with
+  nothing but mouse clicks on rack tiles.
+- Also fixed (would otherwise have been silently broken by the DOM removal,
+  not gated by `npm test` but still real regressions):
+  `test/verify-touch-tap-fix.js`, `test/orchestrator-qa-boss-reward.js`,
+  `test/verify-keyboard-playable.js` (its "Word input via keyboard" section
+  rewritten from "type into input, Enter submits" to "Tab/focus a rack
+  `<button>`, Enter/Space stages it via native button-activation, Tab to
+  Play Word, Enter submits" -- also fixed a pre-existing unrelated bug in
+  the same file while touching it: it queried the wrong class,
+  `.rack-tile`, which never matched anything, `.letter-tile` is correct),
+  `test/verify-mobile-layout.js` (dropped the now-meaningless "#word-input
+  is CSS-hidden in touch-mode" checks, kept the blank-picker-fits-375px
+  checks), `test/verify-drag-interrupt.js`, `test/verify-rng-fix.js`,
+  `test/verify-consumables-gameplay.js`, `test/verify-audio-context.js`,
+  `test/simulate.js`, and `tools/record-gameplay.js` (the itch.io demo-clip
+  recorder -- now clicks tiles instead of typing, which is also just a more
+  accurate demo of the real UX going forward).
+
+**Verification:**
+- `npm test`: full suite green, "ALL CHECKS PASSED", zero SKIPs this run.
+- `npm run test:desktop-tile-play` (new): green, all 8 checks pass in real
+  headless Chromium.
+- `npm run test:mobile`: green (375px/414px), including the reworked
+  touch-mode block.
+- `npm run test:qa` (orchestrator-qa-boss-reward.js): green, full organic
+  run + boss-reward flow via real tile clicks.
+- `npm run test:audio`: green.
+- `node test/verify-drag-interrupt.js`, `node test/verify-touch-tap-fix.js`,
+  `node test/verify-keyboard-playable.js`: all green.
+- `npm run test:itch-build`: green (confirms the built zip still loads
+  clean in a real browser with the removed input).
+- `node test/verify-rng-fix.js`, `node test/verify-consumables-gameplay.js`,
+  `node test/simulate.js`: all THREE crash on an unrelated pre-existing bug
+  (`Cannot read properties of null (reading '...')`, combat never starts)
+  that reproduces identically on the pre-ticket code (verified via
+  `git stash` + re-run) -- not caused by or related to this ticket, left
+  alone as out-of-scope pre-existing flake/bug. Worth a future ticket if it
+  keeps happening (possible timing race in these three older jsdom
+  scripts' node-entry wait).
+- NOT run: `npm run test:branching-map` (doesn't touch wordbound.html/UI),
+  `npm run test:run-header` (unrelated to this change, skipped for time).
+
+**What's confirmed vs. not:** confirmed in real Chromium (not just jsdom)
+that #word-input is absent, keyboard typing is inert, and mouse clicks on
+rack tiles build and play a real word end to end on a desktop viewport --
+that's the actual thing this ticket asked for, verified for real, not just
+asserted against jsdom's DOM model. Blank-letter-picker desktop parity
+(click opens picker, pick a letter, it stages) is confirmed in jsdom
+(dom-check.js) but the picker's real click-to-open in an actual desktop
+mouse context wasn't separately Playwright-tested beyond what
+verify-mobile-layout.js already covers at 375px touch-mode -- reasonably
+confident given it's the same DOM/handler as the touch path already proven
+in real Chromium, but flagging that specific gap rather than overclaiming.
+
+**Version:** v0.53 -> v0.54 in `wordbound.html` ("Minor bump" per the
+ticket).
+
+**GOALS.md box checked `[x]`.**
+
+**Next run:** GOALS.md's queue now has 2 unchecked items left from Jaxon's
+7-item desktop-playtest batch (items 2-6 remaining after this one; item 7
+explicitly says "DO THIS LAST, it depends on tickets 1-5") plus the BALANCE
+follow-up ticket another session filed mid-batch (steeper long-word damage
+bonus, inserted before item 7). Pick up item 2/7 next (DESIGN: remove the
+combo mechanic entirely) -- item 1/7's removal here didn't touch combo
+state/damage/UI at all, so item 2/7 is still fully open and unaffected by
+this run's changes.

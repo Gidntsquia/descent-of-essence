@@ -50,6 +50,20 @@ async function main() {
   const Traits = window.Wordbound.Traits;
   const WORDLIST = window.Wordbound.WORDLIST;
 
+  // UX ticket (GOALS.md 2026-08-21 batch item 1/7): word-building is
+  // click-tiles-only now -- #word-input is gone. Resolve the target word to
+  // the specific rack tile instances (same as the real submit path) and
+  // click each one, same helper pattern as test/dom-check.js.
+  function playWordViaTiles(word) {
+    const rackPool = state.player.rack.filter((t) => t.id !== state.hexedTileId);
+    const formed = Lexicon.canFormFromRack(word, rackPool);
+    formed.tilesUsed.forEach((tile) => {
+      const btn = document.querySelector('#rack-display [data-tile-id="' + tile.id + '"]');
+      if (btn) btn.dispatchEvent(new window.Event('click', { bubbles: true }));
+    });
+    document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+  }
+
   // TEST 1: Index Card Shard bonus damage
   console.log('Test 1: Index Card Shard bonus damage in combat');
 
@@ -93,8 +107,10 @@ async function main() {
   }
 
   const beforeHp = state.monster.hp;
-  document.getElementById('word-input').value = word;
-  document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+  // Play the word by clicking the real rack tiles (UX ticket, GOALS.md
+  // 2026-08-21 batch item 1/7: word-building is click-tiles-only now,
+  // #word-input is gone).
+  playWordViaTiles(word);
   await new Promise((r) => setTimeout(r, 50));
 
   const afterHp = state.monster.hp;
@@ -147,8 +163,7 @@ async function main() {
     }
 
     if (word) {
-      document.getElementById('word-input').value = word;
-      document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+      playWordViaTiles(word);
       await new Promise((r) => setTimeout(r, 50));
 
       // Check flags are reset

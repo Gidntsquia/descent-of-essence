@@ -1074,7 +1074,7 @@ h2 {
 .damage-preview.preview-overcharged { color: #ffd257; text-shadow: 0 0 8px rgba(255, 210, 87, 0.55); }
 
 /* INK SPEND (GOALS.md INK ticket, run 2/2-4): Overcharge/Rewrite sit below
-   the word-input row, same wrap behavior at mobile widths. */
+   the word-actions row, same wrap behavior at mobile widths. */
 .ink-spend-row {
   display: flex;
   gap: 8px;
@@ -1220,24 +1220,10 @@ h2 {
 .staged-tile.variant-vampiric::after { content: '🩸'; }
 .staged-tile.variant-volatile::after { content: '💥'; }
 
-.word-input-row {
+.word-actions-row {
   display: flex;
   gap: 8px;
   justify-content: center;
-}
-
-#word-input {
-  font-family: inherit;
-  font-size: 1.1rem;
-  text-transform: uppercase;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #4a4130;
-  background: #14110b;
-  color: #e8dfc8;
-  flex: 1;
-  min-width: 0;
-  max-width: 260px;
 }
 
 .treasure-panel { margin-top: 16px; text-align: center; }
@@ -1487,14 +1473,6 @@ h2 {
   margin-bottom: 10px;
 }
 
-/* MOBILE INPUT 1/3: on coarse-pointer (touch) devices, hide the typing box
-   entirely -- tapping tiles is the only input, so the soft keyboard never
-   pops. Desktop (no .touch-mode on <body>) keeps the input exactly as-is.
-   The Play Word / Clear buttons stay visible in both modes. */
-.touch-mode #word-input {
-  display: none;
-}
-
 /* MOBILE INPUT 1/3: touch-mode blank-letter picker (A-Z grid). Same overlay
    pattern/z-index as the how-to-play overlay. */
 .blank-picker-overlay {
@@ -1573,13 +1551,8 @@ h2 {
     width: 60px;
   }
 
-  .word-input-row {
+  .word-actions-row {
     flex-wrap: wrap;
-  }
-
-  #word-input {
-    flex: 1 1 100%;
-    max-width: none;
   }
 
   /* Grow tap targets vertically (not horizontally -- the run-header row is

@@ -1194,6 +1194,50 @@ async function main() {
   check('combat is active after entering a combat node', state.combatActive === true);
   check('rack has tiles', state.player.rack.length > 0);
 
+  // UX ticket (GOALS.md 2026-08-21 batch item 1/7): word-building is
+  // click/tap-tiles-only now -- #word-input is gone from the DOM entirely.
+  // This helper drives the real rack tile buttons (and, for blanks, the real
+  // blank-letter-picker buttons) the same way a player's clicks would, using
+  // Lexicon.canFormFromRack to know exactly which rack tile instances spell
+  // the target word. Every check below that used to poke #word-input.value
+  // now goes through these real click handlers instead, matching the
+  // CRITICAL rule at the top of GOALS.md: exercise the actual DOM, don't
+  // shortcut around it.
+  function stageWordViaTiles(word) {
+    const Lexicon = window.Wordbound.Lexicon;
+    const upperWord = word.toUpperCase();
+    // A Hex'd tile (monster intent) is locked out of word-formation by
+    // Game.submitWord itself (it splices the tile out of the rack before
+    // matching) -- exclude it here too, or canFormFromRack could pick it as
+    // one of the tilesUsed and this helper would then try to click a
+    // disabled, no-op rack button.
+    const rackPool = state.player.rack.filter((t) => t.id !== state.hexedTileId);
+    const formed = Lexicon.canFormFromRack(upperWord, rackPool);
+    if (!formed.possible) throw new Error('stageWordViaTiles: cannot form "' + word + '" from the current rack');
+    formed.tilesUsed.forEach((tile, i) => {
+      const btn = document.querySelector('#rack-display [data-tile-id="' + tile.id + '"]');
+      if (!btn) throw new Error('stageWordViaTiles: no rack button found for tile ' + tile.id);
+      btn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      if (tile.letter === '?') {
+        const letterBtn = document.querySelector('#blank-picker-grid [data-blank-letter="' + upperWord[i] + '"]');
+        if (!letterBtn) throw new Error('stageWordViaTiles: no blank-picker button found for letter ' + upperWord[i]);
+        letterBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+      }
+    });
+  }
+  function submitStagedWord() {
+    document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+  }
+  // Convenience for the (very common) "set up a word, then play it" pattern
+  // that used to be `#word-input.value = w` + a submit-button click.
+  function playWordViaTiles(word) {
+    stageWordViaTiles(word);
+    submitStagedWord();
+  }
+  function clearStagedWord() {
+    document.getElementById('btn-clear-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+  }
+
   // DESIGN/BALANCE ticket (GOALS.md, Jaxon directive 2026-08-21):
   // Overcharge/Rewrite first-run unlock gate. Checked right here, at the
   // FIRST combat this fresh jsdom page ever enters, before anything else in
@@ -1327,8 +1371,7 @@ async function main() {
       const intentEl = document.getElementById('monster-intent');
       check('monster intent: Hex is telegraphed before it fires ("Next: Hex...")', !!intentEl && intentEl.textContent.indexOf('Hex') !== -1);
 
-      document.getElementById('word-input').value = safeWord;
-      document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+      playWordViaTiles(safeWord);
       await new Promise((r) => setTimeout(r, 300));
 
       check('monster intent: Hex turn produces zero errors', errors.length === 0);
@@ -1371,7 +1414,6 @@ async function main() {
   // pokes), since this is exactly a click-handler/render-order bug class.
   {
     state.selectedTileIds = [];
-    document.getElementById('word-input').value = '';
     window.Wordbound.Game.openDeckViewer();
     window.Wordbound.Game.closeDeckViewer();
 
@@ -1396,7 +1438,7 @@ async function main() {
     } else {
       const firstId = candidates[0].getAttribute('data-tile-id');
       candidates[0].dispatchEvent(new window.Event('click', { bubbles: true }));
-      check('tile click: staging a tile appends its letter exactly once', document.getElementById('word-input').value.length === 1);
+      check('tile click: staging a tile appends its letter exactly once', window.Wordbound.Game._stagedWord().length === 1);
       check('tile click: selectedTileIds gains exactly the clicked tile', state.selectedTileIds.length === 1 && state.selectedTileIds[0] === firstId);
       check('mobile 2/3: staged tile leaves an empty rack slot (rack keeps shape)', !!emptySlot(firstId));
       check('mobile 2/3: the staged tile no longer renders as a .letter-tile in the rack',
@@ -1405,7 +1447,7 @@ async function main() {
 
       // Unstage by clicking the empty rack slot.
       emptySlot(firstId).dispatchEvent(new window.Event('click', { bubbles: true }));
-      check('mobile 2/3: clicking the empty slot unstages the tile (input empty)', document.getElementById('word-input').value === '');
+      check('mobile 2/3: clicking the empty slot unstages the tile (staged word empty)', window.Wordbound.Game._stagedWord() === '');
       check('mobile 2/3: selectedTileIds is empty again', state.selectedTileIds.length === 0);
       check('mobile 2/3: the tile is a normal rack .letter-tile again after unstage',
         rackButtons().some((b) => b.getAttribute('data-tile-id') === firstId));
@@ -1428,15 +1470,14 @@ async function main() {
       const tileBId = tileBBtn.getAttribute('data-tile-id');
       const tileBLetter = state.player.rack.find((t) => t.id === tileBId).letter;
       tileBBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
-      check('tile click: two distinct tiles stage in click order', document.getElementById('word-input').value === tileALetter + tileBLetter);
+      check('tile click: two distinct tiles stage in click order', window.Wordbound.Game._stagedWord() === tileALetter + tileBLetter);
 
       // Unstage the first of the two by clicking its empty slot.
       emptySlot(tileAId).dispatchEvent(new window.Event('click', { bubbles: true }));
-      check('tile click: unstaging the first of two leaves only the second letter', document.getElementById('word-input').value === tileBLetter);
+      check('tile click: unstaging the first of two leaves only the second letter', window.Wordbound.Game._stagedWord() === tileBLetter);
       check('tile click: selectedTileIds now holds only the second tile', state.selectedTileIds.length === 1 && state.selectedTileIds[0] === tileBId);
 
       state.selectedTileIds = [];
-      document.getElementById('word-input').value = '';
       window.Wordbound.Game.openDeckViewer();
       window.Wordbound.Game.closeDeckViewer();
 
@@ -1446,7 +1487,6 @@ async function main() {
       // so these exercise the pure mutations the glue calls on release:
       // Game._reorderStagedTile (spec 4) and unstageTile (spec 5's drag-out).
       state.selectedTileIds = [];
-      document.getElementById('word-input').value = '';
       const Game = window.Wordbound.Game;
       let dragCands = nonBlankButtons();
       if (dragCands.length < 3) {
@@ -1472,8 +1512,7 @@ async function main() {
         check('mobile 2/3 phase2: dragging tile 0 to the end (insert index len) moves it last',
           state.selectedTileIds.join(',') === [id1, id2, id0].join(','));
         check('mobile 2/3 phase2: reorder rebuilds the staged word from the new order',
-          Game._stagedWord() === L(id1) + L(id2) + L(id0) &&
-          document.getElementById('word-input').value === L(id1) + L(id2) + L(id0));
+          Game._stagedWord() === L(id1) + L(id2) + L(id0));
         check('mobile 2/3 phase2: reorder does not add or drop any tile',
           state.selectedTileIds.length === 3);
         check('mobile 2/3 phase2: staging area re-rendered all three tiles after reorder',
@@ -1547,7 +1586,6 @@ async function main() {
         const restage = (ids) => {
           state.selectedTileIds = [];
           state.blankAssignments = {};
-          document.getElementById('word-input').value = '';
           Game.openDeckViewer(); Game.closeDeckViewer(); // force a clean render
           ids.forEach((id) => {
             const b = document.querySelector('#rack-display .letter-tile[data-tile-id="' + id + '"]');
@@ -1706,7 +1744,6 @@ async function main() {
       }
 
       state.selectedTileIds = [];
-      document.getElementById('word-input').value = '';
       window.Wordbound.Game.openDeckViewer();
       window.Wordbound.Game.closeDeckViewer();
     }
@@ -1721,7 +1758,6 @@ async function main() {
       const Game = window.Wordbound.Game;
       state.selectedTileIds = [];
       state.settleTileIds = [];
-      document.getElementById('word-input').value = '';
       Game.openDeckViewer(); Game.closeDeckViewer();
 
       const rackBtns = () => Array.from(document.querySelectorAll('#rack-display .letter-tile'));
@@ -1788,12 +1824,16 @@ async function main() {
 
       state.selectedTileIds = [];
       state.settleTileIds = [];
-      document.getElementById('word-input').value = '';
       Game.openDeckViewer(); Game.closeDeckViewer();
     }
 
-    // A blank (?) tile has no letter to stage -- clicking it must be a true
-    // no-op (review B5's second finding), not a visible-but-empty selection.
+    // A blank (?) tile has no letter of its own -- clicking it opens the
+    // letter picker rather than being a no-op (UX ticket, GOALS.md
+    // 2026-08-21 batch item 1/7: typing is gone, so a blank must be assigned
+    // a letter via the picker on every device, not just touch -- this block
+    // runs before touch-mode is ever mocked below, proving the desktop/
+    // default path specifically). It's still not staged as a bare selection
+    // until a letter is actually picked.
     const blankTile = { id: 'test-blank-tile-b5', letter: '?' };
     state.player.rack.push(blankTile);
     window.Wordbound.Game.openDeckViewer();
@@ -1801,41 +1841,32 @@ async function main() {
     const blankBtn = document.querySelector('[data-tile-id="test-blank-tile-b5"]');
     check('blank tile renders in the rack for this check', !!blankBtn);
     if (blankBtn) {
-      const inputBefore = document.getElementById('word-input').value;
       const selectedCountBefore = state.selectedTileIds.length;
       blankBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
-      check('blank tile click: word-input unchanged', document.getElementById('word-input').value === inputBefore);
-      check('blank tile click: selectedTileIds unchanged', state.selectedTileIds.length === selectedCountBefore);
-      const blankBtnAfter = document.querySelector('[data-tile-id="test-blank-tile-b5"]');
-      check('blank tile click: never gets the selected class', !!blankBtnAfter && blankBtnAfter.className.indexOf('selected') === -1);
+      const overlay = document.getElementById('blank-picker-overlay');
+      check('blank tile click (desktop): opens the letter picker instead of a no-op', state.blankPickerOpen === true && !!overlay && !overlay.classList.contains('hidden'));
+      check('blank tile click (desktop): not staged until a letter is picked', state.selectedTileIds.length === selectedCountBefore);
+      document.getElementById('btn-cancel-blank-picker').dispatchEvent(new window.Event('click', { bubbles: true }));
+      check('blank tile click (desktop): cancelling the picker leaves it unstaged', state.blankPickerOpen === false && state.selectedTileIds.length === selectedCountBefore);
     }
     state.player.rack = state.player.rack.filter((t) => t.id !== 'test-blank-tile-b5');
     state.selectedTileIds = [];
-    document.getElementById('word-input').value = '';
     window.Wordbound.Game.openDeckViewer();
     window.Wordbound.Game.closeDeckViewer();
   }
 
-  // MOBILE INPUT 1/3 (GOALS.md, Jaxon 2026-08-20): on coarse-pointer (touch)
-  // devices there must be NO typing -- tapping tiles is the only input, and
-  // .focus() must never fire on the (hidden) word-input (that's what pops the
-  // soft keyboard). jsdom has no matchMedia, so it's mocked coarse here, then
-  // Game.applyTouchModeFromMedia() re-derives the mode after boot. jsdom can't
-  // compute display:none from the external stylesheet, so the input's actual
-  // visual hiding is asserted in npm run test:mobile (real browser); here we
-  // assert the body.touch-mode class the CSS keys off, plus every behavioral
-  // consequence (no focus, staged-word submit source, blank picker). Restores
-  // desktop mode at the end so the later checks (which assume typing) are
-  // unaffected.
+  // MOBILE INPUT 1/3 / UX ticket (GOALS.md 2026-08-21 batch item 1/7):
+  // click/tap-tiles-only word-building is now identical on every device --
+  // there's no more typing path to compare against, so these checks just
+  // confirm tile-tap staging, the blank-letter picker, and Clear all work,
+  // plus that the touchMode detection mechanism itself (still kept as
+  // groundwork for future touch-specific tuning) continues to flip the
+  // body class correctly. jsdom has no matchMedia, so it's mocked coarse
+  // here, then Game.applyTouchModeFromMedia() re-derives the mode after
+  // boot. Restores desktop mode at the end.
   {
     const Game = window.Wordbound.Game;
-    const input = document.getElementById('word-input');
     const realMatchMedia = window.matchMedia;
-
-    // Spy on focus() so we can prove it's never called in touch-mode.
-    let focusCalls = 0;
-    const realFocus = input.focus.bind(input);
-    input.focus = function () { focusCalls++; return realFocus(); };
 
     // --- enter touch-mode ---
     window.matchMedia = (q) => ({
@@ -1845,13 +1876,10 @@ async function main() {
     Game.applyTouchModeFromMedia();
     check('mobile 1/3: state.touchMode is true under a coarse pointer', state.touchMode === true);
     check('mobile 1/3: <body> gets the touch-mode class', document.body.classList.contains('touch-mode'));
-    check('mobile 1/3: How-to-Play blank tip switches to tap-first wording',
-      /tap the blank/i.test(document.getElementById('howto-blank-tip').textContent));
 
     // clean staging slate
     state.selectedTileIds = [];
     state.blankAssignments = {};
-    input.value = '';
     Game.openDeckViewer(); Game.closeDeckViewer();
 
     const rackBtns = () => Array.from(document.querySelectorAll('#rack-display .letter-tile'));
@@ -1860,14 +1888,10 @@ async function main() {
       return t && t.letter !== '?' && t.id !== state.hexedTileId;
     });
 
-    // --- tapping two rack tiles stages them WITHOUT focusing the input, and
-    // clicking Play Word submits the STAGED word (not the hidden, empty input).
-    // The real submitWord is stubbed to capture its argument, so this proves
-    // the submit SOURCE (stagedWord vs input.value) without actually playing a
-    // word -- which keeps the in-progress fight pristine for the later variant/
-    // stats checks. (End-to-end submitWord damage is already covered elsewhere
-    // via the input path; the only touch-specific concern is the source.) ---
-    focusCalls = 0;
+    // --- tapping two rack tiles stages them, and clicking Play Word submits
+    // the staged word. submitWord is stubbed to capture its argument, so this
+    // proves the submit source without actually playing a word -- which keeps
+    // the in-progress fight pristine for the later variant/stats checks. ---
     let cand = nonBlank();
     if (cand.length < 2) {
       console.log('SKIP mobile-1/3 tap checks -- fewer than 2 non-blank rack tiles (unexpected)');
@@ -1879,32 +1903,23 @@ async function main() {
       const bBtn = cand.find((b) => b.getAttribute('data-tile-id') !== aId);
       const bLetter = state.player.rack.find((t) => t.id === bBtn.getAttribute('data-tile-id')).letter;
       bBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
-      check('mobile 1/3: tapping tiles in touch-mode stages them (2 selected)', state.selectedTileIds.length === 2);
+      check('mobile 1/3: tapping tiles stages them (2 selected)', state.selectedTileIds.length === 2);
       check('mobile 1/3: stagedWord() reflects the two tapped letters', Game._stagedWord() === aLetter + bLetter);
-      check('mobile 1/3: no focus() call on the input while staging (soft keyboard suppressed)', focusCalls === 0);
 
-      // Prove submit reads the staged word, not the input. Stub submitWord to
-      // capture its argument; the input is deliberately given a DIFFERENT value
-      // so a regression that read input.value would be caught.
       const realSubmit = Game.submitWord;
       let submittedWith = null;
       Game.submitWord = function (w) { submittedWith = w; };
-      input.value = 'ZZZZ'; // would-be word if the handler wrongly read the input
       document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
       Game.submitWord = realSubmit;
-      check('mobile 1/3: Play Word submitted the staged word, not the input value', submittedWith === aLetter + bLetter);
-      check('mobile 1/3: submitting never focused the input', focusCalls === 0);
+      check('mobile 1/3: Play Word submitted the staged word', submittedWith === aLetter + bLetter);
 
       state.selectedTileIds = [];
-      input.value = '';
       Game.openDeckViewer(); Game.closeDeckViewer();
     }
 
     // --- blank letter picker: tap a blank -> picker opens -> pick -> staged as that letter ---
     state.selectedTileIds = [];
     state.blankAssignments = {};
-    input.value = '';
-    focusCalls = 0;
     const blank = { id: 'test-touch-blank', letter: '?' };
     state.player.rack.push(blank);
     Game.openDeckViewer(); Game.closeDeckViewer();
@@ -1913,7 +1928,7 @@ async function main() {
     if (blankBtn) {
       blankBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
       const overlay = document.getElementById('blank-picker-overlay');
-      check('mobile 1/3: tapping a blank in touch-mode opens the letter picker', state.blankPickerOpen === true && overlay && !overlay.classList.contains('hidden'));
+      check('mobile 1/3: tapping a blank opens the letter picker', state.blankPickerOpen === true && overlay && !overlay.classList.contains('hidden'));
       check('mobile 1/3: the picker targets the tapped blank', state.blankPickerTileId === 'test-touch-blank');
       const gridBtns = Array.from(document.querySelectorAll('#blank-picker-grid .blank-picker-letter'));
       check('mobile 1/3: the picker renders a full A-Z grid (26 letters)', gridBtns.length === 26);
@@ -1923,7 +1938,6 @@ async function main() {
       check('mobile 1/3: the blank is now staged', state.selectedTileIds.indexOf('test-touch-blank') !== -1);
       check('mobile 1/3: the blank was assigned the chosen letter', state.blankAssignments['test-touch-blank'] === 'Q');
       check('mobile 1/3: stagedWord() spells the chosen letter for the blank', Game._stagedWord() === 'Q');
-      check('mobile 1/3: opening/using the picker never focused the input', focusCalls === 0);
 
       // tapping the staged blank again unstages it and forgets its letter
       const blankBtn2 = document.querySelector('[data-tile-id="test-touch-blank"]');
@@ -1933,16 +1947,14 @@ async function main() {
     }
     state.player.rack = state.player.rack.filter((t) => t.id !== 'test-touch-blank');
 
-    // --- Clear in touch-mode empties staging without focusing ---
+    // --- Clear empties staging ---
     state.selectedTileIds = ['x'];
     state.blankAssignments = { x: 'A' };
-    focusCalls = 0;
     document.getElementById('btn-clear-word').dispatchEvent(new window.Event('click', { bubbles: true }));
-    check('mobile 1/3: Clear empties selectedTileIds in touch-mode', state.selectedTileIds.length === 0);
-    check('mobile 1/3: Clear empties blankAssignments in touch-mode', Object.keys(state.blankAssignments).length === 0);
-    check('mobile 1/3: Clear never focused the input in touch-mode', focusCalls === 0);
+    check('mobile 1/3: Clear empties selectedTileIds', state.selectedTileIds.length === 0);
+    check('mobile 1/3: Clear empties blankAssignments', Object.keys(state.blankAssignments).length === 0);
 
-    // --- back to desktop: mode flips off, class removed, typing/focus return ---
+    // --- back to desktop: mode flips off, class removed ---
     window.matchMedia = (q) => ({
       matches: false, media: q,
       addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
@@ -1950,18 +1962,14 @@ async function main() {
     Game.applyTouchModeFromMedia();
     check('mobile 1/3: leaving coarse pointer clears touch-mode', state.touchMode === false);
     check('mobile 1/3: <body> loses the touch-mode class off touch', !document.body.classList.contains('touch-mode'));
-    check('mobile 1/3: How-to-Play blank tip reverts to type-first wording',
-      /just type/i.test(document.getElementById('howto-blank-tip').textContent));
 
-    // restore harness state for the later (desktop-assuming) checks. This
-    // block never plays a real word (submitWord is stubbed during the one
-    // submit test), so there's no fight state to rewind -- only the input
-    // spy, the matchMedia mock, and the transient staging need clearing.
-    input.focus = realFocus;
+    // restore harness state for the later checks. This block never plays a
+    // real word (submitWord is stubbed during the one submit test), so
+    // there's no fight state to rewind -- only the matchMedia mock and the
+    // transient staging need clearing.
     window.matchMedia = realMatchMedia;
     state.selectedTileIds = [];
     state.blankAssignments = {};
-    input.value = '';
     Game.openDeckViewer(); Game.closeDeckViewer();
   }
 
@@ -2122,8 +2130,7 @@ async function main() {
       const origChance = state.rng.chance;
       state.rng.chance = function (p) { return p === 0.25 ? true : origChance.call(state.rng, p); };
 
-      document.getElementById('word-input').value = variantWord;
-      document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+      playWordViaTiles(variantWord);
       await new Promise((r) => setTimeout(r, 300));
       state.rng.chance = origChance;
 
@@ -2194,16 +2201,16 @@ async function main() {
     const before = { monsterHp: state.monster.hp, playerInk: state.player.ink, rackIds: state.player.rack.map((t) => t.id) };
 
     // Staged-word damage preview (GOALS.md FEATURE), live end-to-end check:
-    // type the word into the real input, fire the same 'input' event the
-    // browser would, and read the number the #damage-preview element actually
-    // shows -- then submit and confirm that previewed number equals the HP the
-    // monster ACTUALLY lost. This is the anti-drift guarantee end to end,
-    // through the real game.js updateDamagePreview -> Combat.previewWord path
-    // and the real DOM element, not just the isolated unit checks above.
+    // stage the word via real tile clicks (render() calls updateDamagePreview
+    // at the end of every stage/unstage, so no separate trigger is needed),
+    // and read the number the #damage-preview element actually shows -- then
+    // submit and confirm that previewed number equals the HP the monster
+    // ACTUALLY lost. This is the anti-drift guarantee end to end, through the
+    // real game.js updateDamagePreview -> Combat.previewWord path and the
+    // real DOM element, not just the isolated unit checks above.
     const previewEl = document.getElementById('damage-preview');
     check('damage-preview element exists (matches the id game.js looks up)', !!previewEl);
-    document.getElementById('word-input').value = word;
-    document.getElementById('word-input').dispatchEvent(new window.Event('input', { bubbles: true }));
+    stageWordViaTiles(word);
     const previewText = previewEl ? previewEl.textContent : '';
     const previewNum = parseInt((previewText.match(/(\d+)/) || [])[1], 10);
     // Pre-existing test bug found while verifying an unrelated task (2026-08-20):
@@ -2216,7 +2223,7 @@ async function main() {
     // depending on which word/monster the test's own scan happened to land on.
     check('damage-preview shows a number for a valid staged word (not neutral)', !isNaN(previewNum) && previewEl.className.indexOf('preview-empty') === -1);
 
-    document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+    submitStagedWord();
     // Rack cycling, the counterattack, and damage animations are deferred by
     // TILE_PLAY_ANIM_MS (game.js) so the tile-play animation is actually visible
     // before the rack redraws -- wait past that, not just past the click handler.
@@ -2267,8 +2274,7 @@ async function main() {
       console.log('SKIP kill-blow-feedback checks -- no damage-dealing word possible from this rack (likely a trait immunity, not a bug)');
     } else {
       state.monster.hp = 1; // force this word to be a killing blow
-      document.getElementById('word-input').value = killWord;
-      document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+      playWordViaTiles(killWord);
       // TILE_PLAY_ANIM_MS (220ms) defers processing; check partway into the
       // MONSTER_DEATH_BEAT_MS (500ms) beat that follows -- proves the
       // feedback actually renders and is visible, not just that the game
@@ -2911,8 +2917,9 @@ async function main() {
         state.selectedTileIds = [];
         state.blankAssignments = {};
         const goldBefore = state.player.gold;
-        document.getElementById('word-input').value = longWord;
-        document.getElementById('btn-submit-word').dispatchEvent(new window.Event('click', { bubbles: true }));
+        window.Wordbound.Game.openDeckViewer(); // force a real re-render so the new rack has DOM buttons to click
+        window.Wordbound.Game.closeDeckViewer();
+        playWordViaTiles(longWord);
         await new Promise((r) => setTimeout(r, 300));
         check('8/8 magnificent-gold: playing a 7-letter word produces zero errors', errors.length === 0);
         if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
@@ -3071,7 +3078,6 @@ async function main() {
     // -- invalid word rejection, unmuted --
     state.selectedTileIds = [];
     state.blankAssignments = {};
-    document.getElementById('word-input').value = '';
     Game._clearSfxCallLog();
     Game.submitWord('ZZZZQQQQ');
     check('audio: an unplayable word logs a played invalidWord call',
@@ -3106,7 +3112,6 @@ async function main() {
     // -- gold gain on a kill --
     state.selectedTileIds = [];
     state.blankAssignments = {};
-    document.getElementById('word-input').value = '';
     state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
     state.monster.hp = 1;
     state.monster.maxHp = 1;
@@ -3292,9 +3297,7 @@ async function main() {
     check('ink spend: the armed button gets the .armed class', overchargeBtn.classList.contains('armed'));
     check('ink spend: the armed button label reads "Overcharged!"', overchargeBtn.textContent.indexOf('Overcharged') !== -1);
 
-    const wordInput = document.getElementById('word-input');
-    wordInput.value = 'CAT';
-    wordInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+    stageWordViaTiles('CAT');
     const previewEl = document.getElementById('damage-preview');
     check('ink spend: the live preview flags "(overcharged)" while armed', previewEl.textContent.indexOf('(overcharged)') !== -1);
 
@@ -3308,7 +3311,6 @@ async function main() {
     const monsterHpBeforeOvercharge = state.monster.hp;
     state.messages = [];
     Game.submitWord('CAT');
-    wordInput.value = '';
     check('ink spend: submitting an armed word spends exactly OVERCHARGE_INK_COST ink', state.player.ink === inkBeforeOvercharge - Combat.OVERCHARGE_INK_COST);
     check('ink spend: the log announces the overcharge spend', state.messages.some((m) => /Overcharged!/.test(m)));
     check('ink spend: the toggle disarms itself after a successful play', state.overchargeArmed === false);

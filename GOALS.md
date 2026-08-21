@@ -4808,7 +4808,7 @@ Rules for the routine:
       `npm test` still green. Minor version bump (user-facing dictionary
       expansion).
 
-- [ ] UX (Jaxon batch, 2026-08-21, desktop playtest — item 1/7): REMOVE the
+- [x] UX (Jaxon batch, 2026-08-21, desktop playtest — item 1/7): REMOVE the
       typing interface on computer. The `#word-input` text field (and its
       keyboard letter-entry path) goes away entirely — word-building happens
       by clicking/tapping tiles only, exact parity with mobile. Sweep for

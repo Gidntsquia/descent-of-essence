@@ -10,8 +10,10 @@
 // palette-optimized two-pass).
 //
 // Segment recorded (~15-20s): main menu -> New Run -> character select ->
-// first (organic) combat, typing real words into #word-input and watching
-// the damage animation -> tile reward pick -> a jump to this floor's boss
+// first (organic) combat, clicking rack tiles to build real words (UX
+// ticket, GOALS.md 2026-08-21 batch item 1/7 removed #word-input --
+// word-building is click-tiles-only now) and watching the damage
+// animation -> tile reward pick -> a jump to this floor's boss
 // node (setup, not itself part of the recorded interaction -- same
 // "setup vs. interaction" scaffolding note as the QA script) -> a REAL click
 // on the boss node pill to trigger the bossEntrance CSS animation -> one
@@ -108,8 +110,23 @@ const FIND_WORD_FN = `
 async function playOneWord(page) {
   const word = await page.evaluate(FIND_WORD_FN);
   if (!word) return null;
-  await page.fill('#word-input', '');
-  await page.type('#word-input', word, { delay: 90 }); // slow enough to read on the recording
+  // UX ticket (GOALS.md 2026-08-21 batch item 1/7): word-building is
+  // click-tiles-only now -- resolve to the specific rack tile instances
+  // (same as the real submit path) and click each one with a short delay
+  // between clicks so it reads on the recording, same spirit as the old
+  // per-keystroke typing delay.
+  const tileIds = await page.evaluate((w) => {
+    const state = window.Wordbound.Game._state;
+    const Lexicon = window.Wordbound.Lexicon;
+    const rackPool = state.player.rack.filter((t) => t.id !== state.hexedTileId);
+    const formed = Lexicon.canFormFromRack(w, rackPool);
+    return formed.possible ? formed.tilesUsed.map((t) => t.id) : null;
+  }, word);
+  if (!tileIds) return null;
+  for (const tileId of tileIds) {
+    await page.click('[data-tile-id="' + tileId + '"]');
+    await page.waitForTimeout(180);
+  }
   await page.waitForTimeout(300);
   await page.click('#btn-submit-word');
   await page.waitForTimeout(700); // let the damage animation land on camera
