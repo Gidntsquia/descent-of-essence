@@ -4736,3 +4736,74 @@ Rules for the routine:
       would be the largest single dictionary file this project has shipped;
       `npm test` still green. Minor version bump (user-facing dictionary
       expansion).
+
+- [ ] BUG, HIGH PRIORITY — audio (Jaxon report, 2026-08-21, iPhone, v0.48 live
+      site): "I also am not hearing any sound." This is the total-silence
+      symptom AGAIN, after the v0.39 fix (AudioContext.resume() on first
+      gesture) supposedly closed it — so either a regression or the fix is
+      incomplete on iOS. Current code: `primeAudioOnce` on document touchend
+      (game.js ~3396-3400) + best-effort resume() in getAudioContext
+      (~1409-1419). Diagnostic checklist, in order:
+      1. ONE-SHOT PRIME BUG (check first, likely): primeAudioOnce
+         removeEventListener's itself on first touchend. If that first
+         resume() is refused or the context lands in 'suspended'/
+         'interrupted' anyway, is audio then permanently dead with no retry
+         path? iOS can suspend/interrupt the context later (app switch,
+         phone call, Safari tab restore) — resume must be re-attempted on
+         every gesture while state !== 'running' (listen for statechange;
+         re-arm the prime handler instead of removing it permanently).
+      2. iOS HARDWARE MUTE SWITCH: WebAudio-only pages are silenced by the
+         ring/silent switch on iOS Safari. The known mitigation is getting
+         the page into 'playback' audio category (navigator.audioSession
+         .type='playback' where available, and/or the silent looping <audio>
+         element trick). Implement inline — no external libraries.
+      3. Volume slider default + persistence: confirm the master/SFX gain
+         can't initialize to 0/muted on a fresh mobile profile, and that the
+         slider value visible in the UI actually reaches the gain node.
+      VERIFICATION HONESTY: the sandbox cannot hear anything. Verifiable
+      here: Playwright asserting audioContext.state === 'running' after a
+      synthesized tap, gain values > 0, sounds actually scheduled through
+      the graph, plus `npm test` / `npm run test:audio` staying green.
+      Real audibility on Jaxon's physical iPhone is Jaxon-only — end your
+      PROGRESS.md entry by flagging it for his re-test, and do NOT claim
+      "fixed", only what was structurally confirmed. Minor version bump.
+
+- [ ] DESIGN/BALANCE (Jaxon directive, 2026-08-21, verbatim): "Rewrite should
+      be way cheaper, overcharge should be cheaper and have a more powerful
+      effect. Both should only be unlocked after doing one run so that new
+      players aren't confused." Current values: REWRITE_INK_COST=4,
+      OVERCHARGE_INK_COST=3, OVERCHARGE_DAMAGE_MULTIPLIER=1.5
+      (js/wordbound/combat.js:58-65); item cost reductions floor at 1 ink
+      (js/wordbound/items.js getOverchargeCost/getRewriteCost). Three parts:
+      1. RETUNE: pick the new numbers yourself and document the rationale —
+         direction is fixed (Rewrite WAY cheaper, e.g. 4→2 or 1; Overcharge
+         cheaper, e.g. 3→2, AND stronger, e.g. 1.5x→2x), exact values are
+         your judgment call. Note the interaction with item reductions
+         hitting the 1-ink floor sooner — fine, just note it.
+      2. UNLOCK GATE: Overcharge + Rewrite controls hidden (not just
+         disabled) until the player has COMPLETED at least one run — victory
+         OR game-over both count as "doing one run" (document this
+         interpretation). Persist the flag in localStorage the same way
+         achievements.js already persists (reuse its pattern/prefix). Gate
+         at the UI/game layer ONLY — the Combat engine functions stay
+         callable so test/simulate.js and the test harness are unaffected.
+         A small one-time "unlocked" callout when they first appear is
+         welcome if cheap; don't over-build it.
+      3. BALANCE CHECK: cheaper+stronger Overcharge moves win rate — run
+         the simulator (n=50) and confirm the documented 25-50% band still
+         holds; if the sim doesn't model ink spends, say so in PROGRESS.md
+         instead of claiming the check.
+      VERIFY: `npm test` green; `npm run test:mobile` if any CSS/layout
+      changed; fresh-profile jsdom/Playwright check that the controls are
+      absent pre-first-run-completion and present after. Minor version bump.
+
+- [ ] BUG, small (Jaxon report, 2026-08-21): "Zen" also missing from the word
+      list. Add ZEN (and ZENS if it verifies against a recognized Scrabble
+      lexicon — Collins has both) to the SUPPLEMENT_WORDS array created by
+      the ZEX/TAZE ticket above, same curation rule (one-line comment each).
+      If that ticket's supplement infrastructure doesn't exist yet when you
+      get here, fold this into that ticket's work instead of building a
+      second mechanism. VERIFY: WORD_SET.has('ZEN') true via the same
+      harness check as ZEX/TAZE; `node -c js/wordbound/wordlist.js` clean;
+      `npm test` green. No version bump needed if it rides the ZEX/TAZE
+      commit; otherwise patch bump.
