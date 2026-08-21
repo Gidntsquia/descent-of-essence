@@ -4608,3 +4608,41 @@ Rules for the routine:
       ticket's own stated rule) -- the three retune rounds themselves were
       already committed unbumped as WIP and stay that way.
       Minor bump.
+
+- [ ] BUG (Jaxon report, 2026-08-21, playtesting v0.48 on iPhone): more valid
+      words missing from the dictionary — "Some words are still missing, like
+      zex and taze." Verified by the orchestrator before filing: grep over
+      js/wordbound/wordlist.js finds ZERO occurrences of ZEX or TAZE in any
+      form (base or inflection). Root cause is coverage-era, not a bug in the
+      plural generator: both current sources (Webster's Second, 1913 headwords;
+      ENABLE1, compiled 1997) predate newer Scrabble-legal additions. ZEX (a
+      slate-cutting hatchet) and TAZE (variant of tase) are legal in current
+      Collins/NWL lists — but those lists are COPYRIGHTED and must NOT be
+      vendored. Two-part fix:
+      1. SUPPLEMENT (guaranteed, do first): add a small curated
+         SUPPLEMENT_WORDS array merged into WORDS/WORD_SET at load — for
+         user-reported missing words. Seed it with ZEX, ZEXES, TAZE, TAZED,
+         TAZES, TAZING. Keep it curated: only words verifiable as legal in a
+         recognized Scrabble lexicon, each with a one-line comment. This is
+         the durable channel for future playtest reports too.
+      2. BROADER MERGE (judgment call, only if a clean source exists): merge
+         one additional large word list to close the era gap generally —
+         licensing constraint is strict: public domain or permissive
+         (e.g. YAWL is PD; SCOWL is permissive) — document source + license
+         in the file header exactly like the existing two sources. If no
+         suitable list is reachable from the sandbox (network limits), do
+         part 1 alone, note it in PROGRESS.md, and leave part 2 as a new
+         unchecked ticket rather than half-doing it. Do NOT ingest Collins,
+         NWL/TWL, or any "SOWPODS" file of unclear provenance — polluting
+         the dictionary or the repo's licensing is worse than the gap.
+      IMPLEMENTATION WARNING (same as the 2026-08-19 plurals ticket, read it
+      at ~line 2445 for the full recipe): js/wordbound/wordlist.js is one
+      ~2.5MB line — never load it into context; splice with head/tail/cat
+      into /tmp parts, then `node -c` the reassembled file before anything
+      else. The supplement merge belongs with the existing plural-generation
+      code between the WORDS literal and the closing WORD_SET lines.
+      VERIFICATION: WORD_SET.has() must be true for all six seeded words
+      (check via the existing node/Playwright harness, same pattern as the
+      ADS check in the plurals ticket); `npm test` still green; if part 2
+      runs, sanity-check WORD_SET.size growth and page-load timing like the
+      plurals ticket did. Minor version bump.
