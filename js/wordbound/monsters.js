@@ -124,7 +124,16 @@
   // cut once) to push the floor-2 wall down further; see the boss changes
   // below for where the win-rate band correction is coming from instead, so
   // this floor-2 cut doesn't have to do that job alone.
-  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 54, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
+  // attack 5 -> 4 (2026-08-21 BALANCE re-confirm, retune ROUND 2): a
+  // post-Vowelmaw-fix n=100 pooled sim (see boss_vowelmaw's own comment
+  // above for round 1 of this pass) still measured this def at a 35%
+  // pooled kill rate on floor 2 -- the single biggest floor-2 outlier in
+  // that sample (up from the 17-25% range this def measured across the
+  // 2026-08-20 rebalance ticket's own rounds), consistent with the same
+  // post-ink/overcharge/branching-map drift diagnosed for Vowelmaw.
+  // HP left alone (already cut twice in the 2026-08-20 pass); attack-only
+  // per that same surgical precedent.
+  mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 54, attack: 4, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
   mdef({ id: 'warden', name: 'The Hoarder', maxHp: 63, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
   mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
   // attack 4 -> 3 on JUST these two (2026-08-20 rebalance ROUND 5): round
@@ -147,7 +156,13 @@
   // maxHp 68 -> 58 -> 52 (2026-08-20 Jaxon-authorized difficulty rebalance,
   // round 1 then round 2): same floor-2 strong-tier pass as sentinel/warden
   // above.
-  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 52, attack: 4, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], intents: ['hex', 'devour'] });
+  // attack 4 -> 3 (2026-08-21 BALANCE re-confirm, retune ROUND 2): same
+  // pass and same reasoning as Card Catalog's comment just above -- this
+  // def measured a 40% pooled kill rate on floor 2, the second-biggest
+  // floor-2 outlier in that sample (up from 17-20% historically). Hoarder
+  // (this floor's third strong def) was NOT re-cut -- it measured a more
+  // moderate 8% kill rate in the same sample, not currently an outlier.
+  mdef({ id: 'spinesplinter', name: 'Spine Splinter', maxHp: 52, attack: 3, tier: 'strong', goldDrop: [7, 11], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }], intents: ['hex', 'devour'] });
 
   // Boss attack values tuned down from their original 6/8/10 on 2026-08-19 after
   // playtesting showed the player's fixed 20 max HP only survives 3-4 hits, which
