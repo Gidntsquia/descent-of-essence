@@ -4757,7 +4757,7 @@ Rules for the routine:
       `npm test` green. No version bump needed if it rides the ZEX/TAZE
       commit; otherwise patch bump.
 
-- [ ] BUG follow-up (filed 2026-08-21, this run, splitting off part 2 of the
+- [x] BUG follow-up (filed 2026-08-21, this run, splitting off part 2 of the
       ZEX/TAZE dictionary ticket above rather than half-doing it in the same
       run): the dictionary's two source lists (Webster's Second via macOS
       system dictionary, baked 2026-08-20; ENABLE1, merged 2026-08-20) both

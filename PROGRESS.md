@@ -13920,3 +13920,107 @@ merging anything, do not proceed on a "probably fine" assumption) that a
 prior run only partially scoped. If GOALS.md's queue is otherwise empty
 after that, check ROADMAP.md's known-gaps section before concluding
 there's nothing to do.
+
+---
+
+## 2026-08-21T18:17Z -- YAWL dictionary merge closed (v0.52 -> v0.53)
+
+**Picked up:** GOALS.md's next unchecked item, the part-2 dictionary follow-up
+(merge a broader/newer public-domain word source into `js/wordbound/wordlist.js`
+beyond the per-report SUPPLEMENT patches). The ticket named YAWL ("Yet Another
+Word List") as a candidate, partially vetted by a prior run, with explicit
+instructions not to proceed without independently reading the actual license
+text.
+
+**License verification (done, this run, not assumed from the prior run's
+partial vetting):** fetched
+`https://raw.githubusercontent.com/elasticdog/yawl/master/README.md` fresh
+(200 OK) and read it in full. It states, verbatim: "The YAWL list, word.list,
+is in the Public Domain. There are no restrictions on its use or
+distribution," with the author's own reasoning (built primarily from other
+public-domain sources, so a stricter license "would therefore be of doubtful
+validity") and a rehosting note from elasticdog (the mirror maintainer)
+explaining this is a preservation copy of M. Leo Cooper's original
+freshmeat.net-hosted list. This is an unambiguous, explicit public-domain
+declaration by the original author, not a "probably fine"-by-name assumption
+-- proceeded per the ticket's own gate.
+
+**Source fetch + spot check:** `yawl-0.3.2.03/word.list` fetched (200 OK,
+264097 lines, plain ASCII newline-separated text -- not HTML or an error
+page). Line count matches the README's own stated size ("At 264,097 words")
+exactly, first/last ~20 lines skimmed and are plausible real words
+(aa/aah/aardvark... zymurgy/zyzzyva/zyzzyvas), confirming the fetched content
+actually is what it claims to be.
+
+**Filter + dedupe (script-based, never loading the 7MB WORDS_BASE line into
+an editor/context -- same discipline as the ENABLE1 merge):** a throwaway
+Node script read `wordlist.js`'s `WORDS_BASE` and `SUPPLEMENT` arrays via
+regex-extract + `JSON.parse` (both are plain JSON-compatible array literals),
+built the existing-word `Set` (548707 entries, matching the ZEN ticket's
+logged final count), then filtered YAWL's raw list with the exact same rule
+ENABLE1 got: uppercase, purely A-Z (`nonAlpha: 0` -- YAWL's list.txt is
+already clean of hyphens/apostrophes/digits), length 2-15 (`tooShort: 0`,
+`tooLong: 6947` -- all rejects were >15 chars, e.g. long chemical/technical
+compounds). Deduped against the existing set: **213994 exact duplicates**
+(YAWL is a documented superset of ENABLE1 plus other PD sources, so heavy
+overlap was expected and is exactly what the ticket predicted), **net-new:
+43156 words**. A second script then spliced those 43156 words into
+`WORDS_BASE`'s array literal in place (string-level regex replace + rewrite,
+no giant line ever read into the editor/model context), leaving
+`SUPPLEMENT` and every other line of the file untouched.
+
+**Header comment (done):** added a new dated block between the existing
+ENABLE1 entry and the SUPPLEMENT entry, matching the file's existing
+per-source format (source name, URL, license quote, filter applied, merge
+date, dup/reject/net-new counts) -- see `js/wordbound/wordlist.js` lines
+~8-19. Updated the trailing "Final count:" line from the stale 548699 (which
+predates the two small SUPPLEMENT-only patches too, a pre-existing minor
+inaccuracy not introduced by this run) to the true current total, 591863.
+
+**Verification:**
+- `node -c js/wordbound/wordlist.js`: clean.
+- Loaded standalone in Node (`window` shimmed): `WORD_SET.size` **591863**
+  (548707 + 43156, exact arithmetic match, no accidental duplication),
+  spot-checked `has('ZUGZWANG')`, `has('ABLEISM')` both true (genuine
+  YAWL-only additions), plus pre-existing `has('ZEN')`/`has('BORK')` still
+  true (SUPPLEMENT untouched).
+- `npm test`: full suite green, "ALL CHECKS PASSED", ~16.8s wall clock
+  (includes jsdom install-check) -- confirms jsdom can parse and execute the
+  now-7.6MB wordlist.js with zero errors, and every existing combat/UI check
+  still passes with the larger dictionary loaded.
+- Page-load timing sanity check (ticket-mandated, since this is the largest
+  single dictionary file this project has shipped): a throwaway Playwright
+  script (`chromium.launch` against the pre-installed browser) loaded
+  `wordbound.html` from `file://` and measured wall-clock load + the
+  Navigation Timing API. Result: **971ms** to `load`, `domContentLoaded`
+  ~967ms, `WORD_SET.size` at runtime confirmed 591863 matching the static
+  count. No perf red flag; script deleted after use, not committed (it was
+  a one-off measurement, not a reusable test).
+- `npm run test:mobile`: not run -- this ticket touched zero CSS/layout,
+  same reasoning as every prior wordlist-only ticket in this log.
+
+**Scope note:** did not attempt to hand-curate or individually verify each
+of the 43156 net-new words -- the ticket's own instructions (matching the
+precedent set by the original 50764-word ENABLE1 merge) were "filter to
+purely A-Z, length 2-15, uppercase (same filter ENABLE1 got)" and "dedupe...
+log the actual net-new count," not per-word manual review, which would be
+infeasible at this scale. YAWL is a long-established, widely-vendored public
+domain list (README documents it as a superset of ENABLE1/ENABLE2K plus
+other PD research) so bulk inclusion follows the same trust model already
+applied to ENABLE1. If a future playtest report flags a specific new word as
+wrong/inappropriate, that's a one-line removal from the same place, same as
+any other dictionary correction.
+
+**Version:** v0.52 -> v0.53 in `wordbound.html` (ticket: "Minor version bump
+(user-facing dictionary expansion)").
+
+**GOALS.md box checked `[x]`.**
+
+**Next run:** GOALS.md's queue is now empty (this was the last item). Per
+GOALS.md's own rule, check ROADMAP.md's "known gaps" section next --
+skimming it now, the remaining open items are Jaxon-only (physical-device
+touch test, real playtest for feel/fun, actual itch.io upload/promotion) or
+already resolved. The floor2-share-of-deaths note (difficulty-rebalance
+entry) is left as Jaxon's call, not a re-open-able task. If nothing concrete
+turns up there either, the next run should say so plainly in PROGRESS.md
+rather than inventing busywork, per the guardrails.
