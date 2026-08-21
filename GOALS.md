@@ -4746,7 +4746,7 @@ Rules for the routine:
       changed; fresh-profile jsdom/Playwright check that the controls are
       absent pre-first-run-completion and present after. Minor version bump.
 
-- [ ] BUG, small (Jaxon report, 2026-08-21): "Zen" also missing from the word
+- [x] BUG, small (Jaxon report, 2026-08-21): "Zen" also missing from the word
       list. Add ZEN (and ZENS if it verifies against a recognized Scrabble
       lexicon — Collins has both) to the SUPPLEMENT_WORDS array created by
       the ZEX/TAZE ticket above, same curation rule (one-line comment each).

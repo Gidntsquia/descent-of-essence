@@ -13857,3 +13857,66 @@ the prior commit.
 ticket's infrastructure if that's built by then) is next, followed by the
 YAWL dictionary-merge follow-up. Work top to bottom per GOALS.md's own
 rule.
+
+---
+
+## 2026-08-21T17:05Z -- ZEN dictionary ticket closed (v0.51 -> v0.52)
+
+**Housekeeping note:** this run also started on a detached HEAD, same as
+the last entry described -- a stale local `main`/`origin/main` ref from
+before this container's first `git fetch`. `git fetch origin` pulled the
+true current tip (2201749, matching this file's own last entry), and
+local `main` had zero unique commits (just created fresh from the stale
+ref, never touched), so `git reset --hard origin/main` was a safe,
+lossless fix, not a discard of anything. Confirmed no divergence. Noting
+again in case this keeps recurring for future runs -- `git fetch` +
+compare before assuming a detached HEAD means lost work.
+
+**Picked up:** GOALS.md's first unchecked item, the small ZEN ticket
+("Zen" reported missing by Jaxon). The ZEX/TAZE SUPPLEMENT
+infrastructure the ticket asks to fold into already existed
+(`js/wordbound/wordlist.js`'s `SUPPLEMENT` array, added by the prior
+ZEX/TAZE ticket), so this was a same-pattern addition, not new
+infrastructure.
+
+**Change:** added `"ZEN", "ZENS"` to the `SUPPLEMENT` array (inserted
+alphabetically before the existing ZEX/ZEXES entries), plus a one-line
+dated comment matching the array's existing curation-note pattern (same
+convention as the BORK and TAZE/ZEX blocks above it). Confirmed neither
+word was already present via the base+ENABLE1 union first (`grep -o
+'"ZEN[A-Z]*"'` against the file showed ZENAIDA/ZENANA/ZENITH/etc. but no
+bare ZEN or ZENS) -- this is a genuine gap, not a duplicate add.
+
+ZEN is Merriam-Webster-standard (the Buddhist school; also a common
+modern adjective sense, "calm/mindful") and both ZEN and ZENS are legal
+in current Collins Scrabble Words, per the ticket's own note ("Collins
+has both") -- did not independently re-derive this since the ticket
+already stated it as the trigger for the "if it verifies" clause; no
+new evidence contradicts it and this is a low-stakes two-word addition
+in the same spirit as the already-accepted BORK/TAZE/ZEX entries.
+
+**Verified:**
+- `node -c js/wordbound/wordlist.js`: clean.
+- Loaded the file standalone in Node: `WORD_SET.size` 548705 -> **548707**
+  (exactly +2, no accidental duplicates or off-by-one), `WORD_SET.has('ZEN')`
+  and `WORD_SET.has('ZENS')` both `true`.
+- `npm test`: full suite green, no new failures (this ticket doesn't add
+  its own dedicated test -- the existing dictionary-loading/WORD_SET-size
+  sanity checks already exercise the same array this change touched).
+- `npm run test:mobile`: not run -- no CSS or layout file touched, out of
+  that mandate's scope (same reasoning as every prior wordlist-only
+  ticket in this log).
+
+**Version:** v0.51 -> v0.52 in `wordbound.html` (ticket said "No version
+bump needed if it rides the ZEX/TAZE commit; otherwise patch bump" --
+ZEX/TAZE already shipped in its own prior commit, so this bump applies).
+
+**GOALS.md box checked `[x]`.**
+
+**Next run:** the YAWL dictionary-merge follow-up ticket (splitting off
+part 2 of the original ZEX/TAZE report) is next in the queue -- it's a
+larger, license-sensitive task (verify YAWL's actual license text before
+merging anything, do not proceed on a "probably fine" assumption) that a
+prior run only partially scoped. If GOALS.md's queue is otherwise empty
+after that, check ROADMAP.md's known-gaps section before concluding
+there's nothing to do.
