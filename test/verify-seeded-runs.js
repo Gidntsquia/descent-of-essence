@@ -206,6 +206,11 @@ async function main() {
   // ---- Part 8: per-run monster subset (GOALS.md "more varied runs" ticket,
   // 2026-08-21, lever 1) -- deterministic per seed, actually restricts the
   // pool, and varies across seeds (not hardcoded to one fixed subset).
+  // 'weak' only, NOT 'normal' -- a controlled balance-sim comparison caught
+  // subsetting 'normal' collapsing the win rate (33% -> 10%, see floor.js's
+  // own comment on Floor.MONSTER_SUBSET_TIERS for the full before/after);
+  // reverted to weak-only, which measured no such effect (every weak-tier
+  // def reads as trivial to "best" play in every sample this file has run).
   const Floor = window.Wordbound.Floor;
   const Monsters = window.Wordbound.Monsters;
   const weakIds = Object.keys(Monsters.MONSTER_DEFS).filter((id) => Monsters.MONSTER_DEFS[id].tier === 'weak');
@@ -213,37 +218,36 @@ async function main() {
 
   Game.startRun('archivist', 'subset-seed-alpha');
   const subsetA1 = Game._state.monsterSubset;
-  check('monsterSubset is populated on startRun', !!subsetA1 && Array.isArray(subsetA1.weak) && Array.isArray(subsetA1.normal));
+  check('monsterSubset is populated on startRun', !!subsetA1 && Array.isArray(subsetA1.weak));
   check(
     'weak-tier subset excludes exactly Floor.MONSTER_SUBSET_EXCLUDE_COUNT def(s) (' + weakIds.length + ' -> ' + subsetA1.weak.length + ')',
     subsetA1.weak.length === Math.max(2, weakIds.length - Floor.MONSTER_SUBSET_EXCLUDE_COUNT)
   );
-  check(
-    'normal-tier subset excludes exactly Floor.MONSTER_SUBSET_EXCLUDE_COUNT def(s) (' + normalIds.length + ' -> ' + subsetA1.normal.length + ')',
-    subsetA1.normal.length === Math.max(2, normalIds.length - Floor.MONSTER_SUBSET_EXCLUDE_COUNT)
-  );
+  check('normal tier is deliberately NOT subsetted (regression found, see floor.js)', !subsetA1.normal);
 
   Game.startRun('archivist', 'subset-seed-alpha');
   const subsetA2 = Game._state.monsterSubset;
   check('same seed -> identical monster subset (deterministic)',
-    subsetA1.weak.join(',') === subsetA2.weak.join(',') && subsetA1.normal.join(',') === subsetA2.normal.join(','));
+    subsetA1.weak.join(',') === subsetA2.weak.join(','));
 
   // Sweep several seeds: every floor-1 combat/elite defId actually drawn must
-  // fall inside that run's own subset (weak+normal only -- floor 1 never
-  // rolls 'strong', which lever 1 deliberately leaves unrestricted). Also
+  // fall inside that run's own subset for its own tier -- weak-tier defs
+  // must be in the weak subset; normal-tier defs are unrestricted (any
+  // normal-tier id is fine, since that tier is no longer subsetted). Also
   // collect subsets across seeds to prove they vary (not hardcoded).
   let allDrawnDefsInSubset = true;
   const seenSubsets = new Set();
   for (let i = 0; i < 15; i++) {
     Game.startRun('archivist', 'subset-sweep-seed-' + i);
     const subset = Game._state.monsterSubset;
-    const allowedFloor1 = subset.weak.concat(subset.normal);
     Game._state.floor.nodes.forEach((n) => {
-      if (n.type === 'combat' && allowedFloor1.indexOf(n.defId) === -1) allDrawnDefsInSubset = false;
+      if (n.type !== 'combat') return;
+      if (weakIds.indexOf(n.defId) !== -1 && subset.weak.indexOf(n.defId) === -1) allDrawnDefsInSubset = false;
+      // normal-tier defIds are always allowed -- no assertion needed there.
     });
-    seenSubsets.add(subset.weak.join(',') + '|' + subset.normal.join(','));
+    seenSubsets.add(subset.weak.join(','));
   }
-  check('every floor-1 combat node drawn from that run\'s own monster subset (15 seeds)', allDrawnDefsInSubset);
+  check('every floor-1 weak-tier combat node drawn from that run\'s own monster subset (15 seeds)', allDrawnDefsInSubset);
   check('monster subset varies across seeds (not hardcoded to one combination)', seenSubsets.size > 1);
 
   console.log('');
