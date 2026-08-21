@@ -13447,3 +13447,108 @@ queue is empty, staying idle and saying so here.
 **State:** working tree clean apart from this log entry.
 **Next run:** re-check both files fresh; if Jaxon hasn't added anything,
 idle is still the correct call, not a failure.
+
+---
+
+## 2026-08-21T16:21Z -- ZEX/TAZE dictionary ticket: part 1 done (supplement words), part 2 split off as new ticket
+
+**Picked up:** GOALS.md's queue had gone empty as of the prior two idle
+entries, but Jaxon filed a new ticket in the meantime (commit d36b85f,
+between the last idle run and this one): a real-device playtest report
+that ZEX and TAZE are rejected by the dictionary. Verified the report's
+own claim fresh before touching anything: grepped `js/wordbound/
+wordlist.js` and confirmed zero occurrences of ZEX/ZEXES/TAZE/TAZED/
+TAZES/TAZING in any form.
+
+**What I did (part 1, the ticket's "guaranteed, do first" half):** added
+all six words to the existing hand-curated `SUPPLEMENT` array in
+`js/wordbound/wordlist.js` -- the same array the BORK family lives in
+from the 2026-08-20 dictionary-gap ticket. Each is individually
+justifiable (ZEX: a slate-cutting hatchet; TAZE: a variant spelling of
+"tase"), both legal in current Collins/NWL Scrabble lexicons without
+vendoring those copyrighted lists, matching this project's established
+licensing discipline.
+
+**How I edited the file safely:** `wordlist.js`'s `SUPPLEMENT` line (41)
+is short (716 bytes) but the file also contains a ~7MB single-line
+`WORDS_BASE` array literal (line 43) that must never be loaded into
+context. Used a small Node script (`fs.readFileSync` -> `split('\n')` ->
+replace only index 40 -> `join('\n')` -> `writeFileSync`) so the giant
+line passes through as an untouched array element, never printed or
+inspected. This is functionally the same discipline GOALS.md's
+head/tail/cat splice recipe asks for, just adapted for editing an
+existing short line instead of inserting new code before the closing
+lines. `node -c js/wordbound/wordlist.js` passed after writing.
+
+**Part 2 (broader PD/permissive source merge) explicitly NOT done this
+run** -- split off into its own new ticket in GOALS.md instead of
+half-doing it, per the parent ticket's own instructions. Reasoning:
+outbound network from this sandbox does work (a raw.githubusercontent
+fetch of a candidate YAWL word-list file returned HTTP 200), but a
+GitHub API call to independently read the exact license text at that
+repo's root errored through the sandbox's proxy rather than cleanly
+404ing or succeeding, so the license couldn't be confirmed carefully
+enough this run to responsibly vendor ~hundreds of thousands of words
+into the repo. A full merge (download, filter, dedupe against 548K+
+existing words, verify provenance, write an honest header, re-check load
+timing) is realistically its own dedicated pass, matching the scope the
+original ENABLE1 merge got as its own ticket. The new follow-up ticket in
+GOALS.md documents the candidate source and exactly what's left to
+verify so the next run (or Jaxon) doesn't have to re-discover it.
+
+**Verification actually done:**
+- `node -c js/wordbound/wordlist.js`: clean, both before writing (on the
+  original file, sanity check) and after.
+- A Node script loaded the reassembled file with a stubbed `window` and
+  `require()`, then checked `WORD_SET.has()` for all six target words:
+  all six false before the edit (matching the ticket's own grep claim),
+  all six true after.
+- `WORD_SET.size`: 548705 after, up from 548699 before -- exactly +6, no
+  accidental duplicates introduced by the splice.
+- `npm test`: 16/16 clean, run twice (once right after the wordlist.js
+  edit, once again after the version bump in wordbound.html) -- this
+  ticket didn't touch game.js or CSS, but the mandate is "any task that
+  touches ... game.js, wordbound.html, or rendering/event CSS" and this
+  touched wordbound.html (version string only) plus a data file the game
+  loads at runtime, so ran it anyway.
+- `npm run test:mobile`: not run -- zero CSS/layout touched.
+- Version bumped v0.48 -> v0.49 in `wordbound.html` (user-facing
+  dictionary fix, per GOALS.md's version-bump rule and this ticket's own
+  "Minor version bump" instruction).
+
+**Not verified / out of scope for jsdom:** the actual in-browser
+word-submission UX (typing ZEX/TAZE on a real rack and seeing it accept)
+wasn't exercised through a live combat flow this run -- confirmed at the
+`WORD_SET` data layer only, same level of confidence the parent ticket's
+own VERIFICATION section asked for ("check via the existing node/
+Playwright harness, same pattern as the ADS check in the plurals
+ticket"). No audio or drag-and-drop involved in this change, so no
+jsdom-limitation caveat needed beyond the above.
+
+**A note on this run's git state:** the session started in a detached
+HEAD at the correct commit (matching `origin/main`'s tip at the time,
+d36b85f); the local `main` branch ref itself was a stale leftover far
+behind (pointed at an old commit, unrelated to this repo's actual
+history as pulled from origin). Committed on the detached HEAD as usual
+and pushed with `git push origin HEAD:main` rather than `git push -u
+origin main`, since the latter would have tried to push/compare against
+that stale local branch ref. Didn't touch or delete the stale local
+`main` ref itself -- out of scope for this ticket, and deleting local
+refs isn't something this run needs to do to get its own work committed
+and pushed correctly (confirmed the push landed at the right place:
+`git fetch origin main` afterward shows origin/main at f47b9d5, this
+run's commit, on top of d36b85f as expected).
+
+**State:** working tree clean, GOALS.md's ZEX/TAZE ticket is `[x]`
+closed (part 1 only, as designed), one new ticket filed and left `[ ]`
+(the part-2 YAWL-or-equivalent broader merge, with the candidate source
+and exact remaining verification steps documented in GOALS.md itself).
+Committed and pushed as f47b9d5.
+
+**Next run:** GOALS.md's queue now has exactly one open item -- the new
+YAWL/broader-merge follow-up ticket at the bottom of the Queue section.
+It's explicitly framed as a real, scoped task an hourly run CAN attempt
+(unlike the Jaxon-only ROADMAP gaps), just one that needs its own full
+hour rather than being squeezed in after part 1. If picked up: start by
+re-confirming the license at the actual repo root (not just that the raw
+file URL 200s) before downloading anything further.
