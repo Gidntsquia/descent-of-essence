@@ -14477,3 +14477,92 @@ here in case Jaxon disagrees.
 gold) and the two mid-batch BALANCE follow-ups (Rewrite cost -> 1 Ink;
 steeper long-word damage curve) remain after that, then item 7/7
 (one-screen layout, explicitly last, depends on 1-5 shrinking the UI).
+
+## 2026-08-21T21:18Z -- item 5/7 closed: item/consumable descriptions cut to ~6 words, mechanically precise (v0.57 -> v0.58)
+
+**The ticket:** cut every item AND consumable description to a few words
+(~6 max), mechanically precise, flavor dropped. Names keep the lore;
+descriptions state the effect. Applies to `items.js` and `consumables.js`.
+
+**What changed:**
+- `js/wordbound/items.js`: rewrote the `hint` field on all 40 item defs
+  (the original 11 base items, the 8 "FUN OVERHAUL 4/8" rule-changers, the
+  9-item CONTENT batch, and the 8-item ink-economy/branching-map batch).
+  Every one now states the mechanical trigger and effect only -- no
+  library/archive flavor prose (e.g. Second Wind went from "Not over yet.
+  One last breath, when it matters most." to "Once/run: survive a lethal
+  hit at 1 ink."; Palimpsest went from a full sentence about "old text
+  bleeding through" to "Share 3+ letters w/ last word: +30%."). Verified
+  each new hint against the item's actual hook/statMod logic while
+  rewriting (re-read every hook body in the file rather than paraphrasing
+  the old flavor text) so the numbers/conditions are accurate, not just
+  shorter.
+- `js/wordbound/consumables.js`: same treatment for all 3 consumable defs
+  (Errata Slip, Index Card Shard, Page Turn) -- dropped their flavor tails
+  ("A correction slip from the Archive.", "Knowledge is power.", "Read
+  ahead.") and kept only the mechanical clause.
+- No UI changes: every place that reads `def.hint` (inspector panel,
+  treasure-pick buttons, shop listings, consumable-use buttons --
+  `game.js` lines ~2631-2932) was left untouched; they all just display
+  whatever string is in the def, so shorter hints flow through with no
+  code changes needed.
+- Left `js/wordbound/achievements.js`'s 5 `UNLOCKABLE_ITEMS` hints
+  (Blank Sheet, etc.) as flavor prose, unchanged -- the ticket explicitly
+  scopes to "items.js and consumables.js" and doesn't mention
+  achievements.js, even though `Items.loadUnlockableItems()` merges those
+  defs into the same `ITEM_DEFS` table at startup and they render through
+  the identical UI paths. Judgment call: honored the ticket's literal file
+  scope rather than assuming it meant to include them too. Flagging this
+  here as a likely follow-up if Jaxon wants full consistency -- it's a
+  small, mechanical, same-shape edit for a future run if wanted.
+
+**VERIFY (max description length):** wrote a one-off Node script (not
+committed -- ad hoc, run via `node -e`) that loads `tiles.js`, stubs
+`Achievements.UNLOCKABLE_ITEMS = {}` so only items.js/consumables.js defs
+are counted, loads `items.js` + `consumables.js`, and measures every
+`hint` string's length. Result: **43 total defs (40 items + 3
+consumables), longest hint is 40 characters** (tied between Second Wind's
+"Once/run: survive a lethal hit at 1 ink." and Cursed Quill's "+10
+damage, costs 2 ink -- can kill you."). All comfortably under the
+ticket's ~40-char guidance; word counts are mostly 4-7 words, a couple
+(Cursed Quill, Second Wind) run to 8 words but stay well under the char
+budget since the mechanic itself has two clauses (damage + ink cost, or a
+conditional + a floor).
+
+**Verification:**
+- `npm test`: full suite green, "ALL CHECKS PASSED", zero SKIPs (this
+  ticket only touches string literals read by the DOM-check suite's combat
+  flows, so a clean full-suite pass is the right bar -- no new test file
+  needed since no new behavior was added).
+- Grepped both files afterward for leftover em-dash/flavor markers
+  ("—", "speak", "whisper", "ancient", "shelf", "drawer", "reservoir")
+  across all `hint:` lines -- zero hits, confirming no flavor text
+  survived the sweep.
+- Did not touch any audio- or drag-related code, so no unverified-audio
+  caveat applies to this ticket.
+
+**Version:** v0.57 -> v0.58 in `wordbound.html` ("Minor bump, can share the
+batch's" per the ticket). No test asserts the literal version string, so
+the bump is purely cosmetic/informational, confirmed by re-running
+`npm test` after the edit (still green).
+
+**GOALS.md box checked `[x]`.**
+
+**Repo housekeeping note:** at the start of this run, the container's
+local `main` branch and `origin/main` remote-tracking ref were stale
+(pointed at an old commit, `115e324`, from before several prior runs'
+pushes) even though `HEAD` was correctly detached at the real tip
+(`ac3caea`, matching what was actually on GitHub). Ran `git fetch origin
+main` (which forced the stale tracking ref up to date) then `git checkout
+-B main origin/main` to get onto a real, non-detached `main` branch in
+sync with the remote before doing any work. No commits were lost or
+discarded -- this was purely a local ref/tracking staleness issue in this
+container, not a divergence in actual repo history. Future runs starting
+in a detached HEAD state should do the same fetch-and-checkout dance
+before assuming anything is wrong.
+
+**Next run:** item 6/7 (BALANCE: starting gold) is next, followed by the
+two mid-batch BALANCE follow-ups filed 2026-08-21 (Rewrite cost -> 1 Ink;
+steeper long-word damage curve), then item 7/7 (one-screen layout,
+explicitly last, depends on items 1-5 shrinking the UI -- items 1-4 and now
+5 are done).

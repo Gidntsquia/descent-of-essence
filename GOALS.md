@@ -4849,7 +4849,7 @@ Rules for the routine:
       Make sure nothing reads the removed slider's value (gain code paths,
       persistence). VERIFY: `npm test` + `npm run test:audio` green.
 
-- [ ] CONTENT (Jaxon batch, item 5/7): CUT every item AND consumable
+- [x] CONTENT (Jaxon batch, item 5/7): CUT every item AND consumable
       description to a few words (~6 max), mechanically precise, flavor
       dropped (names keep the lore, descriptions state the effect:
       "Overcharge costs 1 less Ink", "+2 damage per unused tile"). Applies

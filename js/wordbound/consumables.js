@@ -24,7 +24,7 @@
   def({
     id: 'errata_slip',
     name: 'Errata Slip',
-    hint: 'Restore 8 ink (or to max). A correction slip from the Archive.',
+    hint: 'Restore 8 ink.',
     rarity: 'common',
     shopPrice: 15,
     effect: function (ctx) {
@@ -41,7 +41,7 @@
   def({
     id: 'index_card_shard',
     name: 'Index Card Shard',
-    hint: 'Next word deals +15 damage this turn. Knowledge is power.',
+    hint: 'Next word: +15 damage.',
     rarity: 'uncommon',
     shopPrice: 25,
     effect: function (ctx) {
@@ -57,7 +57,7 @@
   def({
     id: 'page_turn',
     name: 'Page Turn',
-    hint: 'Draw 3 bonus tiles, skip discard cycle. Read ahead.',
+    hint: 'Draw 3 tiles, skip discard.',
     rarity: 'rare',
     shopPrice: 40,
     effect: function (ctx) {

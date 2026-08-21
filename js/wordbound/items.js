@@ -80,7 +80,7 @@
   def({
     id: 'spare_satchel',
     name: 'Spare Satchel',
-    hint: 'Extra pockets for your words—one more tile per hand.',
+    hint: '+1 rack capacity.',
     rarity: 'common',
     shopPrice: 25,
     statMods: { rackCapacityBonus: 1 }
@@ -89,7 +89,7 @@
   def({
     id: 'lucky_vowel',
     name: 'Lucky Vowel',
-    hint: "Fortune favors the vocal—never a draw without one.",
+    hint: 'Always draw at least one vowel.',
     rarity: 'common',
     shopPrice: 20,
     hooks: {
@@ -115,7 +115,7 @@
   def({
     id: 'wildcard_pouch',
     name: 'Wildcard Pouch',
-    hint: 'Unwritten possibilities—two blanks in every hand, waiting to become anything.',
+    hint: '+2 blank tiles this run.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -129,7 +129,7 @@
   def({
     id: 'heavy_ink',
     name: 'Heavy Ink',
-    hint: "That precious letter? It leaves its mark twice.",
+    hint: 'Bonus damage = your highest tile value.',
     rarity: 'uncommon',
     shopPrice: 30,
     hooks: {
@@ -148,7 +148,7 @@
   def({
     id: 'rare_hunter',
     name: 'Rare Hunter',
-    hint: 'Spot a prize letter and strike while it gleams.',
+    hint: 'High-value letter in word: +3 damage.',
     rarity: 'uncommon',
     shopPrice: 40,
     hooks: {
@@ -163,7 +163,7 @@
   def({
     id: 'vowel_leech',
     name: 'Vowel Leech',
-    hint: 'Each A, E, I, O, U feeds your wounds. The more you speak, the more you mend.',
+    hint: '+1 ink per vowel played.',
     rarity: 'rare',
     shopPrice: 35,
     hooks: {
@@ -178,7 +178,7 @@
   def({
     id: 'thick_skin',
     name: 'Thick Skin',
-    hint: 'Hardened. Weathered. Words bounce off you like rain.',
+    hint: '-2 damage taken.',
     rarity: 'common',
     shopPrice: 45,
     statMods: { damageReductionFlat: 2 },
@@ -192,7 +192,7 @@
   def({
     id: 'second_wind',
     name: 'Second Wind',
-    hint: 'Not over yet. One last breath, when it matters most.',
+    hint: 'Once/run: survive a lethal hit at 1 ink.',
     rarity: 'legendary',
     shopPrice: 60,
     hooks: {
@@ -208,7 +208,7 @@
   def({
     id: 'folio_mark',
     name: 'Folio Mark',
-    hint: 'Those marked tiles sing louder when you play them.',
+    hint: '+2 damage per bonus tile played.',
     rarity: 'uncommon',
     shopPrice: 40,
     hooks: {
@@ -225,7 +225,7 @@
   def({
     id: 'marginalia',
     name: 'Marginalia',
-    hint: 'Notes in the margins have a way of healing old wounds.',
+    hint: '5+ letter word: +2 ink.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -240,7 +240,7 @@
   def({
     id: 'catalog_tab',
     name: 'Catalog Tab',
-    hint: 'A perfect sequence—organized, precise, and devastating.',
+    hint: 'Alphabetical-order word: +2 damage.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -257,7 +257,7 @@
   def({
     id: 'blank_slate',
     name: 'Blank Slate',
-    hint: 'An unwritten tile becomes whatever the moment needs.',
+    hint: '+2 damage per blank tile played.',
     rarity: 'uncommon',
     shopPrice: 40,
     hooks: {
@@ -274,7 +274,7 @@
   def({
     id: 'dust_jacket',
     name: 'Dust Jacket',
-    hint: 'Every marked tile shelters you like a page held close.',
+    hint: '-1 damage per bonus tile in rack.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -292,7 +292,7 @@
   def({
     id: 'rare_tome',
     name: 'Rare Tome',
-    hint: 'X, Q, Z—the alphabet\'s rarest treasures, and this book knows them all.',
+    hint: 'X, Q, or Z in word: +2 damage.',
     rarity: 'uncommon',
     shopPrice: 40,
     hooks: {
@@ -306,7 +306,7 @@
   def({
     id: 'foreword',
     name: 'Foreword',
-    hint: 'The words you don\'t say echo loudest. Unused tiles sharpen the blow.',
+    hint: '+1 damage per unused tile in rack.',
     rarity: 'rare',
     shopPrice: 45,
     hooks: {
@@ -326,7 +326,7 @@
   def({
     id: 'illuminated_initial',
     name: 'Illuminated Initial',
-    hint: 'The first letter, gilded -- echo it and the page catches fire.',
+    hint: 'Same first letter as last word: +40%.',
     rarity: 'rare',
     shopPrice: 45,
     hooks: {
@@ -342,7 +342,7 @@
   def({
     id: 'errant_footnote',
     name: 'Errant Footnote',
-    hint: 'Every third mark in the margin lands twice as hard.',
+    hint: 'Every 3rd word this fight: x2 damage.',
     rarity: 'rare',
     shopPrice: 45,
     hooks: {
@@ -357,7 +357,7 @@
   def({
     id: 'vowel_reliquary',
     name: 'Vowel Reliquary',
-    hint: 'Sacred vowels, kept behind glass -- speak them and they blaze.',
+    hint: '+2x value per vowel in word.',
     rarity: 'rare',
     shopPrice: 45,
     hooks: {
@@ -379,7 +379,7 @@
   def({
     id: 'consonant_cluster',
     name: 'Consonant Cluster',
-    hint: 'Hard sounds, harder blows -- every consonant adds its weight.',
+    hint: '+2 damage per consonant in word.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -398,7 +398,7 @@
   def({
     id: 'long_s_ligature',
     name: 'Long-S Ligature',
-    hint: 'An old, elegant stroke -- the longer the word, the deeper it cuts, and mends.',
+    hint: '6+ letter word: +25% damage, +1 ink.',
     rarity: 'rare',
     shopPrice: 45,
     hooks: {
@@ -414,7 +414,7 @@
   def({
     id: 'cursed_quill',
     name: 'Cursed Quill',
-    hint: 'It writes on its own terms -- power for a price paid in your own blood.',
+    hint: '+10 damage, costs 2 ink -- can kill you.',
     rarity: 'rare',
     shopPrice: 40,
     hooks: {
@@ -436,7 +436,7 @@
   def({
     id: 'gilded_bookmark',
     name: 'Gilded Bookmark',
-    hint: 'Marks where you started -- the first word of a fight always rings loudest.',
+    hint: 'First word of a fight: x2 damage.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -451,7 +451,7 @@
   def({
     id: 'palimpsest',
     name: 'Palimpsest',
-    hint: 'Old text bleeds through the new -- echo enough of it and the page erupts.',
+    hint: 'Share 3+ letters w/ last word: +30%.',
     rarity: 'rare',
     shopPrice: 45,
     hooks: {
@@ -500,7 +500,7 @@
   def({
     id: 'card_catalog_key',
     name: 'Card Catalog Key',
-    hint: 'Unlocks the good drawer -- a valuable letter turns up more often than chance.',
+    hint: 'Always draw a high-value letter.',
     rarity: 'common',
     shopPrice: 25,
     hooks: {
@@ -526,7 +526,7 @@
   def({
     id: 'bookplate',
     name: 'Bookplate',
-    hint: 'A small mark stamped inside the cover, charged with the collector\'s intent.',
+    hint: '+1 charged E tile this run.',
     rarity: 'common',
     shopPrice: 25,
     hooks: {
@@ -540,7 +540,7 @@
   def({
     id: 'ex_libris',
     name: 'Ex Libris',
-    hint: 'This copy belongs to you now -- and it pays dividends.',
+    hint: '+4 gold at run start.',
     rarity: 'uncommon',
     shopPrice: 30,
     hooks: {
@@ -553,7 +553,7 @@
   def({
     id: 'late_fee',
     name: 'Late Fee',
-    hint: 'Every overdue blow gets billed -- to them.',
+    hint: 'Gain gold equal to half damage taken.',
     rarity: 'uncommon',
     shopPrice: 30,
     hooks: {
@@ -567,7 +567,7 @@
   def({
     id: 'interlibrary_loan',
     name: 'Interlibrary Loan',
-    hint: 'A well-stocked shelf lends its weight to every word -- hold onto what you\'ve borrowed.',
+    hint: '2+ consumables held: +3 damage.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -582,7 +582,7 @@
   def({
     id: 'withdrawal_slip',
     name: 'Withdrawal Slip',
-    hint: 'Nothing left to check out -- travel light and strike harder.',
+    hint: 'No consumables held: +6 damage.',
     rarity: 'rare',
     shopPrice: 45,
     hooks: {
@@ -597,7 +597,7 @@
   def({
     id: 'colophon',
     name: 'Colophon',
-    hint: 'The printer\'s mark rewards a page with nothing repeated on it.',
+    hint: '+2 damage per distinct letter.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -617,7 +617,7 @@
   def({
     id: 'bound_volume',
     name: 'Bound Volume',
-    hint: 'Matched signatures bind tighter -- echo your last word\'s length and the seam holds true.',
+    hint: 'Same length as last word: +25%.',
     rarity: 'rare',
     shopPrice: 45,
     hooks: {
@@ -633,7 +633,7 @@
   def({
     id: 'acquisitions_budget',
     name: 'Acquisitions Budget',
-    hint: 'Spend where it counts -- gold set aside becomes strength before you descend.',
+    hint: 'Per floor: 10 gold -> +2 max ink.',
     rarity: 'legendary',
     shopPrice: 65,
     hooks: {
@@ -674,7 +674,7 @@
   def({
     id: 'frugal_bookmark',
     name: 'Frugal Bookmark',
-    hint: 'Marks the spot without wasting ink -- Overcharge presses a little lighter.',
+    hint: '-1 Overcharge ink cost.',
     rarity: 'uncommon',
     shopPrice: 35,
     statMods: { overchargeCostReduction: 1 }
@@ -683,7 +683,7 @@
   def({
     id: 'steady_transcription',
     name: 'Steady Transcription',
-    hint: 'A practiced hand voids a page for less -- Rewrite costs a touch less ink.',
+    hint: '-1 Rewrite ink cost.',
     rarity: 'uncommon',
     shopPrice: 35,
     statMods: { rewriteCostReduction: 1 }
@@ -692,7 +692,7 @@
   def({
     id: 'inkwell_reserve',
     name: 'Inkwell Reserve',
-    hint: 'A hidden reservoir tops itself off -- every fourth word draws from the reserve.',
+    hint: 'Every 4th word this fight: +2 ink.',
     rarity: 'rare',
     shopPrice: 40,
     hooks: {
@@ -707,7 +707,7 @@
   def({
     id: 'economical_hand',
     name: 'Economical Hand',
-    hint: 'Say it plainly and the well barely notices -- short words refill a little ink.',
+    hint: '4-letter or shorter word: +1 ink.',
     rarity: 'common',
     shopPrice: 25,
     hooks: {
@@ -722,7 +722,7 @@
   def({
     id: 'low_ink_flourish',
     name: 'Low-Ink Flourish',
-    hint: 'Down to the last drops, the nib presses harder out of spite -- below 10 ink, words hit harder.',
+    hint: 'Below 10 ink: +35% damage.',
     rarity: 'rare',
     shopPrice: 40,
     hooks: {
@@ -737,7 +737,7 @@
   def({
     id: 'conservators_care',
     name: "Conservator's Care",
-    hint: 'A well-trained archivist protects what little ink remains -- below 10 ink, blows land softer.',
+    hint: 'Below 10 ink: -3 damage taken.',
     rarity: 'uncommon',
     shopPrice: 35,
     hooks: {
@@ -751,7 +751,7 @@
   def({
     id: 'frequent_patron',
     name: 'Frequent Patron',
-    hint: 'The shopkeep knows your face by now -- every stall in the Stacks charges you less.',
+    hint: '-20% shop prices.',
     rarity: 'uncommon',
     shopPrice: 35,
     statMods: { shopDiscountPct: 0.2 }
@@ -760,7 +760,7 @@
   def({
     id: 'marginal_index',
     name: 'Marginal Index',
-    hint: 'A cross-reference in the margins points to one more option than the shelf usually offers.',
+    hint: '+1 treasure reward choice.',
     rarity: 'legendary',
     shopPrice: 60,
     statMods: { treasureExtraChoice: 1 }
