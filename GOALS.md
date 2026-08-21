@@ -4866,6 +4866,28 @@ Rules for the routine:
       n=50 win rate as with ticket 2. VERIFY: `npm test` green; a fresh run
       starts with the chosen gold amount.
 
+- [ ] BALANCE (Jaxon batch follow-up, filed 2026-08-21 during the same
+      desktop playtest): LONGER words should deal a noticeably larger
+      damage bonus, especially 6+ letters. Current formula is weak-linear:
+      `js/wordbound/lexicon.js:128` — `lengthBonus = (len - 4) * 2` for
+      len > 4, so 5→+2, 6→+4, 7→+6, 8→+8, barely felt next to letter
+      values. Design intent: a clear jump at 6 letters and steeper growth
+      beyond (superlinear — e.g. escalating per-letter increments or a
+      multiplier tier at 6+; exact curve is your judgment call, document
+      the chosen table for lengths 5-10 in PROGRESS.md). Context: the
+      combo mechanic is being removed (batch item 2/7), so word length
+      becomes THE skill-expression damage lever — size the curve
+      accordingly, and if item 2 isn't done yet, tune for the
+      post-combo-removal game, not the current one. Keep scoreWord's
+      return shape (`lengthBonus` field) so the damage-preview breakdown
+      (game.js updateDamagePreview) keeps itemizing it; confirm the
+      preview reflects the new values. Run the balance sim (n=50, as with
+      earlier balance tickets) and keep the win rate inside the accepted
+      band — if it drifts, retune this curve, don't touch monster HP in
+      this ticket. VERIFY: `npm test` green including new/updated unit
+      assertions for the exact bonus at lengths 5, 6, 7, 8; sim win rate
+      reported in PROGRESS.md. Minor bump (can share the batch's).
+
 - [ ] LAYOUT (Jaxon batch, item 7/7 — DO THIS LAST, it depends on tickets
       1-5 shrinking the UI): everything fits in ONE screen on computer, no
       scrolling, on every core screen (menu, character select, map, combat,
