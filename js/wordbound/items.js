@@ -40,6 +40,16 @@
 //       onPlayerDamaged(ctx) ctx = { player, monster, damage } -- damage is
 //                            mutable; caller applies ctx.damage, not the
 //                            original amount.
+//       onFloorAdvance(ctx) ctx = { player, floorNumber, messages } -- fires
+//                            once when a floor is cleared and the run
+//                            advances to the next one (game.js
+//                            advanceFloor), BEFORE the new floor is
+//                            generated. floorNumber is the floor just
+//                            entered. messages works like onWordPlayed's:
+//                            push a user-facing string to have the caller
+//                            log it. Added for CONTENT ticket (GOALS.md,
+//                            2026-08-21)'s Acquisitions Budget -- the only
+//                            item using this hook so far.
 //     }
 //   }
 //   getRackCapacity(player) -> 7 + sum of owned rackCapacityBonus
@@ -476,6 +486,172 @@
     'gilded_bookmark',
     'palimpsest'
   ];
+
+  // ---- CONTENT ticket (GOALS.md, 2026-08-20/21): 9 new items filling gaps
+  // the FUN OVERHAUL 4/8 batch left -- onDraw and onRunStart each had exactly
+  // 1 item, onPlayerDamaged had 3, and gold-economy / consumable-synergy /
+  // floor-transition were entirely unaddressed. THEME.md library/archive
+  // naming throughout. At least 4 of these (Interlibrary Loan, Withdrawal
+  // Slip, Bound Volume, Acquisitions Budget) are genuinely build-defining --
+  // they change which words/consumables/gold habits are correct play, not
+  // just add a stat.
+
+  def({
+    id: 'card_catalog_key',
+    name: 'Card Catalog Key',
+    hint: 'Unlocks the good drawer -- a valuable letter turns up more often than chance.',
+    rarity: 'common',
+    shopPrice: 25,
+    hooks: {
+      onDraw: function (ctx) {
+        var Lexicon = window.Wordbound.Lexicon;
+        var hasRareLetter = ctx.drawnTiles.some(function (t) { return (Lexicon.LETTER_VALUES[t.letter] || 0) >= 3; });
+        if (hasRareLetter || ctx.drawnTiles.length === 0) return;
+        var pool = ctx.pileState.drawPile;
+        var idx = -1;
+        for (var i = pool.length - 1; i >= 0; i--) {
+          if ((Lexicon.LETTER_VALUES[pool[i].letter] || 0) >= 3) { idx = i; break; }
+        }
+        if (idx === -1) return;
+        var rareTile = pool.splice(idx, 1)[0];
+        var swapIdx = ctx.rng ? ctx.rng.randInt(0, ctx.drawnTiles.length - 1) : 0;
+        var displaced = ctx.drawnTiles[swapIdx];
+        ctx.drawnTiles[swapIdx] = rareTile;
+        pool.push(displaced);
+      }
+    }
+  });
+
+  def({
+    id: 'bookplate',
+    name: 'Bookplate',
+    hint: 'A small mark stamped inside the cover, charged with the collector\'s intent.',
+    rarity: 'common',
+    shopPrice: 25,
+    hooks: {
+      onRunStart: function (ctx) {
+        var Tiles = window.Wordbound.Tiles;
+        ctx.pileState.drawPile.push(Tiles.createTile('E', null, Tiles.VARIANTS.CHARGED));
+      }
+    }
+  });
+
+  def({
+    id: 'ex_libris',
+    name: 'Ex Libris',
+    hint: 'This copy belongs to you now -- and it pays dividends.',
+    rarity: 'uncommon',
+    shopPrice: 30,
+    hooks: {
+      onRunStart: function (ctx) {
+        ctx.player.gold = (ctx.player.gold || 0) + 4;
+      }
+    }
+  });
+
+  def({
+    id: 'late_fee',
+    name: 'Late Fee',
+    hint: 'Every overdue blow gets billed -- to them.',
+    rarity: 'uncommon',
+    shopPrice: 30,
+    hooks: {
+      onPlayerDamaged: function (ctx) {
+        var gained = Math.floor(ctx.damage / 2);
+        if (gained > 0) ctx.player.gold = (ctx.player.gold || 0) + gained;
+      }
+    }
+  });
+
+  def({
+    id: 'interlibrary_loan',
+    name: 'Interlibrary Loan',
+    hint: 'A well-stocked shelf lends its weight to every word -- hold onto what you\'ve borrowed.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if ((ctx.player.consumables || []).length < 2) return;
+        Items.applyBonusDamage(ctx, 3);
+        ctx.messages.push('Interlibrary Loan: +3!');
+      }
+    }
+  });
+
+  def({
+    id: 'withdrawal_slip',
+    name: 'Withdrawal Slip',
+    hint: 'Nothing left to check out -- travel light and strike harder.',
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if ((ctx.player.consumables || []).length > 0) return;
+        Items.applyBonusDamage(ctx, 6);
+        ctx.messages.push('Withdrawal Slip: +6!');
+      }
+    }
+  });
+
+  def({
+    id: 'colophon',
+    name: 'Colophon',
+    hint: 'The printer\'s mark rewards a page with nothing repeated on it.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        var seen = {};
+        var distinctCount = 0;
+        ctx.word.split('').forEach(function (l) { if (!seen[l]) { seen[l] = true; distinctCount++; } });
+        if (distinctCount > 0) {
+          var bonus = distinctCount * 2;
+          Items.applyBonusDamage(ctx, bonus);
+          ctx.messages.push('Colophon: +' + bonus + '!');
+        }
+      }
+    }
+  });
+
+  def({
+    id: 'bound_volume',
+    name: 'Bound Volume',
+    hint: 'Matched signatures bind tighter -- echo your last word\'s length and the seam holds true.',
+    rarity: 'rare',
+    shopPrice: 45,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (!ctx.previousWord) return;
+        if (ctx.word.length !== ctx.previousWord.length) return;
+        Items.applyPercentBonus(ctx, 0.25);
+        ctx.messages.push('Bound Volume: +25%!');
+      }
+    }
+  });
+
+  def({
+    id: 'acquisitions_budget',
+    name: 'Acquisitions Budget',
+    hint: 'Spend where it counts -- gold set aside becomes strength before you descend.',
+    rarity: 'legendary',
+    shopPrice: 65,
+    hooks: {
+      // FLAGSHIP, floor-transition. The only item in the pool using this
+      // hook -- earns the new engine machinery (Game.advanceFloor calling
+      // Items.runHook('onFloorAdvance', ...), see game.js) by turning
+      // gold-hoarding into a genuine strategic choice against shop-spending.
+      onFloorAdvance: function (ctx) {
+        var chunks = Math.floor((ctx.player.gold || 0) / 10);
+        if (chunks <= 0) return;
+        var spent = chunks * 10;
+        var hpGain = chunks * 2;
+        ctx.player.gold -= spent;
+        ctx.player.maxHp += hpGain;
+        ctx.player.hp += hpGain;
+        ctx.messages.push('Acquisitions Budget: spent ' + spent + ' gold for +' + hpGain + ' max HP!');
+      }
+    }
+  });
 
   Items.getRackCapacity = function (player) {
     var capacity = 7;

@@ -298,6 +298,168 @@ async function main() {
     }
   }
 
+  // CONTENT ticket (GOALS.md, 2026-08-21): 9 new items filling the onDraw/
+  // onRunStart/onPlayerDamaged/gold-economy/consumable-synergy/floor-
+  // transition gaps. Same isolated Combat.playWord + Items.runHook pattern
+  // as the blocks above, plus direct ctx construction for the hooks that
+  // don't run through Combat.playWord at all (onDraw, onRunStart,
+  // onPlayerDamaged, onFloorAdvance).
+  {
+    const Combat = window.Wordbound.Combat;
+    const Tiles = window.Wordbound.Tiles;
+    const Items = window.Wordbound.Items;
+    const Lexicon = window.Wordbound.Lexicon;
+    const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+    const freshRack = () => ['C', 'A', 'T', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+
+    // 1. Card Catalog Key: guarantees a 3+ value letter in the draw.
+    {
+      const player = { items: ['card_catalog_key'] };
+      const drawnTiles = ['A', 'E', 'I'].map((l) => Tiles.createTile(l, null));
+      const drawPile = ['N', 'B', 'O'].map((l) => Tiles.createTile(l, null)); // B is worth 3
+      const pileState = { drawPile, discardPile: [] };
+      const ctx = { player, drawnTiles, pileState, rng: { randInt: () => 0 } };
+      Items.runHook('onDraw', ctx, player);
+      const hasRare = ctx.drawnTiles.some((t) => (Lexicon.LETTER_VALUES[t.letter] || 0) >= 3);
+      check('Card Catalog Key: a draw with no 3+ value letter gets one swapped in', hasRare);
+      check('Card Catalog Key: the pulled tile leaves the draw pile, the displaced tile joins it', !pileState.drawPile.some((t) => t.letter === 'B') && pileState.drawPile.some((t) => t.letter === 'A'));
+    }
+    {
+      const player = { items: ['card_catalog_key'] };
+      const drawnTiles = ['B', 'E', 'I'].map((l) => Tiles.createTile(l, null));
+      const drawPile = ['N', 'C', 'O'].map((l) => Tiles.createTile(l, null));
+      const ctx = { player, drawnTiles, pileState: { drawPile, discardPile: [] }, rng: { randInt: () => 0 } };
+      Items.runHook('onDraw', ctx, player);
+      check('Card Catalog Key: no-op when the draw already has a 3+ value letter', drawnTiles.map((t) => t.letter).join(',') === 'B,E,I' && drawPile.length === 3);
+    }
+
+    // 2. Bookplate: adds one guaranteed Charged tile to the draw pile at
+    // fight start.
+    {
+      const player = { items: ['bookplate'] };
+      const pileState = { drawPile: [], discardPile: [] };
+      Items.runHook('onRunStart', { player, pileState }, player);
+      check('Bookplate: adds exactly one Charged tile to the draw pile', pileState.drawPile.length === 1 && pileState.drawPile[0].variant === Tiles.VARIANTS.CHARGED);
+    }
+
+    // 3. Ex Libris: +4 gold at the start of each fight.
+    {
+      const player = { items: ['ex_libris'], gold: 10 };
+      Items.runHook('onRunStart', { player, pileState: { drawPile: [], discardPile: [] } }, player);
+      check('Ex Libris: +4 gold at fight start (10 -> 14)', player.gold === 14);
+    }
+
+    // 4. Late Fee: gain floor(damage/2) gold when hit; damage itself is
+    // untouched (it's a gold-economy item, not a reduction item).
+    {
+      const player = { items: ['late_fee'], gold: 0 };
+      const ctx = { player, monster: {}, damage: 7 };
+      Items.runHook('onPlayerDamaged', ctx, player);
+      check('Late Fee: gains floor(damage/2) gold on hit (7 damage -> 3 gold)', player.gold === 3);
+      check('Late Fee: does not alter the damage itself', ctx.damage === 7);
+    }
+
+    // 5. Interlibrary Loan: +3 flat damage while holding 2+ consumables.
+    {
+      const player = { rack: freshRack(), items: ['interlibrary_loan'], hp: 20, maxHp: 20, consumables: ['errata_slip', 'page_turn'] };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Interlibrary Loan: +3 while holding 2+ consumables', result.damage === before + 3);
+      check('Interlibrary Loan: logs a proc message', ctx.messages.indexOf('Interlibrary Loan: +3!') !== -1);
+    }
+    {
+      const player = { rack: freshRack(), items: ['interlibrary_loan'], hp: 20, maxHp: 20, consumables: ['errata_slip'] };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Interlibrary Loan: no bonus holding fewer than 2 consumables', result.damage === before);
+    }
+
+    // 6. Withdrawal Slip: +6 flat damage while holding ZERO consumables
+    // (the mirror-image build to Interlibrary Loan above).
+    {
+      const player = { rack: freshRack(), items: ['withdrawal_slip'], hp: 20, maxHp: 20, consumables: [] };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Withdrawal Slip: +6 while holding zero consumables', result.damage === before + 6);
+    }
+    {
+      const player = { rack: freshRack(), items: ['withdrawal_slip'], hp: 20, maxHp: 20, consumables: ['errata_slip'] };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Withdrawal Slip: no bonus while holding any consumable', result.damage === before);
+    }
+
+    // 7. Colophon: +2 damage per DISTINCT letter in the word (not per
+    // length -- a rack with duplicate tiles proves the distinction).
+    {
+      const player = { rack: freshRack(), items: ['colophon'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Colophon: +2 per distinct letter (CAT = 3 distinct -> +6)', result.damage === before + 6);
+    }
+    {
+      const rack = ['L', 'E', 'T', 'T', 'E', 'R', 'X'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['colophon'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'LETTER');
+      check('Colophon test setup: "LETTER" is playable from a rack with duplicate E/T tiles', !!result);
+      if (result) {
+        const before = result.damage;
+        const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+        Items.runHook('onWordPlayed', ctx, player);
+        // LETTER has 4 distinct letters (L,E,T,R) despite being 6 long.
+        check('Colophon: counts DISTINCT letters, not word length (LETTER = 4 distinct -> +8, not +12)', result.damage === before + 8);
+      }
+    }
+
+    // 8. Bound Volume: +25% when the word's length matches the previous
+    // word's length this fight.
+    {
+      const player = { rack: freshRack(), items: ['bound_volume'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'DOG', wordsPlayedThisFight: 2, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Bound Volume: +25% matching the previous word\'s length (CAT/DOG both 3)', result.damage === before + Math.round(before * 0.25));
+    }
+    {
+      const player = { rack: freshRack(), items: ['bound_volume'], hp: 20, maxHp: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'GARDEN', wordsPlayedThisFight: 2, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Bound Volume: no bonus on a different word length', result.damage === before);
+    }
+
+    // 9. Acquisitions Budget: flagship floor-transition item. Every 10 gold
+    // held becomes +2 max HP (and heals the same amount) when a floor
+    // advances; the new onFloorAdvance hook itself (see items.js/game.js).
+    {
+      const player = { items: ['acquisitions_budget'], gold: 25, maxHp: 20, hp: 15 };
+      const ctx = { player, floorNumber: 2, messages: [] };
+      Items.runHook('onFloorAdvance', ctx, player);
+      // 25 gold -> 2 chunks of 10 spent (20), +4 max HP, +4 heal, 5 gold left.
+      check('Acquisitions Budget: spends 10-gold chunks for +2 max HP each (25 -> 20 spent, +4 maxHp)', player.gold === 5 && player.maxHp === 24);
+      check('Acquisitions Budget: heals by the same amount as the max HP gain', player.hp === 19);
+      check('Acquisitions Budget: logs exactly one proc message', ctx.messages.length === 1);
+    }
+    {
+      const player = { items: ['acquisitions_budget'], gold: 7, maxHp: 20, hp: 15 };
+      const ctx = { player, floorNumber: 2, messages: [] };
+      Items.runHook('onFloorAdvance', ctx, player);
+      check('Acquisitions Budget: no-op under 10 gold (nothing to convert)', player.gold === 7 && player.maxHp === 20 && ctx.messages.length === 0);
+    }
+  }
+
   // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20): special tile variants. The two
   // SCORING variants (Charged +4 flat, Volatile letter-value x2) resolve in
   // Lexicon.scoreWord, so they're checked here in isolation against exact
@@ -774,6 +936,42 @@ async function main() {
   check('fight-start log line exists', !!appearsMsg);
   check('fight-start log line has no doubled/spurious article ("A " prefix removed)', !!appearsMsg && !/^A /.test(appearsMsg));
   check('fight-start log line is exactly "<monster name> appears!"', appearsMsg === state.monster.name + ' appears!');
+
+  // CONTENT ticket (GOALS.md, 2026-08-21), onFloorAdvance wiring: confirm
+  // Game._advanceFloor() (test-only exposure, see game.js) actually invokes
+  // Items.runHook('onFloorAdvance', ...) and logs its message end to end,
+  // not just that the isolated hook function does the right math (covered
+  // separately below). Every field touched is saved and restored so this
+  // in-progress fight continues unaffected; the word submitted just below
+  // triggers its own render(), resyncing the DOM with the restored state.
+  {
+    const savedFloorNumber = state.floorNumber;
+    const savedFloor = state.floor;
+    const savedNodeIndex = state.currentNodeIndex;
+    const savedRunStats = Object.assign({}, state.runStats);
+    const savedItems = state.player.items;
+    const savedGold = state.player.gold;
+    const savedMaxHp = state.player.maxHp;
+    const savedHp = state.player.hp;
+    const savedMessagesLength = state.messages.length;
+
+    state.player.items = ['acquisitions_budget'];
+    state.player.gold = 15;
+    window.Wordbound.Game._advanceFloor();
+
+    check('onFloorAdvance wiring: advanceFloor spent 10-gold chunks via Acquisitions Budget (15 -> 5)', state.player.gold === 5);
+    check('onFloorAdvance wiring: advanceFloor granted +2 max HP for the one chunk spent', state.player.maxHp === savedMaxHp + 2);
+    check('onFloorAdvance wiring: the proc message was logged to state.messages', state.messages.slice(savedMessagesLength).some((m) => /Acquisitions Budget/.test(m)));
+
+    state.floorNumber = savedFloorNumber;
+    state.floor = savedFloor;
+    state.currentNodeIndex = savedNodeIndex;
+    state.runStats = savedRunStats;
+    state.player.items = savedItems;
+    state.player.gold = savedGold;
+    state.player.maxHp = savedMaxHp;
+    state.player.hp = savedHp;
+  }
 
   // Find a playable word that will actually deal damage > 0 -- not just any
   // playable word. A monster's trait can legitimately zero out damage (e.g.
@@ -1885,6 +2083,36 @@ async function main() {
     state.rng = window.Game.RNG.create('shop-odds-determinism');
     const rollB = window.Wordbound.Game._rollShopOptions();
     check('shop consumable odds: the same seed produces an identical shop roll', rollA.join(',') === rollB.join(','));
+
+    state.rng = savedRng;
+    state.player.items = savedItems;
+  }
+
+  // CONTENT ticket (GOALS.md, 2026-08-21): confirm all 9 new items actually
+  // surface in shop rolls (they're drawn automatically from
+  // Items.ITEM_DEFS, no separate pool-registration step -- this is the
+  // check that proves that's really true rather than assumed). 300 seeded
+  // rolls with an empty owned-items list is comfortably enough samples for
+  // even the rarest (single-legendary) new item to appear at least once.
+  {
+    const savedRng = state.rng;
+    const savedItems = state.player.items;
+    const NEW_ITEM_IDS = [
+      'card_catalog_key', 'bookplate', 'ex_libris', 'late_fee',
+      'interlibrary_loan', 'withdrawal_slip', 'colophon', 'bound_volume',
+      'acquisitions_budget'
+    ];
+    const seen = new Set();
+
+    state.player.items = [];
+    for (let i = 0; i < 300; i++) {
+      state.rng = window.Game.RNG.create('content-ticket-shop-odds-' + i);
+      window.Wordbound.Game._rollShopOptions().forEach((id) => seen.add(id));
+    }
+
+    NEW_ITEM_IDS.forEach((id) => {
+      check('CONTENT ticket item "' + id + '" appears in shop rolls across 300 seeded samples', seen.has(id));
+    });
 
     state.rng = savedRng;
     state.player.items = savedItems;

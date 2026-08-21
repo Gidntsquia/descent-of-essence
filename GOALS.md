@@ -3579,7 +3579,7 @@ Rules for the routine:
      valuable after the new content/visual/audio work has landed, so it
      catches their rough edges too). -->
 
-- [ ] CONTENT (Jaxon request): add more items. Design and add roughly 8-12
+- [x] CONTENT (Jaxon request): add more items. Design and add roughly 8-12
       new shop/reward items consistent with THEME.md's library/archive lore
       and naming voice (read it first -- items are things like "Heavy Ink",
       "Folio Mark"; stay in that register, no generic fantasy nouns). Spread
@@ -3603,6 +3603,85 @@ Rules for the routine:
       the existing per-item test pattern in test/dom-check.js), `npm run
       test:qa` clean, and a seeded-shop check that the new items actually
       appear in shop rolls. Minor version bump.
+      DONE 2026-08-21T00:46Z: added exactly 9 new items to
+      js/wordbound/items.js (within the "roughly 8-12" range), THEME.md
+      library/archive register throughout: Card Catalog Key (common,
+      onDraw -- guarantees a 3+ value letter in the draw, mirrors Lucky
+      Vowel's pattern), Bookplate (common, onRunStart -- adds a guaranteed
+      Charged tile to the fight's draw pile), Ex Libris (uncommon,
+      onRunStart -- +4 gold per fight, gold-economy), Late Fee (uncommon,
+      onPlayerDamaged -- gain floor(damage/2) gold when hit, gold-economy),
+      Interlibrary Loan (uncommon, onWordPlayed -- +3 damage while holding
+      2+ consumables, consumable-synergy/hoard build), Withdrawal Slip
+      (rare, onWordPlayed -- +6 damage while holding zero consumables, the
+      mirror-image consumable-synergy/spend build), Colophon (uncommon,
+      onWordPlayed -- +2 damage per DISTINCT letter in the word, a new
+      intra-word-variety axis, not a duplicate of Consonant Cluster/Long-S
+      since it's provably different on words with repeated letters), Bound
+      Volume (rare, onWordPlayed -- +25% when the word's length matches the
+      previous word's length this fight, a new build-defining word-strategy
+      axis alongside Illuminated Initial/Palimpsest), and Acquisitions
+      Budget (legendary, gold-to-power flagship -- every 10 gold held
+      converts to +2 max HP, healed by the same amount, at each floor
+      transition). 4 of these (Interlibrary Loan, Withdrawal Slip, Bound
+      Volume, Acquisitions Budget) are genuinely build-defining -- they
+      change which words/consumable habits/gold habits are correct play,
+      well above the ticket's "at least 2" floor.
+      NEW ENGINE MACHINERY (per the ticket's own "unless one flagship item
+      truly earns it" allowance): added a new `onFloorAdvance(ctx)` item
+      hook, ctx = { player, floorNumber, messages }, fired once from
+      game.js's `advanceFloor()` right after the floor number increments
+      and before the new floor generates. Acquisitions Budget is the only
+      item using it. Documented in items.js's header comment alongside the
+      existing 4 hooks. This is the one new hook point the ticket's gap
+      list named ("floor-transition") that genuinely didn't exist yet --
+      gold-economy and consumable-synergy were both achievable with the
+      existing 4 hooks (onRunStart/onPlayerDamaged for gold, onWordPlayed
+      reading `ctx.player.consumables.length` for synergy), so no other new
+      machinery was added.
+      WIRING INTO POOLS: confirmed (same as the FUN OVERHAUL 4/8 precedent)
+      that no separate registration step is needed -- rollTreasureOptions/
+      rollShopOptions/rollBossRewardOptions all derive their pools live from
+      `Object.keys(Items.ITEM_DEFS)` filtered by ownership/rarity, so a
+      `def({...})` call alone is sufficient. Rarity spread: 2 common, 4
+      uncommon, 2 rare, 1 legendary -- Bound Volume and Withdrawal Slip
+      (rare) plus Acquisitions Budget (legendary) further favor the boss-
+      reward pool per the ticket's spirit, though not explicitly requested
+      for this ticket the way it was for FUN OVERHAUL 4/8.
+      JUDGMENT CALLS: (1) onRunStart/onDraw/onPlayerDamaged hooks have no
+      `ctx.messages` plumbing at their call sites (only onWordPlayed did,
+      pre-existing) -- kept Card Catalog Key/Bookplate/Ex Libris/Late Fee
+      silent, consistent with every existing item on those same 3 hooks
+      (Lucky Vowel, Wildcard Pouch, Thick Skin, Second Wind, Dust Jacket are
+      all silent too); only gave the new onFloorAdvance hook a `messages`
+      array (new machinery, so free to design it that way) and every
+      onWordPlayed item a proc message, matching the FUN OVERHAUL 4/8
+      convention exactly. (2) Card Catalog Key's "valuable letter" threshold
+      is LETTER_VALUES >= 3 (B/C/F/H/J/K/M/P/Q/V/W/X/Y/Z), chosen to roughly
+      mirror Rare Hunter's existing "4+ point letter" bar while still firing
+      often enough at common rarity to feel present, not to exactly match
+      any other single item's threshold.
+      VERIFICATION: `npm test` 423/423 (ALL CHECKS PASSED) -- one positive +
+      one negative isolated Items.runHook assertion per conditional new item
+      (matching the Foreword/FUN-OVERHAUL-4/8 test pattern exactly),
+      including a dedicated duplicate-letter rack ("LETTER" from a rack with
+      2 E's/2 T's) proving Colophon counts distinct letters rather than
+      length. Also added a live-DOM check that `game.js`'s real
+      `advanceFloor()` (exposed test-only as `Game._advanceFloor`, same
+      precedent as the existing `Game._rollShopOptions`) actually invokes
+      the new hook end to end and logs its message, not just that the
+      isolated hook function's math is right -- saves/restores every state
+      field it touches so the in-progress live fight it runs inside
+      continues unaffected. Plus the ticket's own explicitly-requested
+      seeded-shop check: 300 seeded `Game._rollShopOptions()` rolls with an
+      empty owned-items list, asserting each of the 9 new item ids appears
+      at least once (all 9 passed). `npm run test:qa` 26/26, real Chromium,
+      zero console/page errors -- this run's boss-reward flow exercises
+      `advanceFloor()` for real on every boss kill, confirming the new hook
+      call doesn't break floor advancement even for players without
+      Acquisitions Budget (the silent no-op path). No CSS/layout touched by
+      this ticket, so `npm run test:mobile` wasn't required and wasn't run.
+      Version bumped v0.33 -> v0.34 (`wordbound.html`).
 
 - [ ] VISUAL (Jaxon request): make the background/visuals fit the theme
       better. Right now the game plays on a mostly flat dark backdrop; the

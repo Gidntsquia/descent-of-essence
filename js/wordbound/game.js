@@ -132,6 +132,7 @@
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate
   Game._celebrateHit = function (damage, magnificent) { return celebrateHit(damage, magnificent); }; // FUN OVERHAUL 8/8: exposed so tests can assert the CRUSHING/MAGNIFICENT DOM appends (jsdom can't verify the animation timing)
   Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
+  Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
 
   function $(id) { return document.getElementById(id); }
 
@@ -224,6 +225,12 @@
       endRun(true);
       return;
     }
+    // CONTENT ticket (GOALS.md, 2026-08-21): the only item hook fired on a
+    // floor transition rather than in-combat -- see items.js's Acquisitions
+    // Budget, the sole current onFloorAdvance user.
+    var floorCtx = { player: state.player, floorNumber: state.floorNumber, messages: [] };
+    Items.runHook('onFloorAdvance', floorCtx, state.player);
+    floorCtx.messages.forEach(function (msg) { log(msg); });
     state.floor = Floor.generateFloor(state.floorNumber, state.rng);
     state.currentNodeIndex = 0;
     render();
