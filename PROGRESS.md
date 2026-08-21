@@ -13130,3 +13130,167 @@ characterization done; the ask is a bigger, more confident sample and a
 real per-monster/floor breakdown, not re-discovering that the baseline is
 noisy. Do NOT retune anything inside that ticket's own budget without
 first getting the large-n numbers -- measure first, per its own text.
+
+---
+
+## 2026-08-21T15:11Z -- BALANCE re-confirm ticket: drift CONFIRMED with large-n, two retune rounds applied, box left UNCHECKED pending one more confirmation round
+
+**Picked up:** GOALS.md's only remaining queued item, the large-sample
+win-rate re-confirmation ticket queued by the "more varied runs" ticket
+(see the two entries above this one, and ROADMAP.md's "NEW 2026-08-21"
+known gap). Its own text: n>=50 per strategy, 2-3 independent samples,
+per-monster/per-floor breakdown, retune if a real drift is confirmed
+(prefer floor2 strong-tier and/or floor1 attack values first).
+
+**Phase 1 -- confirm the drift, n=50 x2 on the untouched baseline:**
+- Sample 1: 20% (10/50), sample 2: 26% (13/50). Pooled: **23/100 = 23%**,
+  well below the documented 35-50% band and tight enough (both individual
+  readings 20-26%) to call this a real, confirmed drift rather than the
+  wide noise this ticket's own prior samples showed at n=30-40 (18-33%).
+  Both results committed as `test/balance-simulation-results.json`
+  snapshots (commits c66755b, 659c337) per the established convention.
+- Per-monster breakdown pooled across both samples: floor 1 is the single
+  biggest bottleneck floor (~41% death rate on entry, pooled), and within
+  floor 1 **The Vowelmaw (floor-1 boss) is by far the single biggest
+  death source**: 12/77 boss encounters (15.6%) vs. 0-7% for every
+  regular floor-1 def. This is a real jump from the 2026-08-20
+  difficulty-rebalance ticket's own last confirmed reading for this boss
+  (0-11% across its rounds 2-4). Its average damage-taken-per-fight
+  (~3.0) is NOT itself an outlier vs. floor 1's ~2.5 average, pointing at
+  variance (bad turns where the rack can't match the active vowelHungry/
+  doubled trait, eating a full attack for zero return) rather than raw
+  throughput as the mechanism.
+
+**Phase 2 -- retune ROUND 1 (commit 659c337, monsters.js):** cut
+`boss_vowelmaw` attack 4 -> 3 (same lever/direction as its historical
+5 -> 4 cut). `npm test` clean. Confirmation sim (n=50) hit the sim
+wrapper's own `timeout 590` wall-clock cap partway through the "first"-
+strategy section (exit 124) -- but the "best"-strategy section (the one
+that matters for the band) had already fully completed before the kill:
+**20/50 = 40%**, raw-log-counted since the JSON/summary never got
+written. Re-ran with `timeout 900` for a complete result: **13/50 = 26%**
+(commit 0d1605a, the snapshot I'd initially forgotten to commit --
+caught by the uncommitted-changes stop-hook on the next unrelated commit
+and added separately). **Pooled round-1 result: 33/100 = 33%** -- a real
+~10-point improvement over the pre-retune 23% baseline, but still just
+under the band's 35% floor.
+
+**Sim-harness note for whoever next runs `balance-simulation.js 50`:**
+the script's own runtime varies enough (mostly driven by how many long
+"first"-strategy fights land, since that bot plays weak words and drags
+fights out) that `timeout 590` is NOT always enough headroom for n=50 --
+it silently truncates the run before the JSON/summary get written if the
+"first" section is still in progress. Use `timeout 900` (or larger) for
+n=50, and treat a `timeout`-related exit 124 as "check whether the
+'best' section's raw per-run log lines already cover all N runs before
+discarding the sample" rather than an automatic re-run, since that
+section alone is often salvageable (as it was here for the round-1
+confirmation).
+
+**Phase 3 -- retune ROUND 2 (commit 7c58660, monsters.js):** the
+round-1-confirmation sample's per-monster data flagged floor 2's Card
+Catalog (35% pooled kill rate combining the round-1 partial + official
+samples) and Spine Splinter (40% pooled) as the biggest remaining
+outliers -- both well up from the 17-25% range they measured throughout
+the 2026-08-20 rebalance ticket's own rounds, consistent with the same
+post-ink/overcharge/branching-map drift diagnosed for Vowelmaw. Cut
+Card Catalog attack 5 -> 4 and Spine Splinter attack 4 -> 3 (HP left
+alone on both, already cut twice historically; attack-only per the same
+surgical precedent used on Vowelmaw and, earlier, on Binding Strap/
+Appendix). Hoarder (floor 2's third strong def) deliberately left
+untouched -- it measured a moderate 8% kill rate in the sample that
+motivated this round, not currently an outlier. `npm test` clean.
+Confirmation sim (n=50, `timeout 900`): **11/50 = 22%** -- LOWER than
+round 1's own samples, and Hoarder (the untouched def) jumped to 43%
+kill rate in this same sample despite no change, which is a strong
+signal that floor 2's per-def numbers are dominated by small-n noise at
+this level (7-16 encounters per def in a single n=50 sample -- one or
+two deaths swings a def's % by 7-15 points) rather than round 2 having
+made things worse. **Did not revert round 2**: reverting on a single
+noisy sample with no clearer evidence of harm than of help would be just
+as unjustified as keeping it without confirmation either way, and the
+change itself is conservative and consistent with historical precedent
+on these exact defs.
+
+**Where this leaves the numbers, honestly:**
+- Pre-retune pooled (n=100): 23%.
+- Post-round-1-only pooled (n=100, two samples): 33%.
+- Post-round-1+2 (n=50, one sample so far): 22%.
+- Pooling ALL post-any-retune "best"-strategy samples together (round 1's
+  two samples + round 2's one sample, acknowledging round 1 and round 2
+  are technically different configurations so this is a rough combined
+  read, not a clean A/B): 44/150 = 29.3%.
+- This game's demonstrated single-sample noise floor at n=50, on
+  IDENTICAL code, has now been shown to span at least 22 points (26% to
+  40%, both post-round-1, zero code difference between those two runs).
+  A 29-33% pooled reading sitting 2-6 points under the 35% band floor is
+  well within that demonstrated noise band -- this is NOT yet
+  distinguishable from "actually in band, still measuring noisy" given
+  the sim budget spent so far.
+
+**Why the box is NOT checked this run:** the ticket's own standard is
+actual verified confirmation, not a plausible-looking trend. Two rounds
+of real, data-driven, conservative retuning have been applied and
+neither shows evidence of harm, but I don't have enough samples yet to
+say with confidence the band is actually being hit rather than still
+running short given the noise. Per this file's own standing rule against
+declaring victory on a favorable-looking single sample (the exact
+mechanism that produced the "more varied runs" ticket's own step-2/step-6
+correction, see that entry above), I'm not going to call this closed on
+round 2's single 22% or round 1's pooled 33% alone.
+
+**Verification actually done:**
+- `npm test`: clean after every code change (round 1 and round 2 both).
+- Balance-sim: 5 total `node test/balance-simulation.js 50` invocations
+  this run (2 pre-retune baseline, 1 partial + 1 full post-round-1, 1
+  full post-round-2) = 250 "best"-strategy runs, 250 "first"-strategy
+  runs. Full per-monster/per-floor breakdowns for every completed sample
+  are in this entry above; raw JSON for the two committed snapshots is in
+  `test/balance-simulation-results.json`'s git history (c66755b,
+  0d1605a) -- note the file only holds the MOST RECENT run's data (it's
+  overwritten each invocation, not appended), so the working tree's
+  current copy is round 2's own sample, and the round-1 samples only
+  survive in git history at those two commits.
+- `npm run test:mobile`: not run -- this ticket touched zero CSS/layout,
+  only monster stat numbers in monsters.js, so per GOALS.md's own rule
+  that gate doesn't apply.
+- No version bump: per GOALS.md's own rule ("patch bump if retuned"), a
+  bump belongs with the ticket's actual close, not mid-investigation
+  WIP commits. `wordbound.html` stays v0.48 until this closes.
+
+**State:** working tree clean, all changes (both retune rounds, all sim
+snapshots) committed and pushed. `js/wordbound/monsters.js` now has
+`boss_vowelmaw` attack 3, `sentinel` (Card Catalog) attack 4, and
+`spinesplinter` (Spine Splinter) attack 3 -- each with a comment
+recording the reasoning and the sim numbers that motivated it, same
+pattern as every prior rebalance round in this file. **Next run:** this
+ticket is NOT done. Two solid options, either is reasonable:
+1. **Keep converging:** run 1-2 more independent n=50 samples (use
+   `timeout 900`, see the sim-harness note above) on the CURRENT code
+   (round 1 + round 2 combined, nothing further needed unless the new
+   data says otherwise) to get a more confident pooled read. If the
+   pooled number across 3+ n=50 samples clearly lands >=35%, check the
+   box (patch bump, per the "retuned" rule). If it's clearly still under
+   even pooled across several large samples, that's real signal for a
+   ROUND 3 (next candidates per the per-monster data above: Binding Strap
+   has now shown up as a HARD outlier on floor 1 AND floor 2 in every
+   single sample this whole investigation, never previously fixed beyond
+   its 2026-08-20 attack cut to 3 -- worth a closer look; The Hoarder is
+   floor 2's least-touched strong def and showed the highest single
+   floor-2 kill rate in the round-2 sample, 43%, though on tiny n=7).
+2. **Take the ticket's own offered exit ramp:** per its text, "If it
+   turns out to be sampling noise at typical n, consider whether the
+   documented band itself needs a wider stated tolerance instead of
+   chasing a number this simulation can't hit reliably." Given the
+   demonstrated 22-point single-sample swing on IDENTICAL code shown this
+   run, there's a real, honest case that 35-50% was calibrated on smaller
+   historical samples (n=25-50, individually) that happened to read high,
+   and the band itself (not the game) may need widening -- e.g. to
+   ~25-50% or ~30-50% -- rather than continuing to chase a number this
+   harness's own variance may not support distinguishing from the current
+   true rate. This is a judgment call past what I'm confident enough to
+   make unilaterally after already spending this run's full budget on
+   sim time; flagging it explicitly for either the next run's own
+   judgment or Jaxon's.
+Either path is fine -- just don't check the box without ACTUALLY landing
+on one of them with real data, per this file's whole standing rule.
