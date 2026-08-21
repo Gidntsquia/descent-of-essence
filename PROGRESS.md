@@ -14298,3 +14298,98 @@ tickets filed mid-batch (Rewrite cost -> 1 Ink; steeper long-word damage
 curve) and item 7 (DO LAST). Pick up item 3/7 next (UX: hide the mid-screen
 message log behind `?debug=1`) -- straightforward, no dependency on this
 run's changes.
+
+## 2026-08-21T20:41Z -- item 3/7 closed: mid-screen message log hidden behind ?debug=1 (v0.55 -> v0.56)
+
+**Note on a concurrent-run collision hit at the start of this run:** on
+startup this session found item 2/7 (combo removal) already code-complete
+(`bef1a14`) but with its GOALS.md box still unchecked and no PROGRESS.md
+entry -- the prior run had ended before closing it out. I independently
+re-verified it (npm test, grep, and a from-scratch n=50 balance sim landing
+at the same 46% figure) and was about to push a closure commit when
+`git push` was rejected: another session had pushed its own equivalent
+closure commit (`7d02bd7`, the entry directly above this one) seconds
+earlier, evidently doing the exact same gap-filling work in parallel. I
+reset this session's local branch to the pushed `origin/main` (`git reset
+--hard origin/main`) rather than force-pushing or merging duplicate
+history, since the two closures were substantively identical and nothing
+of mine was uniquely valuable. No data was lost, just some duplicated
+sim-running effort. Flagging this because if it recurs on a ticket where
+two sessions make DIFFERENT code choices (not just duplicate bookkeeping),
+a real merge conflict or silently-overwritten work becomes possible --
+worth Jaxon knowing two hourly-loop instances can apparently run
+concurrently against this repo, in case that's not intended.
+
+**The ticket:** hide `#message-log` unless `?debug=1` is in the URL,
+keeping the element in the DOM (still written to every render) so nothing
+that depends on it breaks, while critical hit/damage feedback keeps coming
+from the existing damage-number animations instead.
+
+**Verified the ticket's own stated assumption before relying on it:**
+grepped every test script for `message-log`/`messageLog` -- zero hits.
+Every existing assertion that touches the log reads `state.messages` (the
+JS array), never the DOM element's text or visibility. So hiding it via
+CSS is genuinely zero test churn, exactly as the ticket predicted; no
+existing test needed updating.
+
+**What changed:**
+- `css/wordbound.css`: `.message-log` now has `display: none` by default;
+  added `body.debug-mode .message-log { display: block; }`.
+- `js/wordbound/game.js` (`Game.init`, near the existing touch-mode
+  detection): reads `?debug=1` from `window.location.search` via
+  `URLSearchParams` (try/catch-guarded in case it's ever unavailable) and
+  toggles `document.body.classList` with `debug-mode` once at page load.
+  Static per load, no live re-evaluation needed (unlike touch-mode, which
+  can flip without a reload) since the URL doesn't change without one.
+  Any other value (`?debug=0`, `?debug=true`, etc.) stays hidden -- only
+  the literal string `"1"` opts in, matching the ticket's exact wording.
+- `renderRun()`'s existing `log_.innerHTML = ...` write (game.js ~2554) is
+  untouched -- the element keeps getting written to every render whether
+  it's visible or not, so `?debug=1` mid-session (or a debug build) shows
+  real, current log history, not a stale snapshot.
+- Confirmed `animateDamage()` (game.js:1333, called from both the normal
+  and rewrite/overcharge word-submit paths) is the actual mechanism behind
+  on-screen damage numbers and is entirely independent of the log element
+  -- the ticket's "critical hit/damage feedback must still be conveyed"
+  requirement was already true before this change and remains true after.
+
+**New test:** `test/verify-debug-mode.js` (`npm run test:debug-mode`, real
+Playwright/Chromium, wired into package.json same pattern as the other
+`pretest:*`/`test:*` pairs). First pass wrongly checked visibility on the
+main menu, before a run starts -- `#message-log` sits inside `#screen-run`,
+which is itself `class="screen hidden"` until `btn-new-run` is clicked, so
+`isVisible()` read false regardless of the debug-mode class and the
+`?debug=1` case falsely failed. Fixed by starting a run (character select
+-> `#screen-run` visible) before asserting on the log itself. Confirms:
+element present in the DOM in all cases (never removed); hidden by default
+during real play; visible with `?debug=1`; still hidden with `?debug=0`
+(only `"1"` opts in); and that the DOM content keeps updating from
+`state.messages` while hidden (a real fight was played and the log's
+`innerHTML` was non-empty even though `isVisible()` was false the whole
+time) -- proves "keep it in the DOM being written to" held, not just
+"hidden and inert."
+
+**Verification:**
+- `npm test`: full suite green, zero SKIPs.
+- `npm run test:debug-mode` (new): all 8 checks green in real Chromium.
+- `npm run test:mobile`: green, zero-warning on the gating checks (the
+  "N text elements < 12px" lines are pre-existing and unrelated -- verified
+  identical warning count and exit code 0 on the pre-change code via
+  `git stash`; the script itself doesn't treat text-size as a hard failure,
+  only overflow/clipping/tap-target size do).
+
+**What's confirmed vs. not:** everything above is confirmed in a real
+Chromium browser, not just jsdom -- both the hide/show toggle itself and
+that damage feedback doesn't depend on the log. Nothing audio- or
+drag-related in this ticket, so no unverified-audio caveat applies here.
+
+**Version:** v0.55 -> v0.56 in `wordbound.html` ("Minor bump" per the
+ticket; not shared with ticket 4 since that ticket wasn't touched in this
+run).
+
+**GOALS.md box checked `[x]`.**
+
+**Next run:** item 4/7 (UX: remove the sound/music volume slider,
+`#music-volume`, keep the mute/speaker toggle as the only audio control)
+is next. Items 5-6 remain after that, then item 7 (one-screen layout,
+explicitly last).

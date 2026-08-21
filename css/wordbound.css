@@ -502,6 +502,11 @@ h2 {
 }
 
 .message-log {
+  /* UX ticket (GOALS.md 2026-08-21 batch item 3/7): hidden unless ?debug=1
+     is in the URL (game.js's Game.init toggles body.debug-mode). Critical
+     hit/damage feedback still reads from the existing damage-number/hit
+     animations, not this log -- see game.js animateDamage. */
+  display: none;
   background: #14110b;
   border: 1px solid #332b1c;
   border-radius: 6px;
@@ -511,6 +516,9 @@ h2 {
   font-size: 0.9rem;
   color: #b8ac8a;
   margin-bottom: 16px;
+}
+body.debug-mode .message-log {
+  display: block;
 }
 .message-log div { margin-bottom: 3px; }
 .message-log-placeholder {

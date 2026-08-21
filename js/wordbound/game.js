@@ -3467,6 +3467,18 @@
       else if (coarseMql.addListener) coarseMql.addListener(onPointerChange); // older Safari
     }
 
+    // UX ticket (GOALS.md 2026-08-21 batch item 3/7): the mid-screen message
+    // log is hidden by default (dom-check/QA scripts assert on state.messages,
+    // never the DOM text, so hiding it is zero test churn) -- ?debug=1 in the
+    // URL reveals it. Static per page load, no need to re-evaluate live.
+    if (document.body) {
+      var debugMode = false;
+      try {
+        debugMode = new URLSearchParams(window.location.search).get('debug') === '1';
+      } catch (e) { /* URLSearchParams unavailable -- stay hidden */ }
+      document.body.classList.toggle('debug-mode', debugMode);
+    }
+
     render();
   };
 

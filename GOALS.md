@@ -4831,7 +4831,7 @@ Rules for the routine:
       (do NOT retune) if the 25-50% band breaks. VERIFY: `npm test` green;
       grep for 'combo' returns only comments/history. Minor bump.
 
-- [ ] UX (Jaxon batch, item 3/7): HIDE the mid-screen message log
+- [x] UX (Jaxon batch, item 3/7): HIDE the mid-screen message log
       (`#message-log`) unless in debug mode — Jaxon offered remove-or-hide;
       hide is the right call because dom-check/QA scripts assert on log
       text. Gate visibility behind a `?debug=1` URL param (display:none

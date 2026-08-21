@@ -9,6 +9,8 @@
     "test:mobile": "node test/verify-mobile-layout.js",
     "pretest:desktop-tile-play": "node tools/ensure-deps.js @playwright/test",
     "test:desktop-tile-play": "node test/verify-desktop-tile-play.js",
+    "pretest:debug-mode": "node tools/ensure-deps.js @playwright/test",
+    "test:debug-mode": "node test/verify-debug-mode.js",
     "pretest:run-header": "node tools/ensure-deps.js @playwright/test",
     "test:run-header": "node test/verify-run-header-overflow.js",
     "pretest:qa": "node tools/ensure-deps.js @playwright/test",
