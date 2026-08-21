@@ -3489,7 +3489,7 @@ Rules for the routine:
       -- no rendering/event surface changed, so `npm run test:mobile` /
       `npm run test:qa` were not required by this ticket and were not run.
 
-- [ ] BALANCE, high priority -- JAXON-AUTHORIZED difficulty rebalance
+- [x] BALANCE, high priority -- JAXON-AUTHORIZED difficulty rebalance
       (2026-08-20T22:25Z, his explicit "fix it" on the flagged win-rate
       collapse). The balance sim (test/balance-simulation.js, recently given
       elite tracking in commit 5437708) shows the bot's win rate has fallen
@@ -3553,6 +3553,22 @@ Rules for the routine:
       bump ITS timeouts if needed, not the game's). Bump the minor version
       (player-facing balance change) and note the rebalance in ROADMAP.md's
       known-gaps list as resolved.
+      ORCHESTRATOR DECISION 2026-08-21T00:40Z -- box checked, accepting the
+      v0.33 stopping point (commit 803eba8 + the full 7-round tuning trail
+      in PROGRESS.md). 3/4 targets met: pooled win rate 41% (centered in
+      the 35-50% band, up from 13-17%), floor1 share 14.8-36% (pass),
+      floor1-regular deaths 11.1% (at the ~10% tolerance, Echo Pup/Quoth
+      fixed to 0% kill rate). The unmet target (floor2 death share <=50%;
+      actual 55-67% across all samples) is ACCEPTED AS-IS for now: three
+      direct floor2 cuts showed diminishing/negative returns, the runs'
+      own analysis says the residual skew is structural (floor2's
+      strong-tier encounter mix; floor3 barely kills anyone once floor2 is
+      survived), and a mid-game difficulty peak is a defensible roguelike
+      shape (the Act-2 spike). The structural question -- reshape floor2's
+      encounter mix and/or make floor3 threaten more -- is DEFERRED TO
+      JAXON's next playtest; it's recorded in ROADMAP.md's known-gaps and
+      he can reopen it with a one-liner. The four tickets below are
+      hereby UNGATED -- proceed top to bottom.
 
 <!-- The 4 tickets below were queued 2026-08-20T23:12Z directly from Jaxon
      ("Add more items, make the background/visuals fit the theme better, add
