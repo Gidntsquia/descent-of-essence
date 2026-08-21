@@ -4888,6 +4888,28 @@ Rules for the routine:
       assertions for the exact bonus at lengths 5, 6, 7, 8; sim win rate
       reported in PROGRESS.md. Minor bump (can share the batch's).
 
+- [ ] BALANCE (Jaxon batch follow-up, filed 2026-08-21, same desktop
+      playtest): REWRITE must cost 1 Ink. Currently
+      `Combat.REWRITE_INK_COST = 2` (js/wordbound/combat.js:76). The cost
+      of 1 is Jaxon's explicit directive — it is NOT a tunable knob; do
+      not revert or compromise it if the balance sim drifts. Handle the
+      known interaction: Steady Transcription (items.js, statMods
+      `rewriteCostReduction: 1`) would make Rewrite FREE at the new base
+      cost — the old cost of 2 was chosen precisely so that item still
+      did something (see combat.js:62-76 comment). Judgment call, pick
+      one and document why in PROGRESS.md: floor the effective cost at 1
+      and rework/replace Steady Transcription's effect, or let it be
+      free (0) if the sim shows that's not degenerate. Update EVERY
+      user-facing string/tooltip that names the Rewrite cost (grep UI
+      files for it), and the combat.js comment block itself. Run the
+      balance sim (n=50); if the win rate leaves the accepted band,
+      still ship cost=1, report the drift in PROGRESS.md, and add a
+      dated known-gap line to ROADMAP.md for a follow-up balance pass —
+      no compensating changes to other systems in this ticket. VERIFY:
+      `npm test` green including an assertion that a Rewrite spends
+      exactly 1 Ink (and the chosen Steady Transcription behavior); sim
+      win rate reported. Minor bump (can share the batch's).
+
 - [ ] LAYOUT (Jaxon batch, item 7/7 — DO THIS LAST, it depends on tickets
       1-5 shrinking the UI): everything fits in ONE screen on computer, no
       scrolling, on every core screen (menu, character select, map, combat,
