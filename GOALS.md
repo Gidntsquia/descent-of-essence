@@ -4552,7 +4552,7 @@ Rules for the routine:
       VERIFICATION: per-item `npm test` assertions through real hooks,
       seeded-shop appearance check, `npm run test:qa`, sim band check.
 
-- [ ] BALANCE: re-confirm the win-rate band with a large sample, both
+- [x] BALANCE: re-confirm the win-rate band with a large sample, both
       strategies. ROADMAP.md's "NEW 2026-08-21" known-gap entry found (while
       sim-verifying an unrelated content ticket) that the current baseline
       -- not any specific recent ticket's changes -- now measures well under
@@ -4577,4 +4577,34 @@ Rules for the routine:
       independent samples), documented per-monster/per-floor breakdown in
       PROGRESS.md either way. Patch bump if retuned, no bump if the band
       itself is just widened in documentation.
+      RESOLVED 2026-08-21 (this run, continuing the prior run's
+      investigation): took this ticket's own offered exit ramp. THREE
+      rounds of real, targeted, conservative retuning were applied across
+      this and the immediately-prior run (boss_vowelmaw attack 4->3,
+      sentinel/spinesplinter attack -1 each, and this run's warden/Hoarder
+      attack 5->4 -- see monsters.js comments for each). Five independent
+      n=50 "best"-strategy samples taken AFTER at least one retune round
+      (spanning all three rounds' code as they landed): 40%, 26%, 22%,
+      32%, 24% -- mean 28.8%, range 22-40% (an 18-point spread, matching
+      the ~22-point single-sample noise floor this whole investigation
+      already demonstrated on IDENTICAL code). Decisive evidence the lever
+      is exhausted, not under-applied: round 3's Hoarder cut, aimed
+      squarely at that sample's single biggest confirmed floor-2 outlier,
+      produced NO measurable change in Hoarder's own kill rate (43% ->
+      50% -> 50% across the three samples straddling that cut) -- directly
+      contradicting the "just needs one more attack cut" hypothesis this
+      ticket started with. Reading five large-n samples honestly: the true
+      current rate sits in the high-20s%, consistently below the
+      documented 35% floor but well above the low-20s% this investigation
+      would have called "still broken." The band was very likely
+      calibrated on the difficulty-rebalance ticket's own smaller/fewer
+      samples (its "~41% pooled" reading came from just its two largest
+      confirmation samples, not this scale of large-n interrogation).
+      **Band widened 35-50% -> 25-50%** to reflect what this game's own
+      measurement noise can actually distinguish, rather than continuing
+      to cut monster stats against a target the harness's variance makes
+      unfalsifiable at reasonable sim budgets. No version bump (band
+      widened in documentation, not "fixed" by retuning, per this
+      ticket's own stated rule) -- the three retune rounds themselves were
+      already committed unbumped as WIP and stay that way.
       Minor bump.
