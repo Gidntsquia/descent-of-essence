@@ -3872,7 +3872,7 @@ Rules for the routine:
       design intent and cross-checked against the existing sounds'
       style, not by ear.
 
-- [ ] QA (Jaxon request) -- polish & small-details review pass. LAST of this
+- [x] QA (Jaxon request) -- polish & small-details review pass. LAST of this
       batch on purpose: run it after the items/visual/audio tickets above
       have landed so their rough edges get caught too. Like the 2026-08-20
       bugs/feel/fun review but aimed at SMALL things: play the real game in a
@@ -3895,3 +3895,154 @@ Rules for the routine:
       all clean after any inline fixes; new tickets properly filed for the
       rest. Patch version bump if only fixes shipped, minor if anything
       user-visible changed meaningfully.
+      DONE 2026-08-21T01:50Z: real-browser (Playwright, real Chromium, an
+      ad-hoc screenshot script written and discarded after use, not
+      committed -- same pattern PROGRESS.md documents for prior visual
+      passes) desktop (1280px) AND 375px touch-mode passes, both driven
+      through real clicks/taps, hitting every screen the ticket lists:
+      main menu, how-to-play overlay, character select, node map, regular/
+      elite/boss combat, treasure, shop (populated AND zero-gold), event,
+      rest, tile reward, boss item reward, deck viewer, consumables (populated
+      AND empty), game over + stats, victory + stats, achievements display.
+      Full findings below.
+      FOUND AND FIXED (2 real bugs):
+      1. BUG: `#word-input`'s placeholder ("Type or click letters...",
+         uppercased via `text-transform: uppercase` to match the rack tiles)
+         was visibly clipped to "TYPE OR CLICK LETTER..." on every desktop
+         combat screen above the 480px mobile breakpoint -- measured the
+         uppercased text at ~223px wide plus 24px padding (~247px needed)
+         against the input's `max-width: 220px` (css/wordbound.css, was line
+         969). Fixed by widening `max-width` to 260px (confirmed via a
+         canvas `measureText` check against the actual placeholder string
+         and font). Checked for regressions at 1280px/800px/500px: no new
+         horizontal overflow introduced at any of them (the input's own
+         `flex:1; min-width:0` still lets it shrink when the row is tight).
+      2. BUG (the meaty one): opening the Deck viewer, Item Inspector, or
+         Consumables panel NEVER hid whatever screen was visible underneath
+         it (the node map, OR mid-combat, OR even a treasure/shop/event
+         screen) -- both stayed visible and stacked in the same document
+         flow, e.g. the node-map's pill row and boss-trait hint rendering
+         directly above the deck viewer's "Your Deck" tile list. Root cause:
+         `renderRun()` (js/wordbound/game.js, `render()`'s per-screen
+         dispatcher) toggled `deck-viewer-panel`/`item-inspector-panel`/
+         `consumables-panel`'s `hidden` class and then RETURNED EARLY when
+         any of the three was open -- before ever reaching the lines below
+         that toggle `node-map`/`combat-panel`/`treasure-panel`/etc.'s
+         `hidden` class. Whichever of those was visible on the PREVIOUS
+         render (before the side panel opened) simply never got hidden.
+         100% reproducible, not an edge case -- confirmed via direct DOM
+         inspection (`classList.contains('hidden')`) in three contexts: idle
+         on the node map, mid-regular-combat, mid-boss-combat, all showing
+         the underlying panel's `hidden` class staying `false` after
+         opening a side panel. Fixed by computing a single `sidePanelOpen`
+         flag up front and folding it into every other panel's `hidden`
+         toggle (node-map/combat-panel/treasure-panel/tile-reward-panel/
+         boss-reward-panel/event-panel/shredder-panel), moved BEFORE the
+         deck/inspector/consumables toggles+early-returns so the ordering
+         can no longer matter regardless of which panel opens first. No
+         other logic touched. Re-verified all three contexts fixed by direct
+         DOM inspection post-fix, plus a full desktop+mobile screenshot
+         re-pass confirming no more bleed-through anywhere.
+      NEW TICKET FILED for a non-trivial finding (see below in this queue):
+      the run-header (HP/gold/floor label/Deck/Consumables/mute/volume row)
+      has no `flex-wrap` outside the existing `@media (max-width: 480px)`
+      block, so it overflows horizontally at every viewport width from
+      ~481px to ~780px (measured: 220px overflow at 481px, tapering to 0px
+      by 800px) -- a real, pre-existing gap between the tested 375/414px
+      phone breakpoint and full desktop (confirmed pre-existing on the
+      pre-fix code too, unrelated to anything else touched this pass).
+      CHECKED AND FOUND CLEAN: THEME.md name/naming cross-check (monster
+      names, item names/flavor text, floor names, character names all
+      matched exactly, including newer items like Errata Slip, Long-S
+      Ligature, Vowel Leech); button styling consistency (primary/secondary
+      styles used consistently, no stray one-off button styles found);
+      keyboard focus -- no `:focus` rules exist anywhere in the CSS, but
+      also no `outline: none`/suppression anywhere, so the browser's native
+      focus-visible outline still renders on Tab (confirmed live:
+      `outlineStyle: 'auto'` on the first Tab-focused element, not
+      `'none'`) -- no focus trap, no invisible-focus accessibility bug;
+      empty/dead states (zero consumables, zero-gold shop) both render
+      clean, readable "you have none"/dimmed-but-listed states, no broken
+      layout; log-message wording spot-checked across combat/shop/event/
+      rest/boss-reward -- all read naturally, no lies or stale numbers
+      found (the earlier MEND healed-amount bug and this run's word-input/
+      panel-stacking bugs were the only wording/display bugs this project
+      has had); animation timing (`screenFadeIn`, 200ms opacity+transform
+      fade on every screen/panel switch) reads as intentional and quick,
+      not sluggish, once actually waited out (an early attempt at this pass
+      screenshotted mid-fade and initially looked like a blank-screen bug --
+      false alarm, confirmed by re-checking with real clicks and a proper
+      wait; noted here so a future run doesn't rediscover the same false
+      trail). NOT independently re-litigated: the two small mobile-specific
+      findings and the physical-device touch check ROADMAP.md already lists
+      as open/Jaxon's-to-do -- out of this ticket's scope, still open.
+      VERIFIED: `npm test` 450/450 (up from 444 -- added 6 new targeted
+      assertions in test/dom-check.js for the panel-stacking fix: opening
+      the deck viewer from the node map hides node-map and shows the
+      viewer, closing it restores the node map, opening consumables
+      mid-combat hides combat-panel and shows consumables, closing it
+      restores combat-panel, plus a zero-errors check for the block -- all
+      via real `Game.openDeckViewer()`/`openConsumablesPanel()` calls, not
+      synthetic class edits). `npm run test:mobile`: clean, zero overflow
+      warnings at 375/414px (the CSS touched -- word-input's max-width --
+      only affects >480px widths, so this was a required but low-risk
+      re-check). `npm run test:qa`: 26/26, real Chromium, zero console/page
+      errors across the full boss-reward flow. Patch version bump v0.36 ->
+      v0.37 (both fixes are bug fixes, not new features, per this ticket's
+      own version-bump instruction).
+
+- [ ] BUG, layout (found during the 2026-08-21 QA polish pass, GOALS.md
+      above): the run-header row (HP/gold/floor label, Deck/Consumables
+      buttons, mute button, volume slider -- `.run-header` in
+      css/wordbound.css, ~line 308) overflows horizontally at every
+      viewport width from ~481px to ~780px. Confirmed pre-existing on the
+      code before this pass's fixes too (not a regression from anything
+      touched this run) -- a real gap that's simply never been tested,
+      since `npm run test:mobile` only checks 375px/414px.
+      ROOT CAUSE: `.run-header` is `display: flex; justify-content:
+      space-between;` with NO `flex-wrap` in its base rule. It only gets
+      `flex-wrap: wrap` inside the existing `@media (max-width: 480px)`
+      block (css/wordbound.css ~line 1276). Above 480px the row tries to
+      fit HP display + gold display + floor label + Deck button +
+      Consumables button + mute button + volume slider all on one line
+      with no wrapping, which doesn't fit until the viewport is wide enough
+      (~780px+) for all of it unwrapped.
+      MEASURED (Playwright, real Chromium, viewport width -> horizontal
+      page overflow in px, same seed/run each time): 481px -> 220px
+      overflow, 550px -> 151px, 600px -> 101px, 650px -> 56px, 700px ->
+      31px, 750px -> 6px, 800px -> 0px (clean). So the affected range is
+      roughly 481-780px -- covers small/split-screen desktop browser
+      windows, some tablets in portrait, and landscape phones (e.g. a
+      typical 667-740px landscape width), none of which this project's
+      existing 375/414px-only mobile test catches.
+      WHY LEFT FOR A FUTURE RUN INSTEAD OF FIXED INLINE: simply extending
+      the existing `@media (max-width: 480px)` breakpoint upward (e.g. to
+      780px) would be the easy fix, but it also carries other rules tuned
+      specifically for PHONE proportions in that block (padding, font
+      sizes, tap-target heights per the mobile task's own 36px-floor
+      standard) that may not be the right call for a 600-780px BROWSER
+      WINDOW (mouse-driven, not touch) -- e.g. inflating tap targets to
+      phone sizes on a desktop browser someone just resized narrow would be
+      a visually odd, not-obviously-correct tradeoff to make without
+      thinking through which rules should scale with width vs. which are
+      specifically touch-related. That's a real (if small) design judgment
+      call, not a one-line CSS tweak, so it's queued here instead of
+      guessed at.
+      SUGGESTED FIX SHAPE for whoever picks this up: add `flex-wrap: wrap;
+      row-gap: 8px;` to the base `.run-header` rule (not gated behind the
+      480px media query) so it wraps at ANY width where it doesn't fit,
+      matching what the existing HP/gold/floor-label `flex-shrink: 0`
+      rules already assume is possible. Verify it does NOT change anything
+      at 375/414px (where it already wraps via the existing media query) or
+      at typical desktop widths (900px+, where it already fits on one line
+      and shouldn't start wrapping unnecessarily). This is narrower than
+      copying the whole 480px block up -- it only touches whether the row
+      wraps, not phone-specific sizing.
+      VERIFICATION: `npm run test:mobile` still clean at 375/414px; a new
+      targeted check (either added to verify-mobile-layout.js or a small
+      standalone Playwright script) sweeping 481-780px confirming zero
+      horizontal page overflow with the fix in place, at minimum re-testing
+      the exact widths measured above (481, 550, 600, 650, 700, 750px).
+      `npm test` for a regression check since `.run-header` markup is
+      touched by combat/node-map/every RUN-screen render. Patch version
+      bump (bug fix, no new features).

@@ -2817,6 +2817,53 @@ async function main() {
     // restoration is needed here.
   }
 
+  // BUG (QA polish pass, GOALS.md 2026-08-21): render()'s deck-viewer-panel/
+  // item-inspector-panel/consumables-panel toggles used to early-return
+  // BEFORE the node-map/combat-panel/overlay-panel toggles below them ever
+  // ran, so whichever screen was visible on the PREVIOUS render (the node
+  // map, or a live fight) stayed visible and stacked behind the newly
+  // opened side panel -- a real-browser screenshot pass caught the node map
+  // pills bleeding in above the deck viewer's tile list. Fixed by folding a
+  // single sidePanelOpen flag into every other panel's hidden toggle so it
+  // applies regardless of open order. Real Game.openDeckViewer()/
+  // openConsumablesPanel() calls, not synthetic class edits, and checked
+  // against BOTH contexts the bug reproduced in (idle on the node map, and
+  // mid-combat).
+  {
+    const Game = window.Wordbound.Game;
+    const Monsters = window.Wordbound.Monsters;
+
+    // (a) idle on the node map (not in combat).
+    state.screen = 'RUN';
+    state.combatActive = false;
+    state.deckViewerOpen = false;
+    Game.openDeckViewer();
+    check('panel-stacking: opening the deck viewer from the node map hides node-map',
+      document.getElementById('node-map').classList.contains('hidden') === true &&
+      document.getElementById('deck-viewer-panel').classList.contains('hidden') === false);
+    Game.closeDeckViewer();
+    check('panel-stacking: closing the deck viewer restores the node map',
+      document.getElementById('node-map').classList.contains('hidden') === false);
+
+    // (b) mid-combat -- the bug also reproduced here, not just on the node map.
+    const stackDefId = Object.keys(Monsters.MONSTER_DEFS)[0];
+    const stackNode = { id: 'panel-stack-test-combat', type: 'combat', defId: stackDefId, cleared: false };
+    state.floor.nodes.push(stackNode);
+    state.currentNodeIndex = state.floor.nodes.length - 1;
+    Game.enterCurrentNode();
+    await new Promise((r) => setTimeout(r, 60));
+    check('panel-stacking setup: fresh combat is active', state.combatActive === true);
+    Game.openConsumablesPanel();
+    check('panel-stacking: opening consumables mid-combat hides combat-panel',
+      document.getElementById('combat-panel').classList.contains('hidden') === true &&
+      document.getElementById('consumables-panel').classList.contains('hidden') === false);
+    Game.closeConsumablesPanel();
+    check('panel-stacking: closing consumables restores combat-panel',
+      document.getElementById('combat-panel').classList.contains('hidden') === false);
+    check('panel-stacking block: produced zero errors', errors.length === 0);
+    if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+  }
+
   // DESIGN FIX (GOALS.md, 2026-08-20, Jaxon's ruling): bosses cannot be
   // skipped via the Empty Shelf "sit and breathe" event. A pending skip must
   // still be honored for a regular combat, but a boss node starts the fight

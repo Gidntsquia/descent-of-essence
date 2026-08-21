@@ -2344,6 +2344,26 @@
       : '<div class="message-log-placeholder">The Stacks are quiet.</div>';
     log_.scrollTop = log_.scrollHeight;
 
+    // BUG (QA polish pass, 2026-08-21): deck-viewer-panel/item-inspector-panel/
+    // consumables-panel used to be toggled and early-returned on BEFORE the
+    // node-map/combat-panel/overlay-panel toggles below ever ran -- so
+    // whichever screen was visible on the PREVIOUS render (node map, a
+    // fight, even a treasure/shop screen) stayed visible and stacked behind
+    // the newly-opened side panel instead of being replaced by it. Folding
+    // sidePanelOpen into every other panel's hidden toggle (computed first,
+    // used everywhere below) closes that regardless of which panel opened
+    // first, without touching any of the existing per-screen logic.
+    var sidePanelOpen = state.deckViewerOpen || state.itemInspectorOpen || state.consumablesPanelOpen;
+    var overlayScreen = state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD' || state.screen === 'EVENT' || state.screen === 'SHREDDER';
+    $('node-map').classList.toggle('hidden', sidePanelOpen || state.combatActive || overlayScreen);
+    $('combat-panel').classList.toggle('hidden', sidePanelOpen || !state.combatActive);
+    $('combat-panel').classList.toggle('boss-combat', state.combatActive && state.monster && state.monster.isBoss);
+    $('treasure-panel').classList.toggle('hidden', sidePanelOpen || (state.screen !== 'TREASURE' && state.screen !== 'SHOP'));
+    $('tile-reward-panel').classList.toggle('hidden', sidePanelOpen || state.screen !== 'TILE_REWARD');
+    $('boss-reward-panel').classList.toggle('hidden', sidePanelOpen || state.screen !== 'BOSS_ITEM_REWARD');
+    $('event-panel').classList.toggle('hidden', sidePanelOpen || state.screen !== 'EVENT');
+    $('shredder-panel').classList.toggle('hidden', sidePanelOpen || state.screen !== 'SHREDDER');
+
     $('deck-viewer-panel').classList.toggle('hidden', !state.deckViewerOpen);
     $('item-inspector-panel').classList.toggle('hidden', !state.itemInspectorOpen);
     $('consumables-panel').classList.toggle('hidden', !state.consumablesPanelOpen);
@@ -2359,16 +2379,6 @@
       renderConsumablesPanel();
       return;
     }
-
-    var overlayScreen = state.screen === 'TREASURE' || state.screen === 'SHOP' || state.screen === 'TILE_REWARD' || state.screen === 'BOSS_ITEM_REWARD' || state.screen === 'EVENT' || state.screen === 'SHREDDER';
-    $('node-map').classList.toggle('hidden', state.combatActive || overlayScreen);
-    $('combat-panel').classList.toggle('hidden', !state.combatActive);
-    $('combat-panel').classList.toggle('boss-combat', state.combatActive && state.monster && state.monster.isBoss);
-    $('treasure-panel').classList.toggle('hidden', state.screen !== 'TREASURE' && state.screen !== 'SHOP');
-    $('tile-reward-panel').classList.toggle('hidden', state.screen !== 'TILE_REWARD');
-    $('boss-reward-panel').classList.toggle('hidden', state.screen !== 'BOSS_ITEM_REWARD');
-    $('event-panel').classList.toggle('hidden', state.screen !== 'EVENT');
-    $('shredder-panel').classList.toggle('hidden', state.screen !== 'SHREDDER');
 
     if (state.screen === 'TREASURE') {
       renderTreasure();

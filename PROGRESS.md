@@ -11162,3 +11162,133 @@ is now the case). If Jaxon has weighed in on the volume-slider-for-combat-
 sound gap flagged above by the time the next run starts, that's a free,
 independent, well-scoped follow-up to fold into a future pass; otherwise
 it's fine to leave as documented and move on to QA.
+
+## 2026-08-21T01:51Z -- QA: polish & small-details review pass, 2 real bugs found and fixed (v0.36 -> v0.37)
+
+Picked up the next (and, per GOALS.md's own note, last-of-batch-by-design)
+unchecked item: the QA polish pass, meant to run after the items/visual/
+audio tickets above it so their rough edges get caught too. Read GOALS.md's
+`npm test` mandate and the 2026-08-19 "two real bugs shipped because nothing
+ever actually executed the game in a DOM" warning at the top first, per this
+routine's standing instructions -- kept that front of mind the whole pass,
+since this ticket is explicitly about catching things code review alone
+would miss.
+
+**Method:** wrote an ad-hoc Playwright script (real Chromium via
+`/opt/pw-browsers/chromium`, same pattern as prior ad-hoc visual passes
+documented elsewhere in this file -- written to `test/_adhoc-*.js`, used,
+then deleted before commit, never part of the repo) that drives the actual
+game with real clicks/taps through every screen the ticket lists, at both a
+1280px desktop viewport and a 375px touch-mode (`hasTouch:true,
+isMobile:true`) viewport: main menu, how-to-play overlay, character select,
+node map, regular/elite/boss combat, treasure, shop (both populated and
+forced to zero gold), event, rest, tile reward, boss item reward, deck
+viewer, consumables (both populated and forced empty), game over + stats,
+victory + stats, achievements. Screenshotted every screen for visual review
+(30+ screenshots across 3 full script iterations as bugs were found/fixed
+and re-verified) plus targeted DOM/computed-style inspection for anything a
+screenshot alone couldn't confirm.
+
+**Two real, reproducible bugs found and fixed** (full root-cause/fix/
+verification detail live in GOALS.md's own DONE note on this ticket, kept
+brief here):
+
+1. **`#word-input` placeholder text clipped on every desktop combat
+   screen.** The uppercased placeholder ("TYPE OR CLICK LETTERS...", the
+   input has `text-transform: uppercase` to match the rack tiles) measured
+   ~247px wide including padding but the input's `max-width` was only
+   220px -- visibly cut to "TYPE OR CLICK LETTER..." above the 480px mobile
+   breakpoint (i.e. on literally every desktop viewport). Fixed:
+   `css/wordbound.css` max-width 220px -> 260px. Verified via a canvas
+   `measureText` check against the real placeholder string/font, and
+   re-checked at 1280px/800px/500px for any new overflow (none).
+
+2. **Deck viewer / Item Inspector / Consumables panel never hid the screen
+   behind it -- 100% reproducible, not an edge case.** Caught first by eye
+   (a screenshot of the deck viewer clearly showed the node map's pill row
+   and boss-trait hint bleeding in above the "Your Deck" list), then
+   confirmed by direct DOM inspection in three contexts (idle on the node
+   map, mid-regular-combat, mid-boss-combat) -- all showed the underlying
+   panel's `hidden` class staying `false` after opening a side panel. Root
+   cause: `js/wordbound/game.js`'s `renderRun()` toggled the three side
+   panels' `hidden` classes and returned early BEFORE the code below it
+   that toggles node-map/combat-panel/treasure-panel/etc.'s `hidden`
+   classes ever ran -- so whatever was visible on the previous render just
+   stayed visible, stacked in normal document flow behind the new panel.
+   Fixed by computing one `sidePanelOpen` flag up front and folding it into
+   every other panel's `hidden` toggle, moved before the side-panel
+   toggles/early-returns so open-order can't matter. No other render logic
+   touched. This is a meaningfully worse bug than #1 -- it affected THREE
+   different UI entry points across the entire game, not one screen -- and
+   it's the kind of thing this ticket exists specifically to catch (code
+   review of the original render() function would read each `if` branch as
+   locally correct; only actually opening a panel mid-game surfaces that
+   the early return skips code other branches depend on).
+
+**One non-trivial finding filed as a new properly-specced GOALS.md
+ticket** (not fixed inline, per the ticket's own "append a ticket for
+anything non-trivial" instruction): the run-header row (HP/gold/floor
+label/Deck/Consumables/mute/volume) has no `flex-wrap` outside the
+existing `@media (max-width: 480px)` block, so it overflows horizontally
+at every viewport from ~481px to ~780px (measured 220px overflow at 481px
+tapering to 0px by 800px) -- confirmed pre-existing on the code before
+this pass's fixes too, not a regression. Left as a ticket rather than
+fixed inline because the obvious fix (widen the existing 480px breakpoint)
+would also drag in phone-specific tap-target/font-size rules that may not
+suit a resized desktop browser window -- a real small design judgment
+call, not a one-line tweak; the ticket specs a narrower fix (just add
+`flex-wrap` to the base rule, don't copy the whole phone-tuned block up).
+
+**Checked and found CLEAN** (full list also in GOALS.md's DONE note):
+THEME.md name/naming consistency (monster/item/floor/character names all
+matched exactly); button styling consistency (no stray one-off styles);
+keyboard focus (no `:focus` CSS rules exist, but also no `outline: none`
+anywhere, so the browser's native focus-visible outline still renders --
+confirmed live via a real Tab press, `outlineStyle: 'auto'` not `'none'`,
+so no focus trap or invisible-focus bug); empty/dead states (zero
+consumables, zero-gold shop) both render clean readable empty states;
+log-message wording spot-checked across combat/shop/event/rest/
+boss-reward, all read naturally with no stale/lying numbers found; the
+`screenFadeIn` 200ms screen-transition animation reads as quick and
+intentional once actually waited out (an early pass screenshotted
+mid-fade and looked like a false blank-screen bug -- noting this here so
+a future run doesn't rediscover the same false trail). NOT re-litigated:
+the mobile findings and physical-device touch check ROADMAP.md already
+lists as open/Jaxon's-to-do -- unchanged, still open, out of this
+ticket's scope.
+
+**Verified:** `npm test` **450/450** (up from 444 -- added 6 new targeted
+assertions in `test/dom-check.js` for the panel-stacking fix specifically:
+opening the deck viewer from the node map hides node-map and shows the
+viewer, closing it restores the node map; opening consumables mid-combat
+hides combat-panel and shows consumables, closing it restores
+combat-panel; a zero-errors check for the block. All via real
+`Game.openDeckViewer()`/`Game.openConsumablesPanel()` calls, matching this
+project's existing "real interaction, not synthetic class edits"
+convention). `npm run test:mobile`: clean, zero overflow warnings at
+375/414px (required since CSS was touched, though the specific change --
+word-input's max-width -- only applies above 480px so this was a low-risk
+re-check). `npm run test:qa`: **26/26, real Chromium, zero console/page
+errors** across the full boss-reward flow.
+
+**NOT independently re-verified beyond what's listed above**: no
+audio-related or drag-and-drop code was touched this pass, so no new gap
+there beyond this project's existing standing caveats.
+
+Version bumped v0.36 -> v0.37 (`wordbound.html`) -- patch bump, both fixes
+are bug fixes per this ticket's own version-bump instruction (fixes only
+-> patch, not minor). GOALS.md's QA ticket box checked, with the full
+findings list (including the run-header ticket spec) written inline in its
+own DONE note so it's readable without cross-referencing this file.
+
+**State:** working tree clean, matches what's about to be pushed (the
+ad-hoc screenshot script used for this pass was deleted before commit, per
+this project's standing convention for such scripts). **Next run:**
+GOALS.md's queue has exactly one item -- the new run-header horizontal-
+overflow ticket filed above, fully specced (root cause, measured overflow
+at 7 widths, why it's not a one-line fix, suggested fix shape, and
+verification steps) and ready to pick up directly. ROADMAP.md's "known
+gaps" list is unchanged by this pass (no items resolved or newly
+discovered there -- the run-header finding lives in GOALS.md as a queue
+ticket, not the roadmap's gap list, since it's a scoped bug fix rather
+than a launch-readiness category).
