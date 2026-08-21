@@ -80,29 +80,37 @@
   // pool (pickEliteDefId), and each has been individually balance-tuned as a
   // floor-2 "wall" outlier (see monsters.js) -- removing one from a run
   // would concentrate the other two rather than adding variety.
-  // 'normal' was ALSO tried and REVERTED after this ticket's own
-  // mandatory balance-sim check caught a real regression, not just a
-  // theoretical risk: a controlled n=30 "best"-strategy comparison against
-  // the pre-ticket baseline (same seed range, same test harness, only
-  // floor.js/game.js/events.js differing) measured win rate collapsing from
-  // 33% (10/30, in-band) to 10% (3/30, well under the 35-50% band), with
-  // floor-3 (which never draws 'normal' at floor <=1 and is unaffected by
-  // this lever either way) UNCHANGED between the two runs -- pinning the
-  // cause on floor 1/2's pool, not sampling noise or the events.js changes
-  // in the same ticket. Root cause: unlike 'weak' (every def reads as
-  // trivial to "best" play in every balance sample this file has ever
-  // run -- 0% kill rate across the board), 'normal' has real per-def spread
-  // (Echo Pup/Binding Strap/Quoth get flagged as HARD outliers in different
-  // samples). Shrinking that pool by 1 doesn't shift the AVERAGE difficulty
-  // (removing a hard def is exactly as likely as removing an easy one), but
-  // it does increase per-RUN variance in which defs a run leans on --
-  // and because death is a hard threshold (0 ink = dead, no partial
-  // credit), added variance costs more on the unlucky side than it gains
-  // on the lucky side. 'weak' has no such spread to amplify, so it's kept:
-  // EXCLUDE_COUNT of 1 shrinks it 4->3, still enough for "floor 1 isn't
-  // always the same three regulars" to hold without reopening the just-
-  // stabilized win-rate band. See PROGRESS.md for the full before/after
-  // numbers.
+  // 'normal' was ALSO tried, then reverted to weak-only after an
+  // inconclusive-but-concerning balance-sim signal, NOT a confirmed
+  // regression -- worth recording precisely rather than overstating. An
+  // initial n=30 "best"-strategy comparison against the pre-ticket baseline
+  // (same test harness, only floor.js/game.js/events.js differing) measured
+  // win rate at 10% (3/30) for the weak+normal-subset version vs. 33%
+  // (10/30) for baseline, which read as a real regression at the time.
+  // Chasing it down with LARGER matched samples (n=40 each, both this
+  // weak-only version and a freshly re-run baseline) told a messier story:
+  // baseline itself swung from 33% (n=30) to 18% (n=40), and weak-only
+  // swung from 20% (n=30) to 30% (n=40) -- pooled across both samples,
+  // weak-only (18/70, ~26%) and baseline (17/70, ~24%) landed statistically
+  // indistinguishable. This game's balance-sim has real run-to-run
+  // variance at this sample size (a win requires clearing three floors
+  // without one bad death, so per-fight variance compounds), enough that
+  // the original single n=30 comparison likely overstated the effect --
+  // and a second flaw undercuts that comparison's own "floor 3 is an
+  // unaffected control" reasoning: floor 3 ALSO draws from 'normal' per
+  // getAllowedTiers below (floors <=1: weak+normal, floor 2: all three,
+  // floor 3: normal+strong), so its unchanged death count between the two
+  // n=30 runs wasn't the clean control it looked like. Net: normal-tier
+  // subsetting may be perfectly safe, but the evidence for that isn't
+  // solid either way, and re-resolving it needs a much larger sample than
+  // fits one hourly run. Weak-only is kept as the risk-free choice in the
+  // meantime: 'weak' shows zero effect in every sample this file has run
+  // (every weak-tier def reads as trivial to "best" play, 0% kill rate
+  // across the board, so there's no per-def spread for subsetting to
+  // amplify into variance the way 'normal' plausibly could).
+  // EXCLUDE_COUNT of 1 shrinks weak 4->3, still enough for "floor 1 isn't
+  // always the same three regulars" to hold. See PROGRESS.md for the full
+  // before/after numbers from this investigation.
   Floor.MONSTER_SUBSET_TIERS = ['weak'];
   Floor.MONSTER_SUBSET_EXCLUDE_COUNT = 1;
 

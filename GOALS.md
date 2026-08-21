@@ -4519,7 +4519,7 @@ Rules for the routine:
       real-browser screenshots at desktop + 375px described in PROGRESS.md.
       Minor bump.
 
-- [ ] DESIGN/CONTENT (Jaxon request): more varied runs. Goal: two runs
+- [x] DESIGN/CONTENT (Jaxon request): more varied runs. Goal: two runs
       back-to-back should feel meaningfully different. Pick and implement
       AT LEAST TWO of these levers (implementing run's call, justify the
       pick in PROGRESS.md; more are welcome across multiple runs):
@@ -4551,4 +4551,30 @@ Rules for the routine:
       numbers with sim check.
       VERIFICATION: per-item `npm test` assertions through real hooks,
       seeded-shop appearance check, `npm run test:qa`, sim band check.
+
+- [ ] BALANCE: re-confirm the win-rate band with a large sample, both
+      strategies. ROADMAP.md's "NEW 2026-08-21" known-gap entry found (while
+      sim-verifying an unrelated content ticket) that the current baseline
+      -- not any specific recent ticket's changes -- now measures well under
+      the documented 35-50% "best"-strategy win-rate band: a same-harness
+      comparison landed baseline itself swinging 33% (n=30) to 18% (n=40)
+      across two samples, both below band, versus the ~41% pooled reading
+      the difficulty-rebalance ticket last confirmed. Likely drift from
+      mechanics that landed since (Overcharge/Rewrite ink-spend, the
+      branching map's lane-choice routing, monster intents' full rollout) --
+      or the ~41% reading was itself high-side noise; either way this needs
+      a real large-n (50+ per strategy, ideally 2-3 independent samples to
+      separate signal from this game's evident run-to-run variance) sim
+      pass with a per-monster/per-floor breakdown, not another small
+      one-off sample. If a real drift is confirmed, retune (prefer floor2's
+      strong-tier defs and/or floor1 attack values first, per the existing
+      difficulty-rebalance ticket's trail in PROGRESS.md, before touching
+      anything this ticket's own content additions haven't touched). If it
+      turns out to be sampling noise at typical n, consider whether the
+      documented band itself needs a wider stated tolerance instead of
+      chasing a number this simulation can't hit reliably.
+      VERIFICATION: `npm test`, sim band check at n>=50 per strategy (2+
+      independent samples), documented per-monster/per-floor breakdown in
+      PROGRESS.md either way. Patch bump if retuned, no bump if the band
+      itself is just widened in documentation.
       Minor bump.

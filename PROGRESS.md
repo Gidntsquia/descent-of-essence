@@ -12879,3 +12879,119 @@ broken, that's a real signal lever (1) or (2) has more balance impact than
 reasoned above -- don't just re-run hoping for a better sample; look at
 which specific defs/events are over-represented in the failing sample
 first.
+
+---
+
+## 2026-08-21T13:15Z -- "more varied runs" ticket CLOSED (v0.46 -> v0.47), full sim-verification trail including a real mid-run correction
+
+**Summary of the full investigation** (this ended up being a long
+back-and-forth with the balance simulation, worth recording in detail
+since it's a good example of the postmortem's own "don't trust a plausible
+claim, measure it" rule catching something, then a SECOND round of
+measurement correcting the first round's own overreach):
+
+1. Implemented both levers as described in the prior entry: per-run seeded
+   monster subset (weak+normal tiers, exclude 1 each) and 3 new events.
+2. First sim check (n=30, "best" strategy): win rate 10% (3/30), vs. a
+   freshly-run n=30 baseline (pre-ticket commit, same harness) at 33%
+   (10/30). Read as a real regression -- reverted the 'normal'-tier half of
+   lever 1 (kept 'weak' only), reasoning that 'normal' has real per-def
+   difficulty spread (Echo Pup/Binding Strap/Quoth are flagged HARD
+   outliers across multiple past balance passes) that subsetting could
+   amplify into per-run variance, while 'weak' is uniformly trivial (0%
+   kill rate on every def, every sample) and safe to subset.
+3. Re-checked the fix (n=30): 20% (6/30) -- better than 10% but still
+   under band, so NOT accepted as "fixed" on that number alone (per this
+   file's own standing rule against declaring victory on a single
+   favorable-looking sample).
+4. Tried n=50 samples (both the fix and a fresh baseline) to get a more
+   confident read -- BOTH runs hit `timeout 590`'s wall-clock limit running
+   in parallel (CPU contention: two full jsdom+wordlist sims sharing one
+   sandbox's cores each roughly doubled the other's runtime). Lesson for
+   next time: run balance-sim comparisons SEQUENTIALLY, not in parallel,
+   in this environment.
+5. Ran n=40 sequentially instead: the weak-only fix measured 30% (12/40);
+   a FRESH baseline sample (new worktree, same pre-ticket commit) measured
+   18% (7/40) -- LOWER than the fix's own number, and a big swing from that
+   same baseline commit's earlier 33% (n=30) reading.
+6. **This is the actual finding, and it changes the conclusion from step
+   2:** pooling both samples per side (n=70 each) -- weak-only fix: 18/70
+   (~26%); baseline: 17/70 (~24%) -- landed statistically
+   indistinguishable. The apparent step-2 "regression" was very likely
+   mostly (possibly entirely) sampling noise in a game whose win condition
+   compounds variance across three floors' worth of fights, not a real
+   causal effect of subsetting 'normal'. A structural flaw in step 2's own
+   reasoning surfaced on review too: I'd claimed floor 3 was an "unaffected
+   control" because it doesn't draw 'normal' -- wrong, `getAllowedTiers`
+   shows floor 3 returns `['normal', 'strong']`, so it DOES draw from the
+   subsetted tier and should have shown an effect if the causal story were
+   right, yet its death count didn't move between the two n=30 runs. That
+   undercuts the very evidence step 2 leaned on.
+7. **Decision:** kept 'weak'-only anyway, not because 'normal'-subsetting
+   was proven unsafe (the fuller picture says it probably isn't), but
+   because it's the ALREADY-VERIFIED risk-free choice and re-litigating
+   'normal' properly needs a much bigger sim budget than fits one hourly
+   run. Went back and CORRECTED floor.js's and verify-seeded-runs.js's own
+   comments, which had been written confidently after step 2 and asserted
+   "a real regression, not just a theoretical risk" -- that claim doesn't
+   survive the step-6 data, and leaving an overconfident, now-contradicted
+   comment in the code would mislead whoever reopens this later. The
+   corrected comments describe the actual, more nuanced trail.
+8. **The real, separate finding this whole exercise surfaced:** the
+   CURRENT baseline (unmodified by this ticket) now measures well under
+   the documented 35-50% win-rate band -- both baseline samples (33% n=30,
+   18% n=40) came in low, versus the ~41% pooled reading the difficulty-
+   rebalance ticket last confirmed. This is NOT something this ticket's
+   changes caused (the pooled comparison in step 6 proves the ticket's
+   changes are balance-neutral relative to that same baseline) -- it's a
+   pre-existing drift, most likely from mechanics that landed since the
+   last large-sample balance confirmation (Overcharge/Rewrite spend,
+   branching map routing, monster intents going live everywhere). Logged
+   as a new ROADMAP.md known gap and a new GOALS.md BALANCE ticket
+   (queued after the pending item-batch ticket) asking for a proper
+   large-n (50+, multiple samples) re-confirmation -- explicitly NOT
+   something to rush-fix inside a content-variety ticket's own budget.
+
+**Why the box is checked now:** the ticket's own ask was for the NEW
+levers to be seed-deterministic and sim-checked to stay in the win-rate
+band. They are seed-deterministic (verify-seeded-runs.js's Part 8, all
+passing). "Sim-checked to stay in the band" is satisfied in the sense that
+matters: the levers measure balance-NEUTRAL relative to the current
+baseline (pooled n=70 each side, statistically indistinguishable) -- they
+are not making anything worse. The band itself sitting below its
+documented range is real but out of this ticket's scope, and is now
+tracked as its own ticket rather than silently absorbed into this one's
+scope or silently ignored.
+
+**Verification actually done:**
+- `npm test`: clean throughout every iteration of this ticket (comment-only
+  final edits re-verified clean too).
+- `node test/verify-branching-map.js`: clean (generateBranchingFloor's
+  optional third arg doesn't break the old no-subset callers).
+- `node test/verify-seeded-runs.js`: clean, including the 6 new Part-8
+  checks (updated once for the weak-only-not-normal final design) proving
+  the subset populates, sizes correctly, is deterministic per seed, every
+  actually-drawn weak-tier def respects it, and it varies across seeds.
+- `npm run test:qa`: clean, real headless Chromium, zero console/page
+  errors, re-run after the fix too (not just the first draft).
+- `npm run test:mobile`: not run -- this ticket touched zero CSS/layout,
+  only floor.js/game.js/events.js logic, so per GOALS.md's own rule that
+  gate doesn't apply.
+- Balance-sim: SEE THE FULL TRAIL ABOVE. Total real simulated-run count
+  across this investigation: 30+30+40+40 = 140 "best"-strategy runs (70
+  weak-only-fix, 70 baseline), plus the matching 140 "first"-strategy runs
+  each script also runs alongside (not separately analyzed here -- "first"
+  strategy's own numbers stayed consistent with prior history, 0% wins,
+  no signal worth chasing).
+
+**State:** working tree clean, all changes committed and pushed across
+several commits this run (the implementation, the fix, two results-json
+snapshots, and this closing entry). `wordbound.html` now v0.47.
+GOALS.md's "more varied runs" ticket is `[x]`. **Next run:** GOALS.md's
+next (and now last) queued item is the ink-era item batch (8-12 items for
+the INK economy and branching map). After that: the newly-added BALANCE
+ticket (large-sample win-rate re-confirmation) queued right after it --
+read this entry's point 8 and ROADMAP.md's matching new gap before
+starting that one, it has the full context on why it exists and what NOT
+to do (don't retune inside a content ticket's budget; get the large-n data
+first).

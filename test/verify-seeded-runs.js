@@ -206,11 +206,12 @@ async function main() {
   // ---- Part 8: per-run monster subset (GOALS.md "more varied runs" ticket,
   // 2026-08-21, lever 1) -- deterministic per seed, actually restricts the
   // pool, and varies across seeds (not hardcoded to one fixed subset).
-  // 'weak' only, NOT 'normal' -- a controlled balance-sim comparison caught
-  // subsetting 'normal' collapsing the win rate (33% -> 10%, see floor.js's
-  // own comment on Floor.MONSTER_SUBSET_TIERS for the full before/after);
-  // reverted to weak-only, which measured no such effect (every weak-tier
-  // def reads as trivial to "best" play in every sample this file has run).
+  // 'weak' only, NOT 'normal' -- an initial small-sample balance-sim
+  // comparison suggested (inconclusively, see floor.js's own comment on
+  // Floor.MONSTER_SUBSET_TIERS for the full investigation) that subsetting
+  // 'normal' too might raise win-rate variance; kept to weak-only as the
+  // risk-free choice, since every weak-tier def measures as trivial to
+  // "best" play in every balance sample this file has run.
   const Floor = window.Wordbound.Floor;
   const Monsters = window.Wordbound.Monsters;
   const weakIds = Object.keys(Monsters.MONSTER_DEFS).filter((id) => Monsters.MONSTER_DEFS[id].tier === 'weak');
@@ -223,7 +224,7 @@ async function main() {
     'weak-tier subset excludes exactly Floor.MONSTER_SUBSET_EXCLUDE_COUNT def(s) (' + weakIds.length + ' -> ' + subsetA1.weak.length + ')',
     subsetA1.weak.length === Math.max(2, weakIds.length - Floor.MONSTER_SUBSET_EXCLUDE_COUNT)
   );
-  check('normal tier is deliberately NOT subsetted (regression found, see floor.js)', !subsetA1.normal);
+  check('normal tier is deliberately NOT subsetted (kept risk-free, see floor.js)', !subsetA1.normal);
 
   Game.startRun('archivist', 'subset-seed-alpha');
   const subsetA2 = Game._state.monsterSubset;

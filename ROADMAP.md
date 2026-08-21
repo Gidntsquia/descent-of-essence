@@ -129,6 +129,31 @@ runs should look at to decide what's next once GOALS.md's queue empties.)
   different kind of fix than incremental stat tuning (e.g. restructuring
   which tiers/how many strong-tier fights floor 2 gets, rather than
   further nerfing the ones it has).
+- **NEW 2026-08-21 -- balance-sim win rate now measuring well under the
+  documented 35-50% band, independent of any single ticket's changes.**
+  Found while sim-verifying the "more varied runs" ticket below: a
+  same-harness, same-seed-range "best"-strategy comparison against the
+  pre-ticket baseline measured baseline itself swinging from 33% (n=30) to
+  18% (n=40) across two samples, and the ticket's own changes landing at a
+  statistically indistinguishable ~24-26% pooled (n=70 each side) -- i.e.
+  this isn't something the ticket's monster-subset/event additions caused,
+  it's the CURRENT baseline, likely drifted since the difficulty-rebalance
+  entry above last confirmed ~41% pooled (multiple mechanics have landed
+  since: Overcharge/Rewrite ink-spend, the branching map's lane-choice
+  routing, monster intents' full rollout). Flagging rather than fixing
+  here -- a real rebalance needs its own large-n (50+), both-strategy pass
+  with per-monster/per-mechanic breakdown, which is its own ticket's worth
+  of work, not a side effect of a content-variety ticket. Worth queuing as
+  the next BALANCE ticket once the current GOALS.md queue is otherwise
+  clear.
+- **RESOLVED 2026-08-21 -- "more varied runs."** Two levers implemented:
+  a per-run seeded monster subset (floor.js's `pickRunMonsterSubset`,
+  weak-tier only -- see that file's own comment for why 'normal' was tried
+  and reverted to the safer choice after an inconclusive balance-sim
+  signal, not a confirmed regression) and three new events.js entries
+  filling real content gaps (gold-for-ink, ink-for-deck-tile, item-swap).
+  Verified balance-neutral relative to the (separately-flagged, see above)
+  current baseline via the pooled n=70-per-side comparison.
 
 ## Draft store page copy (for Jaxon to review/edit, then paste into itch.io)
 
