@@ -12995,3 +12995,138 @@ read this entry's point 8 and ROADMAP.md's matching new gap before
 starting that one, it has the full context on why it exists and what NOT
 to do (don't retune inside a content ticket's budget; get the large-n data
 first).
+
+---
+
+## 2026-08-21T13:33Z -- ink-era item batch ticket CLOSED (v0.47 -> v0.48), 8 new items for the INK economy + branching map
+
+**What:** picked up GOALS.md's next queued item -- the CONTENT ticket asking
+for 8-12 new items designed for the INK economy and branching map,
+deliberately queued after (and blocked on) the INK and branching-map
+systems, both already closed. Implemented 8, one per the ticket's own
+four requested categories, in `js/wordbound/items.js`:
+
+- **Overcharge/Rewrite spend-cost reduction** -- Frugal Bookmark (-1
+  Overcharge ink cost) and Steady Transcription (-1 Rewrite ink cost).
+  These are the FIRST items to ever touch those two costs, which until now
+  were read as the bare `Combat.OVERCHARGE_INK_COST`/`REWRITE_INK_COST`
+  constants at 6 separate call sites in game.js (toggle-arm check, submit-
+  time spend, the rewrite action, and the button-label/afford-check
+  render). Added `Items.getOverchargeCost(player)`/`getRewriteCost(player)`
+  (same base-plus-sum-of-statMods pattern as the existing
+  `getRackCapacity`, floored at 1 ink so a hypothetical future stack can
+  never make either action free) and updated every one of those 6 sites to
+  call through the getter instead of the raw constant.
+- **Ink refund/generation** -- Inkwell Reserve (+2 ink every 4th word
+  played this fight, mirrors Errant Footnote's existing modulo pattern at
+  a different modulus/effect) and Economical Hand (+1 ink on any word
+  length <=4, a common-rarity "efficient short words" complement to the
+  existing Marginalia/Long-S Ligature, which both reward LONG words
+  instead).
+- **Low-ink threshold triggers**, at the ticket's own suggested "below 10
+  ink" line, read literally as an absolute threshold (not %-of-maxInk) --
+  Low-Ink Flourish (+35% damage at <=10 ink, an offensive desperation
+  build) and Conservator's Care (-3 damage taken, floored at 1, at <=10
+  ink, the defensive mirror). Both hook the existing onWordPlayed/
+  onPlayerDamaged points, no new hook needed.
+- **Map-interacting** -- Frequent Patron (20% off every shop price: items,
+  consumables, AND the premium variant tile) and Marginal Index (+1
+  treasure/boss-reward item choice, base 3 -> 4). New
+  `Items.getShopDiscount`/`getDiscountedPrice`/`getTreasureChoiceCount`
+  getters; wired into `renderShop`, `Game.buyItem`, `Game.buyShopTile`,
+  `rollTreasureOptions`, and `rollBossRewardOptions`. **Deviated from the
+  ticket's OTHER suggested map-interacting idea** ("reveal adjacent nodes'
+  contents") after checking `renderNodeMap`: every node's type is already
+  always shown for every node on the map (not just visited/adjacent ones),
+  and boss/elite pills already reveal their trait hint before entry too --
+  there is no fog-of-war in the current design for an item to lift, so
+  that idea was moot rather than implementable. Substituted Marginal Index
+  instead, judged the closest fit to "map-interacting" that's both real
+  and safe (more treasure options is a genuine economy lever, unlike the
+  no-op reveal idea).
+
+THEME.md library/archive voice throughout (Frugal Bookmark, Steady
+Transcription, Inkwell Reserve, Economical Hand, Low-Ink Flourish,
+Conservator's Care, Frequent Patron, Marginal Index). Pricing follows the
+existing rarity table (common 25, uncommon 30-40, rare 40-45, legendary
+60-65) -- Frugal Bookmark/Steady Transcription/Conservator's Care/Frequent
+Patron at uncommon 35, Inkwell Reserve/Low-Ink Flourish at rare 40,
+Economical Hand at common 25, Marginal Index at legendary 60.
+
+**Verification actually done:**
+- `npm test`: clean, `ALL CHECKS PASSED`. Added ~40 new assertions: one
+  isolated-hook/getter test per item (mirroring the existing per-item test
+  pattern for the prior two item batches, using direct `Items.runHook`/
+  getter calls against constructed `ctx`/`player` objects, not just "it
+  exists"), a `getOverchargeCost`/`getRewriteCost` baseline-vs-item-owned
+  pair, a `getDiscountedPrice` baseline-vs-owned pair including a
+  floor-at-1-gold edge case, a `getTreasureChoiceCount` baseline-vs-owned
+  pair, an 8-item "registered in ITEM_DEFS" sanity sweep, a 300-seed
+  shop-roll appearance check (same pattern the prior CONTENT ticket used,
+  proves all 8 are actually reachable through the real shop-roll pool, not
+  just directly constructible), and a new `Game._rollTreasureOptions` test
+  hook + integration check proving Marginal Index's extra-choice wiring
+  reaches the REAL `rollTreasureOptions` function the TREASURE screen
+  uses, not just the getter in isolation.
+- `npm run test:qa`: clean, real headless Chromium, zero console/page
+  errors across the full character-select -> boss-reward flow (this
+  ticket touched `renderShop`/`buyItem`/`buyShopTile`/treasure-roll
+  functions, all exercised by this flow).
+- `npm run test:mobile`: not run -- this ticket touched zero CSS/layout
+  (only items.js content and game.js pricing/cost logic), so per GOALS.md's
+  own rule that gate doesn't apply here.
+- **Balance-sim (n=30, "best" strategy): 27% (8/30) win rate.** Compared
+  against the CURRENT baseline this same harness measured just one ticket
+  ago (33% n=30, 18% n=40, ~24-26% pooled n=70 -- see the entry above and
+  ROADMAP.md's "NEW 2026-08-21" known gap, both already flag that baseline
+  as measuring below the documented 35-50% band, unrelated to any single
+  ticket's changes): 27% lands squarely inside that established 18-33%
+  noise range, not outside it in either direction. Read as balance-neutral
+  relative to the current (separately-tracked, already-below-band)
+  baseline -- same standard the "more varied runs" ticket closed under.
+  Did not run a second confirmation sample: the noise floor at n=30 is
+  already well-characterized by the immediately-preceding ticket's 4-sample
+  investigation (30/30/40/40 runs), and this ticket's items are all
+  optional pickups a bot with no purchase-preference logic buys/picks at
+  roughly the same rate as any other item in an now-larger pool, not a
+  systemic rule change -- one sample landing mid-range was judged
+  sufficient given that recent, thorough characterization. Full results in
+  `test/balance-simulation-results.json` (committed alongside, per the
+  established snapshot convention) and
+  `test/balance-simulation.js 30`'s stdout (2 stalls, 0 softlocks, 0
+  uncaught page errors -- consistent with the pre-existing baseline's own
+  occasional stall rate, not a new symptom).
+- **Not independently re-verified: whether Frugal Bookmark/Steady
+  Transcription's cost floor (min 1 ink) is reachable in practice.** Only
+  one item of each exists in the pool today, so the floor logic (tested
+  directly via the getter, see above) can't currently be exercised through
+  real stacking in a live run -- noting this so a future run adding a
+  SECOND cost-reduction item for either resource knows the floor exists
+  and is unit-tested, but hasn't been proven end-to-end through actual
+  stacking.
+
+**Housekeeping note:** this run's git history briefly diverged from what
+`git status`/`git log` on HEAD showed at session start -- the sandbox's
+checked-out HEAD was detached and several dozen commits ahead of the
+local `main` branch ref, which itself was stale relative to
+`origin/main` (a `git fetch origin` mid-run showed the real remote tip
+matching this detached HEAD's own parent commit exactly). Resolved by
+fast-forwarding local `main` to the detached HEAD's commit (a clean
+fast-forward, no rebase/merge needed, confirmed via
+`merge-base --is-ancestor` before moving the ref) and pushing normally.
+Flagging in case the next run's session starts in the same detached state
+-- the fix is the same: `git fetch origin`, confirm the fast-forward is
+clean, `git branch -f main <HEAD commit>`, `git checkout main`, then push
+as usual. No history was rewritten and nothing was lost.
+
+**State:** working tree clean, all changes committed and pushed.
+`wordbound.html` now v0.48. GOALS.md's ink-era item batch ticket is `[x]`.
+**Next run:** GOALS.md's queue now has exactly one item left -- the
+BALANCE ticket (large-sample win-rate re-confirmation, n>=50 per strategy,
+2+ independent samples, per-monster/per-floor breakdown). Read ROADMAP.md's
+"NEW 2026-08-21" gap and this file's own entry above (search "the actual
+finding") before starting it -- it already has a lot of the noise-floor
+characterization done; the ask is a bigger, more confident sample and a
+real per-monster/floor breakdown, not re-discovering that the baseline is
+noisy. Do NOT retune anything inside that ticket's own budget without
+first getting the large-n numbers -- measure first, per its own text.

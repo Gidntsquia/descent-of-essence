@@ -4538,7 +4538,7 @@ Rules for the routine:
       VERIFICATION: `npm test`, `npm run test:qa`, sim band check,
       seeded-runs extension. Minor bump per completed lever-pair.
 
-- [ ] CONTENT (Jaxon request): another item batch, 8-12 items -- but
+- [x] CONTENT (Jaxon request): another item batch, 8-12 items -- but
       designed for the INK economy and the branching map. This ticket is
       LAST deliberately: do not start it until the INK ticket above is
       checked. New design space now open: items that refund/generate ink,
