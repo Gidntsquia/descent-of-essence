@@ -7,7 +7,8 @@
 // PUBLIC API (window.Wordbound.Items):
 //   ITEM_DEFS[id] = {
 //     id, name, hint, rarity,
-//     statMods: { rackCapacityBonus, damageReductionFlat },
+//     statMods: { rackCapacityBonus, damageReductionFlat, overchargeCostReduction,
+//                 rewriteCostReduction, shopDiscountPct, treasureExtraChoice },
 //     hooks: {
 //       onRunStart(ctx)      ctx = { player, pileState } -- fires at the
 //                            start of every fight; pileState is that fight's
@@ -653,6 +654,118 @@
     }
   });
 
+  // ---- CONTENT ticket (GOALS.md, 2026-08-21): 8 new items designed for the
+  // INK economy and the branching map, queued deliberately after those two
+  // systems landed. Four categories per the ticket: ink refund/generation
+  // (Inkwell Reserve, Economical Hand), Overcharge/Rewrite spend-cost
+  // reduction (Frugal Bookmark, Steady Transcription -- the first items to
+  // touch those costs at all, hence the new getOverchargeCost/getRewriteCost
+  // getters below), low-ink threshold triggers at the ticket's own suggested
+  // "below 10 ink" line (Low-Ink Flourish, Conservator's Care), and
+  // map-interacting effects (Frequent Patron's shop discount, Marginal
+  // Index's extra treasure choice -- substituted for the ticket's other
+  // suggested "reveal adjacent nodes' contents" idea, which turned out to be
+  // moot: renderNodeMap already always shows every node's type, and boss/
+  // elite pills already reveal their trait hint up front -- there is no fog
+  // of war today for an item to lift). THEME.md library/archive voice
+  // throughout; conservative numbers, sim-checked balance-neutral (see
+  // PROGRESS.md for the actual sim trail).
+
+  def({
+    id: 'frugal_bookmark',
+    name: 'Frugal Bookmark',
+    hint: 'Marks the spot without wasting ink -- Overcharge presses a little lighter.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    statMods: { overchargeCostReduction: 1 }
+  });
+
+  def({
+    id: 'steady_transcription',
+    name: 'Steady Transcription',
+    hint: 'A practiced hand voids a page for less -- Rewrite costs a touch less ink.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    statMods: { rewriteCostReduction: 1 }
+  });
+
+  def({
+    id: 'inkwell_reserve',
+    name: 'Inkwell Reserve',
+    hint: 'A hidden reservoir tops itself off -- every fourth word draws from the reserve.',
+    rarity: 'rare',
+    shopPrice: 40,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (!ctx.wordsPlayedThisFight || ctx.wordsPlayedThisFight % 4 !== 0) return;
+        ctx.player.ink = Math.min(ctx.player.maxInk, ctx.player.ink + 2);
+        ctx.messages.push('Inkwell Reserve: +2 ink!');
+      }
+    }
+  });
+
+  def({
+    id: 'economical_hand',
+    name: 'Economical Hand',
+    hint: 'Say it plainly and the well barely notices -- short words refill a little ink.',
+    rarity: 'common',
+    shopPrice: 25,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (!ctx.word || ctx.word.length > 4) return;
+        ctx.player.ink = Math.min(ctx.player.maxInk, ctx.player.ink + 1);
+        ctx.messages.push('Economical Hand: +1 ink!');
+      }
+    }
+  });
+
+  def({
+    id: 'low_ink_flourish',
+    name: 'Low-Ink Flourish',
+    hint: 'Down to the last drops, the nib presses harder out of spite -- below 10 ink, words hit harder.',
+    rarity: 'rare',
+    shopPrice: 40,
+    hooks: {
+      onWordPlayed: function (ctx) {
+        if (ctx.player.ink > 10) return;
+        Items.applyPercentBonus(ctx, 0.35);
+        ctx.messages.push('Low-Ink Flourish: +35%!');
+      }
+    }
+  });
+
+  def({
+    id: 'conservators_care',
+    name: "Conservator's Care",
+    hint: 'A well-trained archivist protects what little ink remains -- below 10 ink, blows land softer.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    hooks: {
+      onPlayerDamaged: function (ctx) {
+        if (ctx.player.ink > 10) return;
+        ctx.damage = Math.max(1, ctx.damage - 3);
+      }
+    }
+  });
+
+  def({
+    id: 'frequent_patron',
+    name: 'Frequent Patron',
+    hint: 'The shopkeep knows your face by now -- every stall in the Stacks charges you less.',
+    rarity: 'uncommon',
+    shopPrice: 35,
+    statMods: { shopDiscountPct: 0.2 }
+  });
+
+  def({
+    id: 'marginal_index',
+    name: 'Marginal Index',
+    hint: 'A cross-reference in the margins points to one more option than the shelf usually offers.',
+    rarity: 'legendary',
+    shopPrice: 60,
+    statMods: { treasureExtraChoice: 1 }
+  });
+
   Items.getRackCapacity = function (player) {
     var capacity = 7;
     (player.items || []).forEach(function (itemId) {
@@ -660,6 +773,63 @@
       if (d && d.statMods.rackCapacityBonus) capacity += d.statMods.rackCapacityBonus;
     });
     return capacity;
+  };
+
+  // The three getters below follow getRackCapacity's own pattern (base value
+  // + sum of a statMods field across owned items) -- added for the CONTENT
+  // ticket (GOALS.md, 2026-08-21)'s spend-cost-reduction and map-interacting
+  // items, the first items to touch Overcharge/Rewrite cost or shop/treasure
+  // node behavior at all.
+
+  Items.getOverchargeCost = function (player) {
+    var Combat = window.Wordbound.Combat;
+    var reduction = 0;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.overchargeCostReduction) reduction += d.statMods.overchargeCostReduction;
+    });
+    return Math.max(1, Combat.OVERCHARGE_INK_COST - reduction);
+  };
+
+  Items.getRewriteCost = function (player) {
+    var Combat = window.Wordbound.Combat;
+    var reduction = 0;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.rewriteCostReduction) reduction += d.statMods.rewriteCostReduction;
+    });
+    return Math.max(1, Combat.REWRITE_INK_COST - reduction);
+  };
+
+  // Capped at 50% off so a hypothetical future stack of discount items can
+  // never make shop stock free -- only one item (Frequent Patron, 20%)
+  // grants this today, so the cap is a safety margin, not a live balance
+  // lever.
+  Items.getShopDiscount = function (player) {
+    var discount = 0;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.shopDiscountPct) discount += d.statMods.shopDiscountPct;
+    });
+    return Math.min(0.5, discount);
+  };
+
+  // Applies the discount to any shop price (an item/consumable def's
+  // shopPrice, or a raw number like the premium variant tile's flat price).
+  Items.getDiscountedPrice = function (rawPrice, player) {
+    if (!rawPrice) return 0;
+    var discount = Items.getShopDiscount(player);
+    if (!discount) return rawPrice;
+    return Math.max(1, Math.round(rawPrice * (1 - discount)));
+  };
+
+  Items.getTreasureChoiceCount = function (player) {
+    var bonus = 0;
+    (player.items || []).forEach(function (itemId) {
+      var d = ITEM_DEFS[itemId];
+      if (d && d.statMods.treasureExtraChoice) bonus += d.statMods.treasureExtraChoice;
+    });
+    return 3 + bonus;
   };
 
   // An item "procced" if its hook announced itself on ctx.messages -- the same

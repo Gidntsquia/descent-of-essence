@@ -144,6 +144,7 @@
   Game._hapticTick = function () { return hapticTick(); }; // MOBILE INPUT 3/3: exposed so tests can assert the vibrate feature-check + reduced-motion gate
   Game._celebrateHit = function (damage, magnificent) { return celebrateHit(damage, magnificent); }; // FUN OVERHAUL 8/8: exposed so tests can assert the CRUSHING/MAGNIFICENT DOM appends (jsdom can't verify the animation timing)
   Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
+  Game._rollTreasureOptions = function () { return rollTreasureOptions(); }; // item batch v0.48: exposed so tests can assert Marginal Index's extra-choice wiring without driving a real treasure node
   Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
   Game._sfxCallLog = function () { return sfxCallLog.slice(); }; // AUDIO ticket (GOALS.md, 2026-08-21): exposed so tests can assert which SFX fired, whether mute suppressed them, and whether the tile-tap debounce ate a burst -- jsdom has no real Web Audio to listen to, this is the substitute
   Game._clearSfxCallLog = function () { sfxCallLog.length = 0; lastSfxAt = {}; }; // AUDIO ticket: reset between test cases so each assertion starts from a clean log/debounce state
@@ -384,7 +385,7 @@
     var owned = state.player.items;
     var pool = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
     var shuffled = state.rng.shuffle(pool);
-    return shuffled.slice(0, 3);
+    return shuffled.slice(0, Items.getTreasureChoiceCount(state.player));
   }
 
   // Boss-kill bonus reward: a second, higher-value item choice on top of the
@@ -400,7 +401,7 @@
       return owned.indexOf(id) === -1 && (def.rarity === 'rare' || def.rarity === 'legendary');
     });
     var shuffled = state.rng.shuffle(pool);
-    return shuffled.slice(0, 3);
+    return shuffled.slice(0, Items.getTreasureChoiceCount(state.player));
   }
 
   Game.pickTreasureItem = function (itemId) {
@@ -457,15 +458,20 @@
       log('ERROR: Item not purchasable');
       return;
     }
-    if (state.player.gold < def.shopPrice) {
-      log('Not enough gold! Need ' + def.shopPrice + ', have ' + state.player.gold + '.');
+    // CONTENT ticket (GOALS.md, 2026-08-21): Frequent Patron discounts every
+    // shop price -- computed fresh here (not trusted from the render-time
+    // price) so a purchase always charges what the player currently owns
+    // entitles them to, same principle as buyItem's own existing re-roll.
+    var price = Items.getDiscountedPrice(def.shopPrice, state.player);
+    if (state.player.gold < price) {
+      log('Not enough gold! Need ' + price + ', have ' + state.player.gold + '.');
       return;
     }
     if (!isConsumable && state.player.items.indexOf(actualId) !== -1) {
       log('You already own ' + def.name + '!');
       return;
     }
-    state.player.gold -= def.shopPrice;
+    state.player.gold -= price;
     if (isConsumable) {
       state.player.consumables.push(actualId);
     } else {
@@ -473,7 +479,7 @@
       // Re-roll shop options so the bought item is replaced with a new option
       state.shopOptions = rollShopOptions();
     }
-    log('You bought ' + def.name + ' for ' + def.shopPrice + ' gold.');
+    log('You bought ' + def.name + ' for ' + price + ' gold.');
     playSfx('purchase', null, playPurchaseSound);
     render();
   };
@@ -484,13 +490,14 @@
   Game.buyShopTile = function () {
     var offer = state.shopTileOffer;
     if (!offer) return;
-    if (state.player.gold < VARIANT_TILE_SHOP_PRICE) {
-      log('Not enough gold! Need ' + VARIANT_TILE_SHOP_PRICE + ', have ' + state.player.gold + '.');
+    var tilePrice = Items.getDiscountedPrice(VARIANT_TILE_SHOP_PRICE, state.player);
+    if (state.player.gold < tilePrice) {
+      log('Not enough gold! Need ' + tilePrice + ', have ' + state.player.gold + '.');
       return;
     }
-    state.player.gold -= VARIANT_TILE_SHOP_PRICE;
+    state.player.gold -= tilePrice;
     state.deck.push(offer);
-    log('You bought a ' + Tiles.describeVariant(offer.variant) + ' tile for ' + VARIANT_TILE_SHOP_PRICE + ' gold.');
+    log('You bought a ' + Tiles.describeVariant(offer.variant) + ' tile for ' + tilePrice + ' gold.');
     playSfx('purchase', null, playPurchaseSound);
     // Re-roll so the sold tile isn't left on the shelf as a dead, already-
     // owned option (same reason Game.buyItem re-rolls its own list).
@@ -794,7 +801,8 @@
     // ink from having dropped in between (there's no such path today, but
     // this is the one point where an invalid word can't accidentally get
     // charged for, so the check belongs here regardless).
-    var overcharging = !!state.overchargeArmed && state.player.ink >= Combat.OVERCHARGE_INK_COST;
+    var overchargeCost = Items.getOverchargeCost(state.player);
+    var overcharging = !!state.overchargeArmed && state.player.ink >= overchargeCost;
     var result = Combat.playWord(state.player, state.monster, word, state.comboState, { overcharge: overcharging });
 
     if (hexedTile) {
@@ -813,8 +821,8 @@
     // single-use per successful play, matching "spend N ink -> amplify
     // damage" on THIS word, not a standing buff.
     if (overcharging) {
-      state.player.ink = Math.max(0, state.player.ink - Combat.OVERCHARGE_INK_COST);
-      log('Overcharged! -' + Combat.OVERCHARGE_INK_COST + ' ink for ' + Math.round((Combat.OVERCHARGE_DAMAGE_MULTIPLIER - 1) * 100) + '% bonus damage.');
+      state.player.ink = Math.max(0, state.player.ink - overchargeCost);
+      log('Overcharged! -' + overchargeCost + ' ink for ' + Math.round((Combat.OVERCHARGE_DAMAGE_MULTIPLIER - 1) * 100) + '% bonus damage.');
     }
     state.overchargeArmed = false;
 
@@ -1037,8 +1045,9 @@
   Game.toggleOvercharge = function () {
     if (!state.combatActive || state.monster.hp <= 0) return;
     if (!state.overchargeArmed) {
-      if (state.player.ink < Combat.OVERCHARGE_INK_COST) {
-        log('Not enough ink to overcharge (need ' + Combat.OVERCHARGE_INK_COST + ').');
+      var overchargeCost = Items.getOverchargeCost(state.player);
+      if (state.player.ink < overchargeCost) {
+        log('Not enough ink to overcharge (need ' + overchargeCost + ').');
         render();
         return;
       }
@@ -1057,12 +1066,13 @@
   // comment above), so this exists purely for "I don't like this hand."
   Game.rewriteRack = function () {
     if (!state.combatActive || state.monster.hp <= 0) return;
-    if (state.player.ink < Combat.REWRITE_INK_COST) {
-      log('Not enough ink to rewrite your rack (need ' + Combat.REWRITE_INK_COST + ').');
+    var rewriteCost = Items.getRewriteCost(state.player);
+    if (state.player.ink < rewriteCost) {
+      log('Not enough ink to rewrite your rack (need ' + rewriteCost + ').');
       render();
       return;
     }
-    state.player.ink -= Combat.REWRITE_INK_COST;
+    state.player.ink -= rewriteCost;
     state.pile.discardPile = state.pile.discardPile.concat(state.player.rack);
     state.player.rack = [];
     state.selectedTileIds = [];
@@ -1070,7 +1080,7 @@
     state.hexedTileId = null; // the hexed tile itself just got discarded along with the rest of the rack
     refillRack();
     ensureRackIsPlayable();
-    log('You spend ' + Combat.REWRITE_INK_COST + ' ink to rewrite your rack.');
+    log('You spend ' + rewriteCost + ' ink to rewrite your rack.');
     render();
   };
 
@@ -2779,14 +2789,15 @@
       var actualId = isConsumable ? itemId.substring(2) : itemId;
       var def = isConsumable ? (Wordbound.Consumables ? Wordbound.Consumables.CONSUMABLE_DEFS[actualId] : null) : Items.ITEM_DEFS[actualId];
       if (!def) return;
-      var canAfford = state.player.gold >= (def.shopPrice || 0);
+      var price = Items.getDiscountedPrice(def.shopPrice || 0, state.player);
+      var canAfford = state.player.gold >= price;
       var btn = document.createElement('button');
       btn.className = 'treasure-choice' + (canAfford ? '' : ' shop-unavailable');
       btn.style.opacity = canAfford ? '1' : '0.6';
       btn.disabled = !canAfford;
       var priceColor = canAfford ? '#f0d789' : '#8b7355';
       var typeLabel = isConsumable ? ' [Consumable]' : '';
-      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><span style="font-size: 0.8rem; color: #9a8b6f;">' + typeLabel + '</span><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + (def.shopPrice || 0) + ' 🪙</span>';
+      btn.innerHTML = '<strong>' + escapeHtml(def.name) + '</strong><span style="font-size: 0.8rem; color: #9a8b6f;">' + typeLabel + '</span><br>' + escapeHtml(def.hint) + '<br><span style="color: ' + priceColor + ';">Cost: ' + price + ' 🪙</span>';
       if (canAfford) {
         btn.addEventListener('click', function () { Game.buyItem(itemId); });
       }
@@ -2798,7 +2809,8 @@
     // item/consumable list.
     if (state.shopTileOffer) {
       var tile = state.shopTileOffer;
-      var tileCanAfford = state.player.gold >= VARIANT_TILE_SHOP_PRICE;
+      var tilePrice = Items.getDiscountedPrice(VARIANT_TILE_SHOP_PRICE, state.player);
+      var tileCanAfford = state.player.gold >= tilePrice;
       var tileBtn = document.createElement('button');
       tileBtn.className = 'treasure-choice variant-' + tile.variant + (tileCanAfford ? '' : ' shop-unavailable');
       tileBtn.style.opacity = tileCanAfford ? '1' : '0.6';
@@ -2806,7 +2818,7 @@
       var tilePriceColor = tileCanAfford ? '#f0d789' : '#8b7355';
       var shopDisplayLetter = tile.letter === '?' ? '★' : tile.letter;
       tileBtn.innerHTML = '<strong>Premium Tile: ' + escapeHtml(shopDisplayLetter) + '</strong><span style="font-size: 0.8rem; color: #9a8b6f;"> [Tile]</span><br>' +
-        escapeHtml(Tiles.describeVariant(tile.variant)) + '<br><span style="color: ' + tilePriceColor + ';">Cost: ' + VARIANT_TILE_SHOP_PRICE + ' 🪙</span>';
+        escapeHtml(Tiles.describeVariant(tile.variant)) + '<br><span style="color: ' + tilePriceColor + ';">Cost: ' + tilePrice + ' 🪙</span>';
       if (tileCanAfford) {
         tileBtn.addEventListener('click', function () { Game.buyShopTile(); });
       }
@@ -3133,16 +3145,18 @@
     var overchargeBtn = $('btn-overcharge');
     var rewriteBtn = $('btn-rewrite-rack');
     if (!overchargeBtn || !rewriteBtn) return;
-    var canOvercharge = state.player.ink >= Combat.OVERCHARGE_INK_COST;
+    var overchargeCost = Items.getOverchargeCost(state.player);
+    var canOvercharge = state.player.ink >= overchargeCost;
     overchargeBtn.disabled = !state.overchargeArmed && !canOvercharge;
     overchargeBtn.classList.toggle('armed', !!state.overchargeArmed);
     overchargeBtn.textContent = state.overchargeArmed
       ? '⚡ Overcharged! (x' + Combat.OVERCHARGE_DAMAGE_MULTIPLIER + ')'
-      : '⚡ Overcharge (-' + Combat.OVERCHARGE_INK_COST + ' ink)';
+      : '⚡ Overcharge (-' + overchargeCost + ' ink)';
 
-    var canRewrite = state.player.ink >= Combat.REWRITE_INK_COST;
+    var rewriteCost = Items.getRewriteCost(state.player);
+    var canRewrite = state.player.ink >= rewriteCost;
     rewriteBtn.disabled = !canRewrite;
-    rewriteBtn.textContent = '🔄 Rewrite (-' + Combat.REWRITE_INK_COST + ' ink)';
+    rewriteBtn.textContent = '🔄 Rewrite (-' + rewriteCost + ' ink)';
   }
 
   // GOALS.md FEATURE (staged-word damage preview): show what the currently

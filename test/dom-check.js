@@ -460,6 +460,155 @@ async function main() {
     }
   }
 
+  // CONTENT ticket (GOALS.md, 2026-08-21): 8 new items for the INK economy
+  // and branching map -- spend-cost reduction (getOverchargeCost/
+  // getRewriteCost, new getters items.js added specifically for this
+  // ticket), ink refund/generation, low-ink threshold triggers, and
+  // map-interacting effects (shop discount, extra treasure choice).
+  {
+    const Combat = window.Wordbound.Combat;
+    const Tiles = window.Wordbound.Tiles;
+    const Items = window.Wordbound.Items;
+    const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
+    const freshRack = () => ['C', 'A', 'T', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
+
+    // 1. Frugal Bookmark: Overcharge costs 1 less ink (floored at 1).
+    {
+      const player = { items: [] };
+      check('getOverchargeCost: base cost with no items is Combat.OVERCHARGE_INK_COST', Items.getOverchargeCost(player) === Combat.OVERCHARGE_INK_COST);
+    }
+    {
+      const player = { items: ['frugal_bookmark'] };
+      check('Frugal Bookmark: Overcharge costs 1 less ink', Items.getOverchargeCost(player) === Combat.OVERCHARGE_INK_COST - 1);
+    }
+
+    // 2. Steady Transcription: Rewrite costs 1 less ink (floored at 1).
+    {
+      const player = { items: [] };
+      check('getRewriteCost: base cost with no items is Combat.REWRITE_INK_COST', Items.getRewriteCost(player) === Combat.REWRITE_INK_COST);
+    }
+    {
+      const player = { items: ['steady_transcription'] };
+      check('Steady Transcription: Rewrite costs 1 less ink', Items.getRewriteCost(player) === Combat.REWRITE_INK_COST - 1);
+    }
+
+    // 3. Inkwell Reserve: +2 ink every 4th word played this fight, capped at
+    // maxInk, silent on the other 3.
+    {
+      const player = { items: ['inkwell_reserve'], ink: 10, maxInk: 20 };
+      const ctx = { player, wordsPlayedThisFight: 4, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Inkwell Reserve: +2 ink on the 4th word', player.ink === 12 && ctx.messages.length === 1);
+    }
+    {
+      const player = { items: ['inkwell_reserve'], ink: 10, maxInk: 20 };
+      const ctx = { player, wordsPlayedThisFight: 3, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Inkwell Reserve: no-op on words that are not a multiple of 4', player.ink === 10 && ctx.messages.length === 0);
+    }
+    {
+      const player = { items: ['inkwell_reserve'], ink: 19, maxInk: 20 };
+      const ctx = { player, wordsPlayedThisFight: 8, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Inkwell Reserve: clamps to maxInk instead of overfilling', player.ink === 20);
+    }
+
+    // 4. Economical Hand: +1 ink on words of length <= 4.
+    {
+      const player = { rack: freshRack(), items: ['economical_hand'], ink: 10, maxInk: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Economical Hand: +1 ink on a short word (CAT, length 3)', player.ink === 11 && ctx.messages.length === 1);
+    }
+    {
+      const rack = ['G', 'A', 'R', 'D', 'E', 'N', 'S'].map((l) => Tiles.createTile(l, null));
+      const player = { rack, items: ['economical_hand'], ink: 10, maxInk: 20 };
+      const result = Combat.playWord(player, monster, 'GARDENS');
+      check('Economical Hand test setup: GARDENS is playable', !!result);
+      if (result) {
+        const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+        Items.runHook('onWordPlayed', ctx, player);
+        check('Economical Hand: no refund on a word longer than 4 letters', player.ink === 10 && ctx.messages.length === 0);
+      }
+    }
+
+    // 5. Low-Ink Flourish: +35% damage while at 10 ink or below.
+    {
+      const player = { rack: freshRack(), items: ['low_ink_flourish'], ink: 10, maxInk: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Low-Ink Flourish: +35% damage at exactly 10 ink', result.damage === before + Math.round(before * 0.35));
+    }
+    {
+      const player = { rack: freshRack(), items: ['low_ink_flourish'], ink: 11, maxInk: 20 };
+      const result = Combat.playWord(player, monster, 'CAT');
+      const before = result.damage;
+      const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
+      Items.runHook('onWordPlayed', ctx, player);
+      check('Low-Ink Flourish: no bonus above 10 ink (11 ink, one over the line)', result.damage === before);
+    }
+
+    // 6. Conservator's Care: -3 damage taken (floored at 1) while at 10 ink
+    // or below.
+    {
+      const player = { items: ['conservators_care'], ink: 10, maxInk: 20 };
+      const ctx = { player, monster, damage: 7 };
+      Items.runHook('onPlayerDamaged', ctx, player);
+      check("Conservator's Care: -3 damage at exactly 10 ink (7 -> 4)", ctx.damage === 4);
+    }
+    {
+      const player = { items: ['conservators_care'], ink: 11, maxInk: 20 };
+      const ctx = { player, monster, damage: 7 };
+      Items.runHook('onPlayerDamaged', ctx, player);
+      check("Conservator's Care: no reduction above 10 ink", ctx.damage === 7);
+    }
+    {
+      const player = { items: ['conservators_care'], ink: 2, maxInk: 20 };
+      const ctx = { player, monster, damage: 2 };
+      Items.runHook('onPlayerDamaged', ctx, player);
+      check("Conservator's Care: floors at 1 damage, never fully negates a hit", ctx.damage === 1);
+    }
+
+    // 7. Frequent Patron: 20% off every shop price, floored at 1 gold.
+    {
+      const player = { items: [] };
+      check('getShopDiscount: 0 with no discount items', Items.getShopDiscount(player) === 0);
+      check('getDiscountedPrice: unchanged with no discount', Items.getDiscountedPrice(35, player) === 35);
+    }
+    {
+      const player = { items: ['frequent_patron'] };
+      check('Frequent Patron: 20% off a 35-gold price rounds to 28', Items.getDiscountedPrice(35, player) === 28);
+      check('Frequent Patron: 20% off a 5-gold price still charges at least 1', Items.getDiscountedPrice(5, player) === 4);
+    }
+
+    // 8. Marginal Index: treasure/boss-reward rolls offer 4 choices instead
+    // of the base 3.
+    {
+      const player = { items: [] };
+      check('getTreasureChoiceCount: base is 3 with no items', Items.getTreasureChoiceCount(player) === 3);
+    }
+    {
+      const player = { items: ['marginal_index'] };
+      check('Marginal Index: treasure choice count becomes 4', Items.getTreasureChoiceCount(player) === 4);
+    }
+
+    // 9. Cross-check: the shop-roll seeded-appearance pattern the prior
+    // CONTENT ticket established (see the 300-seed block below) -- proves
+    // these 8 new items are really reachable through Items.ITEM_DEFS, not
+    // just directly constructible in a test.
+    const NEW_ITEM_IDS = [
+      'frugal_bookmark', 'steady_transcription', 'inkwell_reserve',
+      'economical_hand', 'low_ink_flourish', 'conservators_care',
+      'frequent_patron', 'marginal_index'
+    ];
+    NEW_ITEM_IDS.forEach((id) => {
+      check('item batch v0.48: "' + id + '" is registered in Items.ITEM_DEFS', !!Items.ITEM_DEFS[id]);
+    });
+  }
+
   // FUN OVERHAUL 5/8 (GOALS.md, 2026-08-20): special tile variants. The two
   // SCORING variants (Charged +4 flat, Volatile letter-value x2) resolve in
   // Lexicon.scoreWord, so they're checked here in isolation against exact
@@ -2284,6 +2433,52 @@ async function main() {
     NEW_ITEM_IDS.forEach((id) => {
       check('CONTENT ticket item "' + id + '" appears in shop rolls across 300 seeded samples', seen.has(id));
     });
+
+    state.rng = savedRng;
+    state.player.items = savedItems;
+  }
+
+  // CONTENT ticket (GOALS.md, 2026-08-21): the same seeded-shop-roll
+  // appearance check for THIS ticket's 8 new items (v0.48 item batch).
+  {
+    const savedRng = state.rng;
+    const savedItems = state.player.items;
+    const NEW_ITEM_IDS = [
+      'frugal_bookmark', 'steady_transcription', 'inkwell_reserve',
+      'economical_hand', 'low_ink_flourish', 'conservators_care',
+      'frequent_patron', 'marginal_index'
+    ];
+    const seen = new Set();
+
+    state.player.items = [];
+    for (let i = 0; i < 300; i++) {
+      state.rng = window.Game.RNG.create('item-batch-v048-shop-odds-' + i);
+      window.Wordbound.Game._rollShopOptions().forEach((id) => seen.add(id));
+    }
+
+    NEW_ITEM_IDS.forEach((id) => {
+      check('item batch v0.48 item "' + id + '" appears in shop rolls across 300 seeded samples', seen.has(id));
+    });
+
+    state.rng = savedRng;
+    state.player.items = savedItems;
+  }
+
+  // Marginal Index integration check: proves the getTreasureChoiceCount
+  // wiring actually reaches Game._rollTreasureOptions (the real
+  // rollTreasureOptions the RUN/TREASURE screen uses), not just the getter
+  // in isolation.
+  {
+    const savedRng = state.rng;
+    const savedItems = state.player.items;
+
+    state.rng = window.Game.RNG.create('marginal-index-check');
+    state.player.items = [];
+    check('rollTreasureOptions: offers 3 choices with no items owned', window.Wordbound.Game._rollTreasureOptions().length === 3);
+
+    state.rng = window.Game.RNG.create('marginal-index-check');
+    state.player.items = ['marginal_index'];
+    check('rollTreasureOptions: offers 4 choices while holding Marginal Index', window.Wordbound.Game._rollTreasureOptions().length === 4);
 
     state.rng = savedRng;
     state.player.items = savedItems;
