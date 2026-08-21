@@ -4088,3 +4088,209 @@ Rules for the routine:
       each child wrapping onto its own line.
       Patch version bump v0.37 -> v0.38 (`wordbound.html`), per this
       ticket's own instruction (bug fix, no new features).
+
+<!-- The 8 tickets below were queued 2026-08-21T04:45Z from Jaxon's next big
+     feature push. TWO DESIGN DECISIONS ARE ALREADY MADE by Jaxon directly
+     (do not re-litigate them): (1) the player's health system is being
+     REPLACED by INK -- a single unified life+mana resource; (2) all enemy/
+     character/menu art is INKED WOODCUT style -- hand-coded inline SVG that
+     looks like old book engravings / ex-libris plates (bold ink strokes,
+     hatching, parchment tones, plate borders). Ordered: broken-feature bug
+     first, then the two structural features (ink, map), then art/presentation
+     (which must follow the woodcut style), then variety/content last so it's
+     designed against the NEW systems, not the old ones. Most of these are
+     multi-run tickets -- leave working state + clear notes between runs. -->
+
+- [ ] BUG, CRITICAL (Jaxon, real-device report 2026-08-21): NO SOUND AT ALL.
+      Jaxon hears nothing -- despite v0.36's "10 new SFX + mute bug fix"
+      passing its jsdom call-path checks (which, honestly-flagged at the
+      time, could never verify audibility). Diagnose in a REAL browser, in
+      rough order of likelihood:
+      (a) AudioContext autoplay policy: the context starts 'suspended' and
+          must be resume()d INSIDE a user-gesture handler (first
+          pointerdown/keydown/touchend). If resume() is never called, every
+          play call silently no-ops forever. Check where the context is
+          created and whether ANY gesture handler resumes it; verify
+          `ctx.state === 'running'` after a real click in Playwright.
+      (b) The v0.36 "mute bug fix" itself: check the persisted mute/volume
+          state in localStorage -- an inverted boolean or a default-0 volume
+          from an earlier version would mute everything for an EXISTING
+          player like Jaxon while looking fine on a fresh profile. If the
+          stored default is bad, migrate it, don't just fix the default.
+      (c) Gain-graph wiring: master gain actually connected to
+          ctx.destination, per-sound gains nonzero, no node .start() missing.
+      (d) iOS Safari specifics: the hardware silent switch mutes WebAudio in
+          Safari. If (a)-(c) check out and this is the residual explanation,
+          implement the known mitigation IF cheap (route through a playing
+          silent <audio> element / navigator.audioSession `playback` type
+          where supported); otherwise document it plainly in PROGRESS.md and
+          surface a small one-time in-game hint ("sound on -- check your
+          ringer switch") rather than leaving players to wonder.
+      VERIFICATION: Playwright real-Chromium -- after ONE user gesture,
+      assert `ctx.state === 'running'`, master gain > 0, and that a played
+      word actually schedules source nodes (spy/count). `npm test` clean.
+      State plainly that audibility-on-real-glass still needs Jaxon's ears,
+      and ASK him (via PROGRESS.md note) to re-test with the ringer switch
+      ON if iOS. Patch bump.
+
+- [ ] FEATURE, STRUCTURAL (Jaxon's decision, 2026-08-21): replace the
+      player's HP with INK -- one unified life + mana resource. Jaxon chose
+      this explicitly over a Pages/Binding system and a no-lifebar
+      corruption system. The chosen concept, verbatim from the option he
+      picked: "Everything runs on Ink: attacks spill it, big plays can
+      spend it, healing refills it, run ends when the well is dry. One
+      unified resource to optimize."
+      SCOPE (player side only -- monsters KEEP their HP/damage exactly as
+      the fresh rebalance tuned them):
+      - Player HP pool becomes the Inkwell (start ~= current max HP; the
+        exact number is a balance knob, see below). Monster attacks SPILL
+        ink (damage = ink lost). Run ends when ink hits 0.
+      - The "mana" half: add at least two meaningful SPEND decisions so ink
+        is something you optimize, not just a renamed bar. Baseline word
+        play stays FREE (don't tax the core verb). Good candidate spends,
+        implementing run's call on exact set/costs: an optional "overcharge"
+        on a played word (spend N ink -> amplify damage), consumable-style
+        activated abilities costing ink, event/shop options priced in ink.
+        Every spend must show clear cost UI before committing.
+      - All healing economy converts: potions/rest/heal items refill ink
+        (recheck their tuned amounts still make sense against spends).
+      - Full terminology + UI sweep: HP bar -> inkwell (visual: ink level,
+        use the existing theme palette), damage log lines ("spills 4 ink"),
+        game-over screen ("the well ran dry"), achievements, how-to-play,
+        THEME.md lore section for Ink. Items whose text references player
+        HP get rewritten (effects can stay numerically identical where
+        sensible).
+      - Combat.previewWord and the damage preview stay intact (monster
+        damage is unchanged); if overcharge exists, preview shows the
+        amplified number while the toggle is active.
+      BALANCE GATE: after conversion, re-run the balance sim (teach the bot
+      a simple spend policy -- e.g. overcharge when kill-secured or safe)
+      and confirm the win rate is STILL in the 35-50% band the 2026-08-21
+      rebalance established. If the ink spends push it out of band, tune
+      SPEND COSTS first (not monster stats -- don't undo the rebalance).
+      MULTI-RUN: this is likely 2-4 runs. Safe sequencing: run 1 = rename/
+      convert (pure HP->ink swap, mechanically identical, all tests green);
+      run 2+ = add the spend mechanics + bot policy + sim verification. The
+      repo must work after every run.
+      VERIFICATION: `npm test` (update the many player-HP assertions),
+      `npm run test:qa`, `npm run test:mobile` (new inkwell UI), sim in
+      band, `npm run test:itch-build`. Minor version bump per completed
+      phase.
+
+- [ ] FEATURE, STRUCTURAL (Jaxon request): branching floor map with path
+      choices. Replace the current linear node progression with a
+      Slay-the-Spire-style branching map: each floor is a small DAG (2-3
+      lanes wide), the player SEES upcoming node types (fight / elite /
+      event / shop / rest / boss -- reuse existing node vocabulary) and
+      CHOOSES which path to take. Requirements:
+      - Boss always terminal per floor; every path reaches it. Generation
+        guarantees per floor: at least one shop and one rest/heal node
+        reachable on some path, elites avoidable-at-a-cost (the risk/reward
+        of routing is the point).
+      - Seeded determinism: map layout must be a pure function of the run
+        seed (extend test/verify-seeded-runs.js: same seed -> identical map
+        + identical outcome for the same choices; different choice ->
+        different path, obviously).
+      - Map UI in the woodcut/manuscript language (hand-drawn-looking ink
+        paths on parchment, node glyphs), tappable at 375px (44px+ targets),
+        current position + visited path visibly marked. Between fights the
+        player returns to the map to pick the next node.
+      - Keep the existing floor count/structure semantics (3 floors,
+        Overdue Aisles etc.) -- this changes routing WITHIN floors, not the
+        overall descent.
+      - Balance note: routing choice shifts effective difficulty; after
+        landing, run the sim (bot picks randomly among paths) and sanity-
+        check the win-rate band still holds; small event/rest frequency
+        retunes are in-scope if routing skews economy.
+      MULTI-RUN expected. VERIFICATION: `npm test` with map-generation
+      assertions (guarantees above hold across 50+ seeds), verify-seeded-
+      runs extension, `npm run test:qa` (teach it to click through the map),
+      `npm run test:mobile`, real-browser click-through of a full floor.
+      Minor bump.
+
+- [ ] ART (Jaxon request; style DECIDED: inked woodcut): every monster and
+      boss gets an inline-SVG portrait in the woodcut/engraving style --
+      bold ink strokes, crosshatch shading, parchment ground, a thin plate
+      border; think 1700s bestiary plates. Build a tiny shared SVG
+      vocabulary first (stroke widths, 2-3 ink tones from the existing CSS
+      palette, hatch patterns via <pattern> or path groups, one reusable
+      plate-frame) so all ~15-20 portraits read as one hand. Each portrait
+      expresses the monster's linguistic gimmick visually where possible
+      (Echo Pup built of echoing strokes, the Constrictor a strangling
+      ligature loop, etc. -- THEME.md + monsters.js are the roster source).
+      Displayed in the monster-info panel (replacing the generic 📖 emoji),
+      sized responsively (must not break 375px layout), `role="img"` +
+      `aria-label` with the monster name. Keep total added page weight
+      modest (aim well under ~150KB total SVG; reuse defs). Bosses get
+      slightly grander plates. MULTI-RUN fine (batch by floor).
+      VERIFICATION: `npm test` (portrait element present per monster,
+      correct aria-label), `npm run test:mobile`, `npm run test:qa`, plus a
+      real-browser screenshot pass described in PROGRESS.md (what renders,
+      any visual glitches); aesthetic judgment stays Jaxon's -- flag for
+      his playtest. Minor bump when the full roster is covered.
+
+- [ ] ART (Jaxon request; same woodcut style): character portraits, visible
+      somewhere meaningful. Each playable character gets a woodcut portrait
+      (same shared SVG vocabulary as the monster plates): shown LARGE on
+      the character-select cards, and small in-run (in/near the run header,
+      next to the inkwell once the INK ticket lands -- coordinate with
+      whatever header layout exists by then; the 481-780px overflow fix
+      must not regress, that range now has a regression test). Same
+      accessibility + weight rules as the monster ticket.
+      VERIFICATION: `npm test`, `npm run test:mobile` AND a manual
+      Playwright check at ~600px (the header's historic weak spot),
+      `npm run test:qa`. Minor bump (can share it with the monster-art
+      completion if they land together).
+
+- [ ] VISUAL (Jaxon request): opening-screen glow-up -- the main menu
+      should SET THE SCENE and sell the theme in the first three seconds.
+      Direction (implementing run has latitude within the woodcut/archive
+      language): a title treatment that looks set in metal/engraved rather
+      than plain text; the Boundless Archive backdrop deepened for the menu
+      (towering stacks, candlelight glow, drifting dust motes -- all
+      CSS/inline-SVG, reduced-motion gated, transform/opacity only); a
+      one-or-two-line scene-setting blurb in THEME.md's voice ("The
+      dictionary burst. The words got loose. Someone must spell them back."
+      -- draft freely, keep it SHORT); menu buttons restyled to match
+      (ink-on-parchment, not default-looking); version + achievements
+      display kept but integrated into the composition. Character select
+      should feel continuous with it (the portraits from the ticket above
+      help). Don't gate playability on any animation.
+      VERIFICATION: `npm test`, `npm run test:mobile` (menu is one of its
+      two checked screens), `npm run test:qa` (it boots through the menu),
+      real-browser screenshots at desktop + 375px described in PROGRESS.md.
+      Minor bump.
+
+- [ ] DESIGN/CONTENT (Jaxon request): more varied runs. Goal: two runs
+      back-to-back should feel meaningfully different. Pick and implement
+      AT LEAST TWO of these levers (implementing run's call, justify the
+      pick in PROGRESS.md; more are welcome across multiple runs):
+      (1) per-run monster subset -- roster is larger than any one run
+      encounters, drawn seeded per run so floor 1 isn't always the same
+      three regulars; (2) more event variety -- the event pool is small
+      relative to how often events appear; grow it (respect gamble/choice
+      house patterns, THEME voice); (3) run modifiers -- seeded "Edition"
+      quirks announced at run start ("In this printing, vowels are scarce
+      but potent") that bend one rule each, conservative numbers;
+      (4) floor-themed encounter tables -- each floor's identity (names
+      already exist) reflected in WHICH monsters/events appear there, not
+      just stats. Everything must stay seed-deterministic (extend
+      verify-seeded-runs where touched) and sim-checked to stay in the
+      win-rate band. Design against the POST-ink, POST-map game.
+      VERIFICATION: `npm test`, `npm run test:qa`, sim band check,
+      seeded-runs extension. Minor bump per completed lever-pair.
+
+- [ ] CONTENT (Jaxon request): another item batch, 8-12 items -- but
+      designed for the INK economy and the branching map. This ticket is
+      LAST deliberately: do not start it until the INK ticket above is
+      checked. New design space now open: items that refund/generate ink,
+      items that reduce overcharge/spend costs, items that trigger on
+      spilling ink (thresholds: "when below 10 ink..."), map-interacting
+      items ("shops you pass are cheaper", "reveal adjacent nodes'
+      contents"). Same rules as the v0.34 batch: THEME.md voice, fill
+      empty hook niches (re-read items.js fresh -- it's grown), 2+
+      build-definers, rarity spread, no near-duplicates, conservative
+      numbers with sim check.
+      VERIFICATION: per-item `npm test` assertions through real hooks,
+      seeded-shop appearance check, `npm run test:qa`, sim band check.
+      Minor bump.
