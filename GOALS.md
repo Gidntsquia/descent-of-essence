@@ -4717,7 +4717,7 @@ Rules for the routine:
       PROGRESS.md entry by flagging it for his re-test, and do NOT claim
       "fixed", only what was structurally confirmed. Minor version bump.
 
-- [ ] DESIGN/BALANCE (Jaxon directive, 2026-08-21, verbatim): "Rewrite should
+- [x] DESIGN/BALANCE (Jaxon directive, 2026-08-21, verbatim): "Rewrite should
       be way cheaper, overcharge should be cheaper and have a more powerful
       effect. Both should only be unlocked after doing one run so that new
       players aren't confused." Current values: REWRITE_INK_COST=4,

@@ -13819,3 +13819,41 @@ v0.51 in this commit, per the ticket's "Minor version bump"). If it's
 outside the band, this is a real balance finding worth a retune round
 before checking the box -- don't check it off on an unconfirmed
 assumption just because the code itself works.**
+
+---
+
+## 2026-08-21T16:58Z -- Rewrite/Overcharge ticket: balance check confirmed, box checked
+
+**Picked up:** the previous entry (same run, ~8 minutes earlier) had
+committed the retune + unlock gate code with `npm test` green, but left
+GOALS.md's box unchecked because `node test/balance-simulation.js 50` was
+still running when that commit had to go out. It finished shortly after
+(background task notification) -- reading the result now.
+
+**Result:** `test/balance-simulation-results.json`, tallied by strategy:
+`best` 20/50 = **40.0%** win rate, `first` 0/50 = 0% (expected -- `first`
+is the deliberately-unskilled baseline this suite has never held to the
+band, per its own doc comment; every prior BALANCE ticket in this file's
+history measured the 25-50% band against `best` specifically). 40% sits
+comfortably inside the documented 25-50% band, so the cheaper+stronger
+Overcharge (2 ink for 2x instead of 3 ink for 1.5x) and cheaper Rewrite
+(2 ink instead of 4) did NOT push win rate out of range. No retune needed.
+
+The per-monster breakdown's "outliers vs. same-floor peers" section
+flagged the same floor-2/3 strong-tier monsters (Spine Splinter, The
+Hoarder, The Card Catalog) already discussed and deliberately left alone
+across the last several closed BALANCE tickets (see the round-3/
+"lever exhausted" entries above) -- nothing new introduced by this
+ticket's changes, out of scope here regardless.
+
+**GOALS.md box checked `[x]`.** All three parts of the ticket are now
+done and verified: (1) retune, `npm test` green; (2) unlock gate, 6 new
+tests green, engine layer confirmed still callable while hidden; (3)
+balance check, 40% within band. Version already bumped v0.50 -> v0.51 in
+the prior commit.
+
+**Next run:** GOALS.md's queue: the small ZEN dictionary-word ticket
+(fold into the ZEX/TAZE SUPPLEMENT array, or the still-open YAWL merge
+ticket's infrastructure if that's built by then) is next, followed by the
+YAWL dictionary-merge follow-up. Work top to bottom per GOALS.md's own
+rule.
