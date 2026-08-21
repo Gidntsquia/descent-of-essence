@@ -307,9 +307,11 @@ h2 {
 
 .run-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 14px;
+  row-gap: 8px;
   font-size: 1.1rem;
   margin-bottom: 8px;
 }

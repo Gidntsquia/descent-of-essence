@@ -11292,3 +11292,85 @@ gaps" list is unchanged by this pass (no items resolved or newly
 discovered there -- the run-header finding lives in GOALS.md as a queue
 ticket, not the roadmap's gap list, since it's a scoped bug fix rather
 than a launch-readiness category).
+
+## 2026-08-21T02:18Z -- BUG fix: run-header horizontal overflow 481-780px (v0.37 -> v0.38), GOALS.md queue now empty
+
+Picked up the one remaining queue item (the only `- [ ]` in GOALS.md): the
+run-header horizontal-overflow bug filed by the previous run's QA pass,
+already fully root-caused and specced with a suggested fix shape, so this
+was implementation + verification rather than fresh investigation.
+
+**Fix:** exactly what the ticket suggested -- added `flex-wrap: wrap;
+row-gap: 8px;` to the base `.run-header` rule in `css/wordbound.css`
+(~line 308), not gated behind the existing `@media (max-width: 480px)`
+block, so the row wraps at ANY width where its 4 children (HP display,
+gold display, floor label, and the Deck/Consumables/mute/volume actions
+group) don't fit on one line, instead of only below 480px. Nothing else in
+that rule or the phone-tuned 480px block touched, per the ticket's own
+"narrower than copying the whole block up" instruction.
+
+**While verifying, ran down why the original bug's overflow shrank from
+220px at 481px to 0px by 800px instead of staying constant** (this wasn't
+asked for, but it changed how I read "typical desktop widths shouldn't
+start wrapping" in the ticket, so documenting it): `#wb-root` has a hard
+`max-width: 640px` (`css/wordbound.css` line 15) -- the game's content
+column does NOT keep growing past ~640px viewport width, it's capped
+there. The unwrapped run-header row needs roughly 608+61px to fit all 4
+children, so it never actually fit on one line anywhere past ~480px; what
+looked like "fitting by 800px" was the centered column's side margins
+(which grow once viewport exceeds 640px) happening to be wide enough to
+visually absorb the overflowing row without the *document* exceeding the
+viewport -- a fragile coincidence dependent on margin size, not a real
+one-line layout. Confirmed directly with a one-off Playwright check: even
+at a 1280px viewport, the row now still wraps to 2 stable rows under this
+fix (verified by reading each child's `getBoundingClientRect().top` --
+exactly 2 distinct values, not 3+, so no worse failure mode). Read this as
+correct, not "wrapping unnecessarily" -- there was never a real desktop
+width where 608px of column width was enough for those 4 elements
+unwrapped, so the ticket's caution (don't wrap at widths where it already
+fit) turned out to be moot; it never truly fit, it just didn't visibly
+overflow the page.
+
+**Verification:**
+- New permanent test `test/verify-run-header-overflow.js` (npm script
+  `test:run-header`, same real-Chromium/Playwright pattern as the existing
+  `test:mobile` script, added to `package.json` with its own `pretest`
+  dep-install hook) sweeps the exact 7 widths measured in the ticket
+  (481/550/600/650/700/750/800px) plus the two existing mobile breakpoints
+  (375/414px) and a wide desktop width (1280px) -- **all 10: 0px
+  horizontal overflow.** Kept as a committed regression test per the
+  ticket's own suggestion ("standalone Playwright script"), not an ad-hoc
+  throwaway.
+- `npm test`: **450/450**, no regressions (`.run-header`'s markup wasn't
+  touched, only its CSS rule; no jsdom assertions needed updating).
+- `npm run test:mobile`: clean, 0 overflow warnings at 375/414px (required
+  by GOALS.md's CSS-layout gate since this change touches rendering CSS;
+  this change only adds a wrap capability the 480px media query already
+  had at those widths, so no behavior change there and none observed).
+
+**NOT independently re-verified beyond the above:** no audio or
+drag-and-drop code touched this pass, no new gap there. Didn't test at
+extreme zoom levels or non-Chromium engines (matches this project's
+existing testing scope, not a new gap introduced by this fix).
+
+Version bumped v0.37 -> v0.38 (`wordbound.html`) -- patch bump per the
+ticket's own instruction (bug fix, no new features). GOALS.md's box
+checked, with the full fix/root-cause-digression/verification detail
+written inline in the ticket's own DONE note.
+
+**State:** working tree clean, matches what's about to be pushed.
+**GOALS.md's queue is now fully empty** (this was the last unchecked
+item) -- checked ROADMAP.md's "known gaps" section per the routine's own
+guardrail before concluding there's nothing further to pull. Every open
+gap there is explicitly blocked on Jaxon, not sandbox-actionable: the
+physical-device touch test, the feel/fun ear-and-hands playtest, the
+actual itch.io upload, run-to-run meta-progression (an undefined scope/
+design question), and the floor2-balance-share ticket (explicitly left
+unchecked pending Jaxon's read on whether 3/4 targets is an acceptable
+stopping point or floor2 needs restructuring rather than more stat
+tuning) -- none of these are things a sandboxed run can move forward
+without his input. **Next run:** re-check GOALS.md first (Jaxon may have
+added new tickets, including a decision on the floor2 balance question
+above); if the queue is still empty and ROADMAP.md's gaps are still all
+Jaxon-blocked, it's correctly idle and should say so rather than inventing
+work, per this file's own standing guardrail.

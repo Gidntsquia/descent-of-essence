@@ -7,6 +7,8 @@
     "test": "node test/dom-check.js",
     "pretest:mobile": "node tools/ensure-deps.js @playwright/test",
     "test:mobile": "node test/verify-mobile-layout.js",
+    "pretest:run-header": "node tools/ensure-deps.js @playwright/test",
+    "test:run-header": "node test/verify-run-header-overflow.js",
     "pretest:qa": "node tools/ensure-deps.js @playwright/test",
     "test:qa": "node test/orchestrator-qa-boss-reward.js",
     "test:drag-interrupt": "node test/verify-drag-interrupt.js",

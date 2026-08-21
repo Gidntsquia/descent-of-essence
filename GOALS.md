@@ -3991,7 +3991,7 @@ Rules for the routine:
       v0.37 (both fixes are bug fixes, not new features, per this ticket's
       own version-bump instruction).
 
-- [ ] BUG, layout (found during the 2026-08-21 QA polish pass, GOALS.md
+- [x] BUG, layout (found during the 2026-08-21 QA polish pass, GOALS.md
       above): the run-header row (HP/gold/floor label, Deck/Consumables
       buttons, mute button, volume slider -- `.run-header` in
       css/wordbound.css, ~line 308) overflows horizontally at every
@@ -4046,3 +4046,45 @@ Rules for the routine:
       `npm test` for a regression check since `.run-header` markup is
       touched by combat/node-map/every RUN-screen render. Patch version
       bump (bug fix, no new features).
+      FIXED 2026-08-21: exactly the suggested fix -- added `flex-wrap: wrap;
+      row-gap: 8px;` to the base `.run-header` rule (`css/wordbound.css`
+      ~line 308), ungated by any media query, so it wraps at ANY width
+      where its 4 children (HP/gold/floor-label + the actions group) don't
+      fit, instead of only below 480px. Nothing else in the rule or the
+      existing 480px block touched. While verifying, traced WHY the
+      original overflow shrank from 220px at 481px down to 0px by 800px
+      instead of staying constant: `#wb-root` has a hard `max-width: 640px`
+      (css/wordbound.css line 15), so the actual content column does NOT
+      keep growing past ~640px viewport width -- it's fixed there. The
+      unwrapped row needs ~608+61px to fit its 4 children, i.e. it never
+      truly "fits on one line" past 480px; what happened instead is the
+      centered column's side margins (which grow with viewport width once
+      past 640px) happened to be wide enough to visually absorb the
+      overflowing row without pushing the DOCUMENT past the viewport --
+      a fragile coincidence, not a real fix. Confirmed directly: even at a
+      1280px viewport the row still wraps to 2 lines under this fix (children
+      measured at two distinct `top` offsets), because the capped 608px
+      content width genuinely isn't enough for all 4 unwrapped -- this is
+      correct, not the "wrapping unnecessarily at desktop widths" the
+      ticket cautioned against, since there was never a real desktop width
+      where it fit; the previous appearance of fitting was the margin trick
+      above, which is neither reliable across DPI/zoom nor an actual
+      one-line layout.
+      VERIFICATION: added `test/verify-run-header-overflow.js` (new
+      `npm run test:run-header` script, same real-Chromium/Playwright
+      pattern as `test:mobile`, kept as a permanent regression test per the
+      ticket's own suggestion, not an ad-hoc throwaway) sweeping the exact
+      7 widths measured in the ticket (481/550/600/650/700/750/800px) plus
+      375/414px (existing mobile breakpoints) and 1280px (wide desktop) --
+      all 10 widths: **0px horizontal overflow**. `npm test`: **450/450**
+      (no regressions, `.run-header` markup untouched, only its CSS rule).
+      `npm run test:mobile`: clean, 0 overflow warnings at 375/414px
+      (required per GOALS.md's CSS-layout gate; this change only adds a
+      wrap capability the existing 480px media query already had, so no
+      behavior change expected or observed at those two widths). Separately
+      confirmed via a one-off Playwright check (not part of the committed
+      test) that the row renders as exactly 2 stable rows (not 3+, not
+      jittering) at 500/780/1280px, ruling out a worse failure mode like
+      each child wrapping onto its own line.
+      Patch version bump v0.37 -> v0.38 (`wordbound.html`), per this
+      ticket's own instruction (bug fix, no new features).
