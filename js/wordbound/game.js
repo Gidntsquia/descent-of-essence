@@ -363,7 +363,7 @@
     } else if (node.type === 'event') {
       startEvent(node);
     } else if (node.type === 'rest') {
-      var healed = Math.round(state.player.maxInk * 0.5);
+      var healed = Math.round(state.player.maxInk * 0.65);
       state.player.ink = Math.min(state.player.maxInk, state.player.ink + healed);
       log('You rest and recover ' + healed + ' ink.');
       playSfx('heal', null, playHealSound);
