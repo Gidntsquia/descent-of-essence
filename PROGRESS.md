@@ -10601,3 +10601,39 @@ exact <=50% (the ticket's own "toward parity" wording, plus the clear
 directional trend across every round, supports treating continued
 convergence as satisfying the spirit of that target even short of the
 literal number, PARTICULARLY given nothing suggests it would reverse).
+
+## 2026-08-21T00:20Z -- concurrent-session collision, no code change
+
+Fresh hourly run picked up the same open BALANCE ticket, independently
+re-measured round 4 (55% win rate, n=40 -- close to but not identical to
+the 50% this session's own round-4 reading above; same sampling-noise
+pattern this ticket has documented throughout), then tried two of its own
+rounds: a boss-HP-only correction (vowelmaw 54->68, sovereign 85->105),
+which measured 60% -- worse, not better -- and a follow-up shared
+strong-tier HP bump (sentinel/warden/spinesplinter +15%) whose
+confirmation sim didn't finish in time. Discovered via `git fetch` that a
+concurrent session had been working this exact ticket in parallel and had
+already pushed two rounds (5: a smaller, better-targeted Binding
+Strap/Appendix attack revert; 6: a floor-agnostic player-max-HP pivot,
+22 from 24) built on a much larger evidence base (7 independent n=30-50
+samples showing floor2's strong tier is consistently hard everywhere, not
+undertuned) than this run had gathered. That work is clearly more
+converged than this run's own attempt (which was still guessing at boss
+HP vs. shared-pool levers without the benefit of that sample history) --
+discarded this run's local commit and reset to `origin/main` (244e608)
+rather than push a conflicting/inferior round on top, same as this
+ticket's own established practice on prior collisions.
+
+Checked ROADMAP.md's known-gaps list for other unblocked work: nothing
+found (remaining gaps are explicitly Jaxon-only -- physical-device touch
+test, itch.io upload -- and the queue's next four tickets are
+deliberately gated behind this same rebalance ticket finishing). Idle for
+the rest of this run for that reason: the one available task already has
+another session actively converging on it with better data than this run
+could add without racing a push. Working tree confirmed clean at
+`origin/main` HEAD, nothing broken, nothing lost.
+
+**NEXT RUN:** check whether round 6's n=50 confirmation (player HP 22)
+landed in band -- if so the box should already be checked with a version
+bump; if not, the tuning trail above (both sessions' rounds) has the full
+reasoning to continue from.
