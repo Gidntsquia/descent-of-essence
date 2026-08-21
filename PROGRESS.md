@@ -13552,3 +13552,150 @@ It's explicitly framed as a real, scoped task an hourly run CAN attempt
 hour rather than being squeezed in after part 1. If picked up: start by
 re-confirming the license at the actual repo root (not just that the raw
 file URL 200s) before downloading anything further.
+
+---
+
+## 2026-08-21T16:35Z -- iOS "still no sound" audio ticket: both diagnosable gaps addressed (part 1 and 2 of 3), part 3 confirmed not a bug
+
+**Picked up:** GOALS.md's queue had gained two new tickets since the last
+entry (commits f3d7616/40839ef, filed between runs -- Jaxon's playtest
+batch, reordered to put this HIGH PRIORITY audio bug first). The report:
+"I also am not hearing any sound" on iPhone, v0.48 live, despite the
+earlier v0.39 fix (AudioContext.resume() on first gesture) supposedly
+having closed this exact symptom. The ticket laid out a 3-item diagnostic
+checklist; worked all three.
+
+**1. ONE-SHOT PRIME BUG (confirmed real, fixed).** `primeAudioOnce`
+(js/wordbound/game.js, was ~3392-3397) called
+`document.removeEventListener` on itself after the very first
+pointerdown/keydown/touchend, permanently. If that first `resume()` was
+refused, or iOS suspended/interrupted the context later mid-session (app
+backgrounding, a phone call, Safari tab restore -- all things that happen
+well after page load, not just on it), there was no listener left to
+retry. Every other sound-playing function does call `initAudioContext()`
+on its own gesture, but several of those calls are deferred behind a
+`setTimeout` (e.g. `playCombatSound`'s 220ms tile-animation delay) --
+Safari's autoplay/resume policy is stricter about resume() calls that
+aren't synchronously inside the original gesture's call stack, so a
+`resume()` fired from inside a deferred callback can get silently refused
+even though it's nominally "triggered by" a real click. Fix: removed the
+self-removing behavior entirely. The listeners now stay attached for the
+life of the page and re-attempt `initAudioContext()` (a synchronous,
+same-tick call, not deferred) on every real gesture, not just the first.
+`resume()` on an already-'running' context is a documented no-op (see the
+function's own pre-existing comment), so this costs nothing on every
+gesture after the first successful one.
+
+**2. iOS HARDWARE MUTE SWITCH (addressed with the documented mitigation,
+audibility itself unverifiable from this sandbox).** iOS Safari silences
+WebAudio-only pages when the physical ring/silent switch is set to
+silent, with **no JS-visible signal for that switch's position at all** --
+`.state` stays `'running'`, gain values are correct, oscillator nodes
+really do get scheduled, and the page can still be completely inaudible
+on the device. This is a real, separate mechanism from AudioContext
+suspension and is not something `resume()` fixes. The documented
+workaround is getting the page's audio session into the browser's
+`'playback'` category instead of the default `'ambient'` category (iOS
+deliberately routes `'ambient'` through the ringer switch,
+`'playback'` bypasses it). Implemented both mitigations the ticket named,
+inline, no external libraries:
+  - `navigator.audioSession.type = 'playback'` where the API exists
+    (Safari 17+, guarded with try/catch since it's still not universal).
+  - The long-standing "silent looping `<audio>` element" trick, which
+    works on every iOS Safari version: a genuinely-playing `HTMLAudioElement`
+    (not muted, not volume-0 -- either would defeat the trick, since iOS
+    keys off real playback activity) gets the page the same `'playback'`
+    category via normal media-element behavior instead of a brand-new API.
+    Built a minimal valid silent WAV (1 second, 8-bit PCM mono @ 8kHz,
+    every sample at the zero-amplitude midpoint value 128) inline as a
+    base64 data URI -- no new asset file, matches the project's
+    no-external-assets constraint the favicon work already established.
+    `primeIosAudioPlaybackCategory()` (new function, next to
+    `initAudioContext`) creates this element once, loops it, and re-tries
+    `.play()` on every gesture (idempotent -- checks `.paused` first)
+    alongside the AudioContext resume, so it recovers the same way if
+    something ever pauses it.
+
+**3. VOLUME SLIDER DEFAULT/PERSISTENCE (checked, not a bug).** Read
+`audioSettings` initialization (game.js lines 26-50): default is
+`{ volume: 0.1, muted: false }`, loaded from `localStorage` only if a
+prior save exists and parses cleanly (try/catch guarded, falls back to
+the default on any error). A fresh mobile profile has no localStorage
+entry, so it always gets the 0.1/unmuted default -- can't init to
+0/muted. The existing `test:audio` script already asserts this
+(`slider reflects 10%` check, unchanged, still passes). No code change
+needed here; ruled out rather than silently skipped.
+
+**Why the box is checked despite "real audibility is Jaxon-only":** the
+ticket's own VERIFICATION HONESTY section defines what's actually
+checkable from this sandbox (Playwright structural checks + `npm test`/
+`npm run test:audio` green) and explicitly asks for PROGRESS.md honesty
+about that split rather than leaving the ticket open indefinitely --
+same pattern as the touch/mobile-support ticket, which was closed with a
+"physical-device test still recommended" note rather than held open
+forever on a check this sandbox structurally cannot perform. Both
+diagnosable, fixable-from-here gaps are addressed and verified as far as
+this environment allows; what's left (does it actually make sound on
+Jaxon's iPhone with the ringer switch in either position) is a real,
+separate, physical-device-only confirmation step, flagged below.
+
+**Verification actually done:**
+- `node -c js/wordbound/game.js`: clean.
+- `npm test`: 133+/133+ clean (full suite, unchanged count from before --
+  this ticket added no new jsdom-level test cases since jsdom has no Web
+  Audio implementation to check against).
+- `npm run test:audio` (real headless Chromium, `test/verify-audio-context.js`):
+  all pre-existing checks still pass, PLUS two new checks added this run
+  specifically for the two fixes:
+  - Forced `audioContext.suspend()` mid-session (simulating an
+    iOS-style interruption after the first gesture already fired), then
+    fired a *later*, distinct real gesture (`Shift` keydown) and
+    confirmed the context returned to `'running'`. This is the check
+    that would have FAILED against the old one-shot `primeAudioOnce` --
+    it had already removed its listeners by this point, so nothing
+    would have caught the later interruption. Passes against the fix.
+  - Instrumented `window.Audio` via `page.addInitScript` (same pattern
+    the file already used for `AudioContext`/`OscillatorNode`) and
+    confirmed: exactly one silent `<audio>` element gets created (not
+    re-created on every gesture), `loop === true`, `paused === false`
+    (actually playing, not just constructed), `volume === 1` (not
+    zeroed -- would defeat the trick), and its `src` is the inline WAV
+    data URI (no external asset).
+- `npm run test:mobile`: not run -- no CSS/layout touched this ticket.
+
+**Not verified / explicitly out of scope for this sandbox (per the
+ticket's own VERIFICATION HONESTY section):**
+- Real audibility on any physical iOS device, with the ringer switch in
+  either position. Headless Linux Chromium has no ringer switch and no
+  real iOS `navigator.audioSession` behavior to exercise even where the
+  API is stubbed/absent -- the Playwright checks above confirm the
+  *mechanism* is wired up correctly (context resumes, playback-category
+  element is genuinely playing), not that it produces audible sound on
+  Jaxon's phone. **Jaxon: please re-test on the same iPhone that filed
+  this report, with the ringer switch both on-silent and un-silenced,
+  and let a future run know if it's still silent in either position --
+  if the ringer-switch trick alone doesn't close it, the next
+  escalation would likely need to be more diagnostic logging
+  (e.g. a visible on-screen `audioContext.state` + "playback armed"
+  indicator) since there's currently no way to get error/state
+  information back from a real device without one.**
+- `navigator.audioSession` itself: not available in this sandbox's
+  Chromium (checked via `typeof navigator.audioSession` in the
+  Playwright script's console -- undefined, as expected outside Safari),
+  so only the try/catch-guarded no-op path was exercised, not the
+  Safari-specific branch itself. This is expected and matches the
+  ticket's own framing (Safari 17+ only, "where available").
+
+**State:** working tree clean apart from this log entry. GOALS.md's audio
+ticket is `[x]` closed. Version bumped v0.49 -> v0.50 in `wordbound.html`
+per the ticket's own "Minor version bump" instruction. Committed and will
+push as part of this run.
+
+**Next run:** GOALS.md's queue has two items left from Jaxon's playtest
+batch (the Rewrite/Overcharge retune + first-run unlock gate DESIGN/
+BALANCE ticket, and the small ZEN dictionary-word addition -- the latter
+explicitly says to fold into the still-open YAWL/broader-merge ticket's
+infrastructure if that hasn't been built yet, or the ZEX/TAZE SUPPLEMENT
+array otherwise), plus the still-open YAWL dictionary-merge follow-up
+from before. Work top to bottom per GOALS.md's own rule: the
+Rewrite/Overcharge ticket is next.

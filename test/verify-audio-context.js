@@ -77,6 +77,18 @@ async function main() {
       window.__oscStarts++;
       return realStart.apply(this, args);
     };
+
+    // AUDIO ticket follow-up (GOALS.md, 2026-08-21, iPhone "still silent"
+    // report): instrument the Audio element constructor so we can observe
+    // the silent-looping-<audio> iOS-playback-category trick without game.js
+    // needing to expose its private silentAudioEl closure variable.
+    window.__audioEls = [];
+    const RealAudio = window.Audio;
+    window.Audio = function (...args) {
+      const el = new RealAudio(...args);
+      window.__audioEls.push(el);
+      return el;
+    };
   });
 
   try {
@@ -166,6 +178,42 @@ async function main() {
 
     const finalState = await page.evaluate(() => (window.__lastCtx ? window.__lastCtx.state : null));
     check(finalState === 'running', 'AudioContext.state is still "running" after playing a word (got "' + finalState + '")');
+
+    // AUDIO ticket follow-up (GOALS.md, 2026-08-21, iPhone "still silent"
+    // report, part 1 -- one-shot prime bug): the old primeAudioOnce removed
+    // its own listeners after the very first gesture, so if iOS suspended
+    // or interrupted the context later (backgrounding, a phone call, tab
+    // restore), nothing was left to retry resume() on the next gesture.
+    // Simulate that: force the context back to 'suspended', fire another
+    // real gesture, and confirm it recovers -- this would have FAILED
+    // against the old one-shot code (no listener left to catch it).
+    await page.evaluate(async () => { await window.__lastCtx.suspend(); });
+    const stateAfterForcedSuspend = await page.evaluate(() => window.__lastCtx.state);
+    check(stateAfterForcedSuspend === 'suspended', 'test setup: forcibly suspended the context (got "' + stateAfterForcedSuspend + '")');
+    await page.keyboard.press('Shift'); // a real gesture, distinct from any click already used above
+    await page.waitForTimeout(150);
+    const stateAfterReGesture = await page.evaluate(() => window.__lastCtx.state);
+    check(stateAfterReGesture === 'running', 'a LATER gesture (after the context was suspended mid-session) re-resumes it, not just the first-ever gesture (got "' + stateAfterReGesture + '")');
+
+    // AUDIO ticket follow-up, part 2 -- iOS hardware ringer/silent switch:
+    // confirm the silent-looping-<audio> "playback category" element was
+    // actually created and is actively (not just nominally) playing. Can't
+    // verify it changes iOS's real audio routing from headless Linux
+    // Chromium -- only that the mitigation's own mechanics are wired up.
+    const silentAudioInfo = await page.evaluate(() => {
+      const els = window.__audioEls || [];
+      const el = els[els.length - 1];
+      if (!el) return null;
+      return { count: els.length, loop: el.loop, paused: el.paused, volume: el.volume, srcStartsWithWav: el.src.indexOf('data:audio/wav') === 0 };
+    });
+    check(!!silentAudioInfo, 'a silent <audio> element was created via the wrapped Audio() constructor');
+    if (silentAudioInfo) {
+      check(silentAudioInfo.count === 1, 'exactly one silent <audio> element created across all gestures so far, not re-created every time (got ' + silentAudioInfo.count + ')');
+      check(silentAudioInfo.loop === true, 'the silent <audio> element loops (needs to keep "playing" for the duration of the page, not just once)');
+      check(silentAudioInfo.paused === false, 'the silent <audio> element is actively playing, not just constructed (paused=' + silentAudioInfo.paused + ')');
+      check(silentAudioInfo.volume === 1, 'the silent <audio> element is NOT volume-zeroed (that would defeat the "playback category" trick -- it must be a real, if inaudible, playing stream)');
+      check(silentAudioInfo.srcStartsWithWav, 'the silent <audio> element\'s source is an inline WAV data URI (no external asset dependency)');
+    }
   } finally {
     await browser.close();
     server.close();

@@ -4686,7 +4686,7 @@ Rules for the routine:
       Version bumped v0.48 -> v0.49 in wordbound.html (user-facing dictionary
       fix, per GOALS.md's own version-bump rule).
 
-- [ ] BUG, HIGH PRIORITY — audio (Jaxon report, 2026-08-21, iPhone, v0.48 live
+- [x] BUG, HIGH PRIORITY — audio (Jaxon report, 2026-08-21, iPhone, v0.48 live
       site): "I also am not hearing any sound." This is the total-silence
       symptom AGAIN, after the v0.39 fix (AudioContext.resume() on first
       gesture) supposedly closed it — so either a regression or the fix is
