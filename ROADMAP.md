@@ -103,6 +103,32 @@ runs should look at to decide what's next once GOALS.md's queue empties.)
   targets and a simulation requirement is in the queue). The launch-blocking
   gaps that only Jaxon can close (physical-device touch check, feel/fun ear-
   and-hands playtest, the actual itch.io upload) still stand.
+- **IN PROGRESS 2026-08-20/21 -- difficulty rebalance (v0.32 -> v0.33), 3 of
+  4 measurable targets met, 1 left open.** Jaxon authorized a follow-up
+  rebalance after the fun-overhaul passes (monster intents, combo/novelty,
+  2-phase bosses, elite resistance traits) collapsed skilled-play win rate
+  to ~13-17% (from 60% at v0.16) with floor-2 as the wall and bosses
+  over-nerfed. Seven+ rounds of monster/boss/player-HP tuning (see
+  PROGRESS.md for the full trail, ~12 independent balance-simulation
+  samples at n=30-50) landed: win rate back in the 35-50% target band
+  (pooled ~41% across the two largest confirmation samples); the
+  floor-1-must-stay-gentle target met (~11% floor1-regular deaths, within
+  the ticket's own "~10%" tolerance); every boss now a real fight instead
+  of a 0-3% free win (floor1/floor2 bosses meaningfully improved, floor3
+  boss still the weakest of the three but no longer a total non-event).
+  **NOT yet met: floor2's share of deaths staying under ~50% and moving
+  toward floor3 parity** -- it's held in a 55-67% range across every
+  tuning tried, including three direct HP/attack cuts to its strong-tier
+  defs, which are consistently flagged as the hardest content in the game
+  in EVERY sample regardless of what else changed. Read as evidence
+  floor2 is now correctly hard rather than undertuned -- a 4th direct cut
+  risks re-opening the original floor-2 wall this ticket exists to fix.
+  GOALS.md's ticket box is left UNCHECKED pending Jaxon's read on whether
+  the current state (3/4 targets, floor2 the "hard middle floor" by
+  apparent design) is acceptable, or whether floor2 parity needs a
+  different kind of fix than incremental stat tuning (e.g. restructuring
+  which tiers/how many strong-tier fights floor 2 gets, rather than
+  further nerfing the ones it has).
 
 ## Draft store page copy (for Jaxon to review/edit, then paste into itch.io)
 
