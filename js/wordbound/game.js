@@ -2455,10 +2455,25 @@
       var characterDef = Characters.getCharacter(id);
       var button = document.createElement('div');
       button.className = 'character-option';
-      button.innerHTML = '<p class="character-name">' + characterDef.name + '</p>' +
+      // ART ticket (GOALS.md): woodcut portrait, shown LARGE on the
+      // character-select card (js/wordbound/portraits.js svgForCharacter).
+      var charPortraitSvg = Portraits ? Portraits.svgForCharacter(id) : null;
+      var charPortraitHtml = charPortraitSvg
+        ? '<div class="character-portrait-large">' + charPortraitSvg + '</div>'
+        : '';
+      button.innerHTML = charPortraitHtml +
+                         '<p class="character-name">' + characterDef.name + '</p>' +
                          '<p class="character-description">' + characterDef.description + '</p>';
       button.addEventListener('click', function () {
         Game.startRun(id, $('run-seed-input').value);
+        // The character-select screen only gets hidden (not removed) once a
+        // run starts (see show()), and getComputedStyle still resolves
+        // font-size for display:none descendants -- so the OTHER two cards'
+        // portrait glyphs (test/verify-mobile-layout.js's sub-12px sweep
+        // found this) would otherwise sit in the DOM, hidden but still
+        // counted, for the rest of the run. Clear them out; renderCharacterSelect()
+        // rebuilds this container fresh next time the screen is shown anyway.
+        choices.innerHTML = '';
       });
       choices.appendChild(button);
     });
@@ -2471,6 +2486,17 @@
 
   function renderRun() {
     if (document.body) document.body.classList.add('floor-' + state.floorNumber);
+    // ART ticket (GOALS.md): small woodcut character portrait next to the
+    // inkwell, "somewhere meaningful" for the in-run header. The portrait
+    // never changes mid-run, so guard on a data attribute rather than
+    // rebuilding this SVG on every renderRun() call (which runs after nearly
+    // every player action).
+    var charPortraitEl = $('character-portrait-display');
+    if (charPortraitEl && charPortraitEl.getAttribute('data-character-id') !== state.selectedCharacter) {
+      var headerCharSvg = Portraits ? Portraits.svgForCharacter(state.selectedCharacter, { mini: true }) : null;
+      charPortraitEl.innerHTML = headerCharSvg || '';
+      charPortraitEl.setAttribute('data-character-id', state.selectedCharacter || '');
+    }
     $('player-ink-display').textContent = 'Ink ' + state.player.ink + ' / ' + state.player.maxInk;
     $('gold-display').textContent = state.player.gold + ' 🪙';
     var floorName = getFloorName(state.floorNumber);

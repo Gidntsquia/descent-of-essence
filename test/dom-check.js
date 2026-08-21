@@ -775,6 +775,36 @@ async function main() {
     check('portraits: repeated calls for the same defId get distinct internal ids (no defs collision)', hatchIdA !== hatchIdB);
   }
 
+  // ART ticket (GOALS.md), "character portraits, visible somewhere
+  // meaningful": isolated checks against Portraits.svgForCharacter, same
+  // style as the monster-portrait block above. Live-DOM confirmation that
+  // these actually render on the character-select cards and in the run
+  // header is further down, once a run is in progress.
+  {
+    const Portraits = window.Wordbound.Portraits;
+    const Characters = window.Wordbound.Characters;
+    check('portraits: svgForCharacter loaded', typeof Portraits.svgForCharacter === 'function');
+    check('portraits: covers all 3 playable characters', Portraits.COVERED_CHARACTER_IDS.length === 3);
+
+    Portraits.COVERED_CHARACTER_IDS.forEach((characterId) => {
+      const def = Characters.getCharacter(characterId);
+      check('portraits: ' + characterId + ' has a character def', !!def);
+      if (!def) return;
+      const svg = Portraits.svgForCharacter(characterId);
+      check('portraits: ' + characterId + ' svgForCharacter returns markup', typeof svg === 'string' && svg.indexOf('<svg') === 0);
+      check('portraits: ' + characterId + ' carries role="img"', svg.indexOf('role="img"') !== -1);
+      check('portraits: ' + characterId + ' aria-label matches the character name', svg.indexOf('aria-label="' + def.name + '"') !== -1);
+    });
+
+    check('portraits: unknown characterId returns null (no throw)', Portraits.svgForCharacter('not-a-real-character') === null);
+
+    const csvgA = Portraits.svgForCharacter('scribe');
+    const csvgB = Portraits.svgForCharacter('scribe');
+    const chatchIdA = csvgA.match(/id="(hatch-[^"]+)"/)[1];
+    const chatchIdB = csvgB.match(/id="(hatch-[^"]+)"/)[1];
+    check('portraits: repeated calls for the same characterId get distinct internal ids (no defs collision)', chatchIdA !== chatchIdB);
+  }
+
   // Monster intents (GOALS.md "FUN OVERHAUL 2/8"): isolated, deterministic
   // checks of the Intents module's own logic -- same synthetic-setup style
   // as the Foreword/combo blocks above, independent of any run in progress.
@@ -964,11 +994,37 @@ async function main() {
   const screenCharSelect = document.getElementById('screen-character-select');
   check('screen-character-select is not hidden after "New Run" click', screenCharSelect && !screenCharSelect.classList.contains('hidden'));
 
+  // ART ticket (GOALS.md), live-DOM confirmation: each character-select card
+  // actually renders its woodcut portrait (not just that svgForCharacter
+  // works in isolation, checked above).
+  {
+    const Characters = window.Wordbound.Characters;
+    const cards = Array.from(document.querySelectorAll('.character-option'));
+    check('character-select renders one card per character', cards.length === Characters.getCharacterIds().length);
+    Characters.getCharacterIds().forEach((characterId, i) => {
+      const card = cards[i];
+      const portraitEl = card && card.querySelector('.character-portrait-large .portrait-svg');
+      check('character-select (live): ' + characterId + ' card renders a portrait svg', !!portraitEl);
+      check('character-select (live): ' + characterId + ' portrait carries the character\'s aria-label', !!portraitEl && portraitEl.getAttribute('aria-label') === Characters.getCharacter(characterId).name);
+    });
+  }
+
   // Character select screen is now shown; click on the first character option
   const firstCharacter = document.querySelector('.character-option');
   if (firstCharacter) {
     firstCharacter.dispatchEvent(new window.Event('click', { bubbles: true }));
     await new Promise((r) => setTimeout(r, 50));
+  }
+
+  // ART ticket (GOALS.md), live-DOM confirmation: the small run-header
+  // portrait (next to the inkwell) renders for whichever character was
+  // just picked (first in Characters.getCharacterIds() order -- archivist).
+  {
+    const Characters = window.Wordbound.Characters;
+    const pickedId = Characters.getCharacterIds()[0];
+    const headerPortraitEl = document.querySelector('#character-portrait-display .portrait-svg');
+    check('run header (live): character portrait renders next to the inkwell', !!headerPortraitEl);
+    check('run header (live): it carries the picked character\'s aria-label', !!headerPortraitEl && headerPortraitEl.getAttribute('aria-label') === Characters.getCharacter(pickedId).name);
   }
 
   // Verify game-over and victory screens are hidden (should never be visible at this point)

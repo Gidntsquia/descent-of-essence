@@ -31,12 +31,24 @@
 // callers (game.js renderCombat) still fall back to the tier-emoji glyph
 // in that case, so adding a new def later degrades gracefully again.
 //
+// FOLLOW-UP ticket (GOALS.md, "character portraits, visible somewhere
+// meaningful"): svgForCharacter() below reuses this same frame/defs/palette
+// vocabulary for the three playable Characters.CHARACTER_DEFS (archivist,
+// scribe, keeper), shown LARGE on the character-select cards and small next
+// to the inkwell in the run header (see game.js renderCharacterSelect()/
+// renderRun()). Each of the per-uid <defs> is scoped (see nextUid), which is
+// exactly the "may show several simultaneously" case this file's original
+// comment anticipated -- the select screen renders all three at once.
+//
 // PUBLIC API (window.Wordbound.Portraits):
 //   svgFor(defId) -> full <svg>...</svg> markup string (role="img",
 //     aria-label = the monster's display name, viewBox 0 0 120 120 so it
 //     scales responsively via CSS width:100%), or null if defId has no
 //     def (unknown id) or no builder yet (not this run's batch).
 //   COVERED_IDS -> array of defIds this build has a portrait for (test hook).
+//   svgForCharacter(characterId) -> same shape as svgFor, for the three
+//     playable characters; null for an unknown characterId.
+//   COVERED_CHARACTER_IDS -> array of characterIds with a portrait (test hook).
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -365,6 +377,114 @@
       '<line x1="-24" y1="-2" x2="-12" y2="6" stroke="' + INK_2 + '" stroke-width="1" opacity="0.6"/>' +
       glyph(16, 4, '-OUS', { size: 8, fill: INK_1, opacity: 0.85 });
   }
+
+  // ---- character portraits (ART ticket, GOALS.md: "character portraits,
+  // visible somewhere meaningful") -----------------------------------------
+  // Same shared vocabulary (frame/defs/palette) as the monster plates above,
+  // but for the three playable Characters.CHARACTER_DEFS. Shown LARGE on the
+  // character-select cards and small in the run header (see game.js).
+
+  function robeSilhouette(uid, tiltX) {
+    // Shared base pose for all three: hood + robe outline, a plain face oval
+    // with two eye dots. `tiltX` leans the whole head/robe sideways (used by
+    // the hunched Scribe) -- every other prop below is drawn in the same
+    // local coordinate space so it still lines up with the tilted hood.
+    var t = tiltX || 0;
+    return '' +
+      '<path d="M ' + t + ' -34 Q -21 -30 -23 -4 Q -25 24 -17 36 L 17 36 Q 25 24 23 -4 Q 21 -30 ' + t + ' -34 Z" ' +
+      'fill="url(#hatch-' + uid + ')" stroke="' + INK_1 + '" stroke-width="2.5"/>' +
+      '<path d="M ' + (t - 9) + ' -20 Q ' + t + ' -26 ' + (t + 9) + ' -20 Q ' + (t + 10) + ' -10 ' + t + ' -8 Q ' + (t - 10) + ' -10 ' + (t - 9) + ' -20 Z" ' +
+      'fill="' + PLATE_BG + '" stroke="' + INK_1 + '" stroke-width="1.6"/>' +
+      '<circle cx="' + (t - 3) + '" cy="-16" r="1.3" fill="' + INK_1 + '"/><circle cx="' + (t + 3) + '" cy="-16" r="1.3" fill="' + INK_1 + '"/>';
+  }
+
+  function archivistInner(uid) {
+    // "A balanced approach. Steady hand, versatile toolkit." -- no rare-
+    // letter or vowel bias to lean on visually (that's the Scribe/Keeper's
+    // trick), so this one reads through pose alone: upright, both hands
+    // level on an open ledger.
+    return robeSilhouette(uid, 0) +
+      '<path d="M -22 6 L -8 2 L -8 20 L -22 24 Z" fill="' + PLATE_BG + '" stroke="' + INK_1 + '" stroke-width="1.6"/>' +
+      '<path d="M 22 6 L 8 2 L 8 20 L 22 24 Z" fill="' + PLATE_BG + '" stroke="' + INK_1 + '" stroke-width="1.6"/>' +
+      '<line x1="-8" y1="2" x2="8" y2="2" stroke="' + INK_1 + '" stroke-width="1.6"/>' +
+      '<line x1="-18" y1="10" x2="-10" y2="8" stroke="' + INK_2 + '" stroke-width="0.8" opacity="0.6"/>' +
+      '<line x1="-18" y1="16" x2="-10" y2="14" stroke="' + INK_2 + '" stroke-width="0.8" opacity="0.6"/>' +
+      '<line x1="18" y1="10" x2="10" y2="8" stroke="' + INK_2 + '" stroke-width="0.8" opacity="0.6"/>' +
+      '<line x1="18" y1="16" x2="10" y2="14" stroke="' + INK_2 + '" stroke-width="0.8" opacity="0.6"/>' +
+      '<path d="M -16 -30 L -20 -34 M 16 -30 L 20 -34" stroke="' + INK_1 + '" stroke-width="1.4" fill="none"/>';
+  }
+
+  function scribeInner(uid, mini) {
+    // "High-risk, high-reward. Powerful consonants, fewer vowels" -- a
+    // hunched figure scratching fast, ink flying, the deck's signature rare
+    // letters (X, Z, K, B; see characters.js deckLetters) scattered around
+    // like sparks off the nib rather than drawn on a prop. `mini` (the
+    // run-header-sized rendering, see svgForCharacter) drops the letter
+    // glyphs: at ~34px they'd render far below any legible size anyway, and
+    // test/verify-mobile-layout.js's sub-12px legibility sweep (correctly)
+    // can't distinguish "decorative icon glyph" from real UI copy, so the
+    // large select-card portrait keeps them and the tiny header one doesn't.
+    var drips = [[-26, 22, 0.6], [20, 28, 0.5], [30, 6, 0.7]].map(function (p) {
+      return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="1.6" fill="' + INK_2 + '" opacity="' + p[2] + '"/>';
+    }).join('');
+    var glyphs = mini ? '' :
+      glyph(-30, -18, 'X', { size: 9, fill: INK_2, opacity: 0.75 }) +
+      glyph(28, 14, 'Z', { size: 9, fill: INK_2, opacity: 0.7 }) +
+      glyph(-6, -32, 'K', { size: 8, fill: INK_2, opacity: 0.6 }) +
+      glyph(14, -30, 'B', { size: 8, fill: INK_2, opacity: 0.55 });
+    return robeSilhouette(uid, 6) +
+      '<path d="M 18 4 L 32 -10" stroke="' + INK_1 + '" stroke-width="2.2" stroke-linecap="round"/>' +
+      '<path d="M 30 -12 L 38 -22 L 32 -10 Z" fill="' + INK_1 + '"/>' +
+      '<path d="M 30 -12 L 44 -20" stroke="' + INK_2 + '" stroke-width="0.9" opacity="0.6"/>' +
+      drips + glyphs;
+  }
+
+  function keeperInner(uid, mini) {
+    // "Defensive specialist. Vowel-rich deck, guaranteed consistency" --
+    // upright and steady, a round ledger-shield held at chest height with
+    // each of the five vowels ringed around its rim like a ward. `mini`
+    // drops the ring glyphs -- see scribeInner's comment above for why.
+    var ring = '';
+    if (!mini) {
+      var vowels = ['A', 'E', 'I', 'O', 'U'];
+      ring = vowels.map(function (ch, i) {
+        var ang = (-90 + i * 72) * Math.PI / 180;
+        var x = Math.round(Math.cos(ang) * 150) / 10;
+        var y = Math.round((8 + Math.sin(ang) * 15) * 10) / 10;
+        return glyph(x, y, ch, { size: 7, fill: INK_1, opacity: 0.85 });
+      }).join('');
+    }
+    return robeSilhouette(uid, 0) +
+      '<circle cx="0" cy="8" r="17" fill="url(#hatchfine-' + uid + ')" stroke="' + INK_1 + '" stroke-width="2.4"/>' +
+      '<circle cx="0" cy="8" r="17" fill="none" stroke="' + INK_1 + '" stroke-width="1" opacity="0.5"/>' +
+      ring +
+      '<circle cx="0" cy="8" r="3" fill="' + INK_1 + '"/>';
+  }
+
+  var CHARACTER_BUILDERS = {
+    archivist: archivistInner,
+    scribe: scribeInner,
+    keeper: keeperInner
+  };
+  Portraits.COVERED_CHARACTER_IDS = Object.keys(CHARACTER_BUILDERS);
+
+  Portraits.svgForCharacter = function (characterId, opts) {
+    var Characters = window.Wordbound && window.Wordbound.Characters;
+    if (!Characters) return null;
+    var def = Characters.getCharacter(characterId);
+    var builder = CHARACTER_BUILDERS[characterId];
+    if (!def || !builder) return null;
+    var mini = !!(opts && opts.mini);
+    var uid = nextUid('char-' + characterId);
+    var inner = builder(uid, mini);
+    return '' +
+      '<svg viewBox="0 0 120 120" class="portrait-svg character-portrait-svg" ' +
+      'role="img" aria-label="' + esc(def.name) + '" xmlns="http://www.w3.org/2000/svg">' +
+      defs(uid) +
+      frame(uid, false) +
+      '<g transform="translate(60,64)" aria-hidden="true" focusable="false">' + inner + '</g>' +
+      '</svg>';
+  };
 
   var PORTRAIT_BUILDERS = {
     slime: slimeInner,

@@ -4470,7 +4470,7 @@ Rules for the routine:
       PROGRESS.md for verification detail and the screenshot pass; flagged
       for Jaxon's aesthetic playtest per the ticket's own wording.
 
-- [ ] ART (Jaxon request; same woodcut style): character portraits, visible
+- [x] ART (Jaxon request; same woodcut style): character portraits, visible
       somewhere meaningful. Each playable character gets a woodcut portrait
       (same shared SVG vocabulary as the monster plates): shown LARGE on
       the character-select cards, and small in-run (in/near the run header,
@@ -4482,6 +4482,23 @@ Rules for the routine:
       Playwright check at ~600px (the header's historic weak spot),
       `npm run test:qa`. Minor bump (can share it with the monster-art
       completion if they land together).
+      **DONE 2026-08-21 (v0.44 -> v0.45):** all 3 playable characters
+      (archivist, scribe, keeper) now have a woodcut portrait via
+      `Portraits.svgForCharacter()` in js/wordbound/portraits.js, reusing the
+      monster tickets's exact frame/defs/palette vocabulary. LARGE version
+      (min(96px, 26vw)) shown on each character-select card; a small
+      34x34px version sits next to the inkwell in the run header via a new
+      `#character-portrait-display` element, filled once per run (guarded
+      on a data-character-id attribute, not rebuilt every renderRun() call).
+      Each portrait reads through pose + a character-specific prop rather
+      than hand-traced detail: Archivist (balanced, no letter/vowel bias)
+      holds a book level in both hands; Scribe (vowel-poor, rare-consonant-
+      heavy deck) is hunched over a quill with its signature X/Z/K/B
+      scattered around; Keeper (vowel-rich, defensive) holds a round
+      ledger-shield ringed with A/E/I/O/U. See PROGRESS.md for full detail,
+      including a real regression this run found and fixed (not just the
+      finished result) -- worth reading before touching this file's mini-
+      portrait or character-select code again.
 
 - [ ] VISUAL (Jaxon request): opening-screen glow-up -- the main menu
       should SET THE SCENE and sell the theme in the first three seconds.

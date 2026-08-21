@@ -12465,3 +12465,138 @@ with this ticket's completion if they land together, but that didn't
 happen this run since this ticket's own completion was already a full
 run's worth of work. After that: opening-screen glow-up, run-variety
 levers, and the ink-era item batch, in that GOALS.md order.
+
+---
+
+**2026-08-21T10:35Z -- ART ticket done: character portraits (v0.44 -> v0.45), GOALS.md box checked, ticket closed.**
+
+Took the next queued GOALS.md item: woodcut portraits for the three playable
+characters (archivist, scribe, keeper), reusing the exact shared vocabulary
+(frame/defs/palette helpers) the monster-portrait ticket built in
+`js/wordbound/portraits.js`. Confirmed the INK ticket referenced by this
+one's own wording ("next to the inkwell once the INK ticket lands") was
+already done (checked box, `#player-ink-display` exists) before starting.
+
+**What I built:**
+- `Portraits.svgForCharacter(characterId, opts)` in portraits.js: a new
+  `robeSilhouette(uid, tiltX)` shared base (hood/robe outline + face) plus
+  three per-character builders that each read through pose + one prop
+  rather than fine detail, matching each character's actual mechanical
+  identity (characters.js `deckLetters`/description), not just a generic
+  robed figure three times:
+  - **Archivist** ("balanced... versatile toolkit"): upright, both hands
+    level on an open book. No letter/vowel bias to draw on -- the only one
+    of the three with zero text glyphs.
+  - **Scribe** ("high-risk... powerful consonants, fewer vowels"): hunched
+    over a raised quill with ink drips, its deck's actual rare letters
+    (X, Z, K, B -- read straight from `Characters.CHARACTER_DEFS.scribe.
+    deckLetters`) scattered around like sparks off the nib.
+  - **Keeper** ("defensive... vowel-rich deck"): upright, holding a round
+    ledger-shield with all five vowels ringed around its rim like a ward.
+  `COVERED_CHARACTER_IDS` (test hook) + null-for-unknown-id, same contract
+  shape as the existing `svgFor`/`COVERED_IDS` for monsters.
+- `js/wordbound/game.js` `renderCharacterSelect()`: each `.character-option`
+  card now gets a `.character-portrait-large` div (LARGE, per the ticket)
+  ahead of the name/description text.
+  `renderRun()`: a new `#character-portrait-display` element (added to
+  `wordbound.html`'s `.run-header`, immediately before `#player-ink-display`
+  -- "next to the inkwell" per the ticket) gets filled once per run, guarded
+  on a `data-character-id` attribute so it isn't rebuilt on every
+  `renderRun()` call (which fires after nearly every player action).
+- CSS: `.character-portrait-large` sized `min(96px, 26vw)` (same
+  relative-unit approach as `.monster-portrait`, so it can't force
+  `.character-select-panel` wider than its parent at any viewport);
+  `.character-portrait-mini` fixed at 34x34px in the run header (a tight
+  single-row layout, not a place to grow on wide viewports) with an
+  `:empty` rule so it takes no header space before a run starts.
+
+**A real regression this run found and fixed, not just the finished
+result** (per this repo's own standing rule that code review isn't enough --
+the 2026-08-19 postmortem this file's rules section is built around):
+first pass of `npm run test:mobile` came back with 9-12 "text elements
+< 12px" warnings on node-map/combat/tile-reward/game-over screens that the
+pre-change baseline (verified via `git stash` + 3 repeat runs) never showed.
+Root-caused in two layers, both real, not one:
+1. The 34px run-header mini-portrait's own letter glyphs (Scribe's X/Z/K/B,
+   Keeper's vowel ring) would render far below any legible size at that
+   icon footprint regardless of this test -- so `svgForCharacter()` grew a
+   `mini` option that the two character builders check to skip their own
+   `glyph()` calls entirely when true; `renderRun()` now passes
+   `{ mini: true }`. Verified via `npm test`'s isolated `Portraits.
+   svgForCharacter` checks plus a real-browser screenshot of the mini
+   scribe portrait (silhouette + quill only, no letters -- see below).
+2. Even after (1), warnings persisted -- traced with a one-off debug
+   Playwright script (deleted after use, confirmed via `git status` before
+   commit) that dumped every flagged element: they were the OTHER two
+   characters' full-detail portraits (7-9px glyphs), not the mini one.
+   `show()` only toggles a `.hidden` class on `#screen-character-select`
+   when a run starts -- it never clears `#character-choices` -- and
+   `getComputedStyle().fontSize` still resolves for `display:none`
+   descendants (font-size doesn't require a layout box), so those two
+   hidden-but-present cards' small glyphs kept getting counted by the
+   legibility sweep for the rest of the run, on every subsequent screen.
+   Fixed by clearing `choices.innerHTML = ''` in the character-option click
+   handler right after `Game.startRun()` fires -- `renderCharacterSelect()`
+   already rebuilds this container fresh every time the screen is shown, so
+   there's no behavior change, just no more stale hidden markup. Confirmed
+   with 10+ repeat `npm run test:mobile` runs after the fix: remaining
+   occasional 1-2 warnings match the SAME baseline variance the unmodified
+   code already showed (random-run content, e.g. an incidental small text
+   element elsewhere) -- not a new regression.
+
+**Verification actually done:**
+- `npm test`: clean. Added isolated checks mirroring the monster-portrait
+  block (`svgForCharacter` returns markup/role=img/matching aria-label for
+  all 3 IDs, null for an unknown ID, distinct internal defs ids across
+  repeated calls) plus live-DOM checks (all 3 character-select cards render
+  a real portrait with the right aria-label; the run-header mini portrait
+  renders for the picked character after starting a run).
+  **Flakiness note, unrelated to this ticket:** while repeat-running `npm
+  test` to build confidence on the mobile-test fix, hit one run (out of
+  ~20 total across this session) where 5 unrelated checks failed together
+  (gamble/wager forfeit, a magnificent-gold bonus check, a combo-chip
+  check, an audio-defeat check -- nothing touching characters/portraits).
+  Re-ran baseline (pre-my-changes, via `git stash`) 6x clean and my changes
+  9 more times clean after that one failure, so this reads as pre-existing,
+  low-rate flakiness in dom-check.js's own scenario setup (likely an
+  unseeded random word/rack draw somewhere in one of those blocks that
+  occasionally can't form the exact word a later check needs), NOT
+  something this ticket's changes caused -- but flagging it here since I
+  didn't chase down the exact root cause (out of scope for this ticket) and
+  the next run touching those systems should know it's not unheard of for
+  one `npm test` run in ~20 to fail on something unrelated to what changed.
+- `npm run test:mobile`: clean after the fix above (see regression writeup).
+- `npm run test:run-header` (the dedicated 481-780px regression check,
+  which is stronger than the ticket's own "manual Playwright check at
+  ~600px" ask): zero overflow across all 10 measured widths (375-1280px),
+  confirming the historic run-header weak spot still holds with the new
+  mini-portrait element added to that row.
+- `npm run test:qa`: clean, real headless Chromium, zero console/page
+  errors across the full boss-reward flow.
+- **Visually confirmed, not just test-passed:** a one-off Playwright
+  script (deleted after use, confirmed via `git status` before commit)
+  screenshotted the character-select screen and each portrait at 4x device
+  scale. All 3 read as intended: Archivist a robed figure holding a book
+  level in both hands; Scribe hunched with a raised quill, ink drips, and
+  X/K/B/Z legibly placed around it; Keeper holding a ringed vowel-shield.
+  Also confirmed the mini run-header portrait renders correctly (silhouette
+  only, no glyphs) next to the inkwell, and dumped the raw SVG markup for
+  the Keeper to confirm the vowel-ring coordinates are placed correctly
+  (A/E/I/O/U each at its own 72°-spaced angle) after a screenshot crop made
+  two of the glyphs look misaligned at a glance -- that was a rendering-
+  scale illusion, not a real bug; the markup itself is correct.
+
+**NOT independently verified:** audio (untouched by this change). A real
+physical device/browser and aesthetic judgment on the art itself are both
+still Jaxon's per this ticket's own wording and ROADMAP.md's standing note --
+flagging all 3 character portraits (plus the existing 15 monster portraits)
+together for his playtest.
+
+**State:** working tree clean (debug/scratch scripts removed before commit,
+confirmed via `git status`), `wordbound.html` now v0.45. Both games fully
+playable; character-select cards and the in-run header now show real
+woodcut portraits instead of plain text-only cards. **Next run:** GOALS.md's
+next unchecked item is the opening-screen glow-up VISUAL ticket (main-menu
+"set the scene" pass -- title treatment, deepened Archive backdrop,
+restyled buttons, scene-setting blurb). After that: run-variety design
+levers, then the ink-era item batch, in that GOALS.md order.
