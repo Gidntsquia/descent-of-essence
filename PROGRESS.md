@@ -14173,3 +14173,128 @@ bonus, inserted before item 7). Pick up item 2/7 next (DESIGN: remove the
 combo mechanic entirely) -- item 1/7's removal here didn't touch combo
 state/damage/UI at all, so item 2/7 is still fully open and unaffected by
 this run's changes.
+
+## 2026-08-21T20:17Z -- desktop-playtest batch item 2/7 closed: combo mechanic removed entirely (v0.54 -> v0.55)
+
+**The ticket:** remove the consecutive-distinct-word combo streak bonus
+(+12%/stack, capped at 5 stacks/+60% damage) entirely -- state, damage math,
+UI, everything -- per Jaxon's desktop playtest feedback.
+
+**Scoping call, documented per the ticket's own "judgment call" allowance:**
+combat.js's old `comboState` object bundled TWO distinct mechanics into one
+`{ combo, usedWords }` shape: (1) the combo streak multiplier (what the
+ticket targets), and (2) a separately-named "word novelty" repeat-word
+penalty (x0.4 damage for replaying an already-used word this fight, GOALS.md
+"FUN OVERHAUL 1/8"). The ticket's title and body say "the combo mechanic,"
+never "word novelty" or "repeat penalty" -- and now that item 2/7 is closed,
+word length is meant to become "THE skill-expression damage lever" per the
+very next queued ticket (the BALANCE follow-up on longer-word damage
+bonuses), which reads as replacing combo's role, not the repeat-word
+penalty's. Kept the repeat-word penalty; removed only the streak bonus.
+Renamed the shared tracking object `comboState` -> `wordHistory`
+(`{ usedWords }`, the `combo` counter field is gone) everywhere it's
+threaded through -- combat.js's `playWord`/`previewWord` 4th param, game.js's
+`state.comboState` -> `state.wordHistory`, and the two balance/QA bot
+scripts that read it.
+
+**What changed:**
+- `js/wordbound/combat.js`: removed `COMBO_BONUS_PER_STACK` (0.12),
+  `COMBO_MAX_STACKS` (5), the `comboAtPlay`/`comboMultiplier` computation,
+  and both fields from `playWord`'s/`previewWord`'s return objects. Damage is
+  now `round(score.total * holdMult * traitMultiplier)`, repeat-penalized by
+  x0.4 same as before, with no streak multiplier folded in first. 4th param
+  renamed `comboState` -> `wordHistory`; header doc comment rewritten to
+  match (return shape, param semantics).
+- `js/wordbound/game.js`: `state.comboState` -> `state.wordHistory` (reset in
+  `startCombat` same as before); removed `state.comboBumped` entirely (it
+  only existed to re-pop the now-deleted combo chip). Removed the "Combo
+  x2! +24% damage." log line (the plain isRepeat log line "The Archive has
+  heard that one before." is untouched). `playCombatSound` lost its
+  `comboLevel` param and the combo-stack pitch-rise (`pitchMult`, up to
+  +40%) on all three hit-tone branches -- tones are now flat pitch,
+  differentiated only by damage-based intensity/duration same as before.
+  `renderCombat`'s combo-chip HTML block (streak count + bonus % display,
+  bump-class one-shot) deleted from the monster-info template.
+  `updateDamagePreview`'s `Combat.previewWord` call passes `state.wordHistory`.
+- `css/wordbound.css`: deleted the `.combo-chip` block wholesale (both
+  `comboPop`/`comboBump` `@keyframes` and the reduced-motion-gated bump
+  rule) -- nothing else referenced those keyframes.
+- `wordbound.html`: version bump only (v0.54 -> v0.55, "Minor bump" per the
+  ticket).
+
+**The "at least ONE item in items.js keys off combos" claim:** grepped
+items.js, traits.js, achievements.js, events.js, consumables.js for any
+mechanical dependency on combo state (not just the word "combo" appearing in
+prose) and found none -- no item reads `comboAtPlay`, `comboMultiplier`, or
+even `isRepeat`/`previousWord`/`wordsPlayedThisFight` in a combo-specific
+way (those three are the separate sequence-tracking fields FUN OVERHAUL 4/8
+items like Illuminated Initial/Gilded Bookmark actually use, unrelated to
+combo). Only a single comment in items.js's header doc mentions
+"combo/novelty" as a distinguishing aside. Concluded the ticket's premise
+didn't hold for the current codebase (possibly stale from an earlier draft,
+or an item that got cut in a prior balance pass) -- nothing to retire or
+convert, documented here rather than silently ignored.
+
+**Tests updated:** `test/dom-check.js`'s isolated combo-math block
+(playWord'd CAT/DOG/PIG/CAT-repeat against a synthetic rack) rewritten to
+prove the NEW behavior -- three distinct words each deal plain
+`score.total` damage with no streak bonus (`comboAtPlay`/`comboMultiplier`
+are `undefined` on the result), and only the repeated 4th word eats the x0.4
+penalty. The staged-preview anti-drift block's "(b)" case (previously
+"combo-active state, comboAtPlay 2") repurposed into "pre-existing word
+history, previewing doesn't mutate it" -- still proves the same
+non-mutation contract, just without a combo field to assert on. The
+MAGNIFICENT-bonus-gold live-DOM check dropped its paired
+`.combo-chip.combo-chip-bump` assertion (the element no longer exists).
+`test/balance-simulation.js`'s `predictComboDamage` -> `predictNoveltyDamage`
+(drops the combo-multiplier term, keeps the repeat-penalty term) and its
+`state.comboState` read -> `state.wordHistory`, so the "best" bot's damage
+predictions stay accurate to the real (now combo-less) game.
+`test/orchestrator-qa-boss-reward.js`'s word-choice bot updated the same way
+(`Game._state.comboState.usedWords` -> `Game._state.wordHistory.usedWords`).
+Swept `traits.js`/`achievements.js`/`events.js`/`consumables.js`/
+`characters.js`/`monsters.js`/`tiles.js`/`intents.js`/`floor.js`/
+`lexicon.js`/`test/simulate.js` -- zero combo references in any of them, so
+nothing to change there.
+
+**Verification:**
+- `npm test`: full suite green, "ALL CHECKS PASSED", zero SKIPs, including
+  the rewritten word-novelty and staged-preview blocks.
+- `grep -rn combo` across every `.js`/`.css`/`.html` file (excluding
+  GOALS.md/PROGRESS.md, which are meant to keep the historical record):
+  every remaining hit is a comment or a test-assertion label string
+  describing what's being proven (e.g. "carries no combo field") -- zero
+  live functional references. Matches the ticket's VERIFY clause.
+- Balance sim, `node test/balance-simulation.js 50` (n=50, matching the
+  ticket's own instruction): **`best` strategy 23/50 = 46% win rate**,
+  comfortably inside the (already-widened, see ROADMAP.md's 2026-08-21
+  entry) 25-50% band -- no retune needed or performed, per the ticket's "do
+  NOT retune" instruction even if it had drifted. `first` strategy 0/50 =
+  0%, matching the historical baseline for that unskilled-play bot (see
+  PROGRESS.md's many prior samples) -- not a regression signal. Full
+  per-monster/outlier breakdown in
+  `test/balance-simulation-results.json` and this run's own terminal
+  output; nothing flagged as a new statistical outlier beyond the
+  already-known floor-2-is-hardest pattern.
+
+**What's confirmed vs. not:** the damage math, state removal, and UI/CSS
+removal are all confirmed via `npm test` (jsdom, including a live-DOM combat
+fight that exercises `renderCombat`'s new monster-info template) and the
+balance sim (which drives the real `Combat.playWord` through a full run).
+Not separately re-verified in a real browser beyond what `npm test` already
+covers in jsdom -- this ticket didn't touch drag/audio-specific code paths
+(the `playCombatSound` pitch simplification is a pure synth-parameter change
+with no new branch logic, low risk, but genuinely unverified by ear since
+this sandbox has no Web Audio playback).
+
+**Version:** v0.54 -> v0.55 in `wordbound.html` ("Minor bump" per the
+ticket).
+
+**GOALS.md box checked `[x]`.**
+
+**Next run:** GOALS.md's queue has 4 unchecked items left from Jaxon's 7-item
+desktop-playtest batch (items 3, 4, 5, 6) plus the two BALANCE follow-up
+tickets filed mid-batch (Rewrite cost -> 1 Ink; steeper long-word damage
+curve) and item 7 (DO LAST). Pick up item 3/7 next (UX: hide the mid-screen
+message log behind `?debug=1`) -- straightforward, no dependency on this
+run's changes.

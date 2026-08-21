@@ -4821,7 +4821,7 @@ Rules for the routine:
       Playwright pass playing a word tiles-only on desktop viewport.
       Minor bump.
 
-- [ ] DESIGN (Jaxon batch, item 2/7): REMOVE the combo mechanic entirely —
+- [x] DESIGN (Jaxon batch, item 2/7): REMOVE the combo mechanic entirely —
       state, damage math, UI display, everything. It's referenced ~31x in
       combat.js, ~27x in game.js, and at least ONE item in items.js keys off
       combos — retire or convert that item (judgment call, document it).
