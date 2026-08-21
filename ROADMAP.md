@@ -191,7 +191,7 @@ trait design, which was deliberately retired in the 2026-08-19/20 balance passes
 Store copy must describe the shipped game; re-check this paragraph against
 js/wordbound/traits.js and monsters.js if the trait design changes again.)
 >
-> - Full English dictionary (200k+ words) -- if it's a real word, it works
+> - Full English dictionary (500,000+ words) -- if it's a real word, it works
 > - Persistent deck-building across a run, Slay the Spire-style
 > - Every monster has a weakness rooted in how words actually work
 > - Free to play in browser, no download
