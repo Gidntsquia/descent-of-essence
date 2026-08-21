@@ -14566,3 +14566,85 @@ two mid-batch BALANCE follow-ups filed 2026-08-21 (Rewrite cost -> 1 Ink;
 steeper long-word damage curve), then item 7/7 (one-screen layout,
 explicitly last, depends on items 1-5 shrinking the UI -- items 1-4 and now
 5 are done).
+
+## 2026-08-21T23:47Z -- item 6/7 closed: fresh runs now start with 20 gold (v0.58 -> v0.59)
+
+**The ticket:** start the player with enough gold to buy something at an
+early shop. Find the cheapest floor-1 shop price bracket, set starting gold
+to comfortably cover it, document the number and the price it enables,
+update the balance sim if it models gold, report the n=50 win rate.
+
+**Investigation:** shops are not floor-gated in this game -- `rollShopOptions`
+(`js/wordbound/game.js`) draws from the full item pool plus the full
+consumable pool on every floor, with one slot always pinned to a consumable
+(comment at game.js:442-446). The cheapest thing any shop can ever offer is
+the Errata Slip consumable at **15 gold** (`consumables.js`); the cheapest
+permanent item is Lucky Vowel at **20 gold** (`items.js`). Every other
+shop-purchasable price is >=25. Before this fix, `newPlayer()`
+(game.js:176-185) hard-coded `gold: 0`, so a player who hit a shop before
+their first kill (a real possibility -- node order is randomized) saw a
+screen of things they could not afford no matter how cheap.
+
+**The fix:** `js/wordbound/game.js` -- added a documented `STARTING_GOLD = 20`
+constant just above `newPlayer()` and set `player.gold` from it instead of
+the literal `0`. 20 gold comfortably covers the 15-gold Errata Slip (5 to
+spare) and exactly covers the 20-gold Lucky Vowel, so an early shop always
+has at least one real option, without approaching the game's normal 25-65
+gold price tier (which stays something to earn through combat, not start
+with).
+
+**Balance sim:** `test/balance-simulation.js` already models gold end-to-end
+(the bot buys anything affordable, once each, at every shop it reaches --
+see the file's own comment at line 250) and reads `state.player.gold` from
+the real `newPlayer()`, so no sim code changes were needed -- the new
+starting gold flows through automatically. Ran two independent `node
+test/balance-simulation.js 50` samples (n=50 each, matching the ticket's own
+instruction):
+- Sample 1: **26/50 = 52%** (`best` strategy) -- 2 points above the
+  documented 25-50% band's upper edge.
+- Sample 2: **22/50 = 44%** -- comfortably inside the band.
+- Pooled across both samples: 48/100 = 48%, inside the band.
+
+Per ROADMAP.md's 2026-08-21 entry, this exact sim's single-sample noise at
+n=50 has previously been measured swinging across a much wider range
+(22%-63%) on **identical code**, specifically because of this variance the
+accepted band was already widened from 35-50% to 25-50%. A 20-gold economy
+tweak (one extra early purchase, at most) is a small enough lever that a
+lone 52% reading 2 points over the ceiling, immediately followed by a 44%
+reading well inside it on a second independent sample, reads as exactly
+that expected sampling noise, not a real regression -- consistent with the
+most recent pre-change baseline of 46% (23/50, logged in this file's
+2026-08-21T20:22Z-ish entry for the combo-removal ticket, same harness). No
+retune performed; `first` strategy stayed at 0/50 (0%) in both samples,
+matching its long-established unskilled-play baseline.
+
+**New test coverage:** added one assertion to `test/dom-check.js` (right
+after a fresh run starts and the first node is entered, before any combat
+resolves) asserting `state.player.gold === 20` on a brand-new run -- the
+ticket's own "a fresh run starts with the chosen gold amount" VERIFY
+clause.
+
+**Verification:**
+- `npm test`: full suite green, "ALL CHECKS PASSED", zero SKIPs, including
+  the new starting-gold assertion.
+- Did not touch any audio- or drag-related code, so no unverified-audio
+  caveat applies.
+- Did not touch CSS/layout, so `test:mobile`/`test:desktop` were not run
+  (not required by this ticket).
+
+**Version:** v0.58 -> v0.59 in `wordbound.html` ("Minor bump, can share the
+batch's" per the ticket).
+
+**GOALS.md box checked `[x]`.**
+
+**Next run:** two BALANCE follow-up tickets filed 2026-08-21 remain before
+item 7/7 (one-screen layout, explicitly last): (1) steeper long-word damage
+curve (`js/wordbound/lexicon.js:128`'s `lengthBonus` formula needs a
+superlinear curve for lengths 5-10, with a new documented table and unit
+assertions at lengths 5/6/7/8, plus an n=50 sim run), and (2) Rewrite cost
+2->1 Ink (`js/wordbound/combat.js:76`'s `REWRITE_INK_COST`, a non-negotiable
+Jaxon directive, with a judgment call needed on how Steady Transcription's
+`rewriteCostReduction: 1` interacts with the new floor -- floor at 1 and
+rework the item, or let Rewrite go free -- document the choice and why).
+Either is a reasonable next pick; neither depends on the other or on this
+run's change.

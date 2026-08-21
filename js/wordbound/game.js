@@ -173,9 +173,21 @@
   // over the original 20 instead of +20%) targets the actual remaining
   // problem (overall win rate too high) without concentrating more
   // difficulty onto any single floor.
+  // BALANCE ticket (GOALS.md, Jaxon batch item 6/7): players used to start
+  // every run at 0 gold, so the FIRST shop they hit was always a look-but-
+  // can't-buy screen no matter how cheap the offer -- gold only exists to be
+  // earned in combat first. The cheapest thing a shop can ever offer is the
+  // Errata Slip consumable at 15 gold (consumables.js); the cheapest
+  // permanent item is Lucky Vowel at 20 (items.js). 20 was chosen to
+  // comfortably cover the Errata Slip (5 to spare) AND exactly cover Lucky
+  // Vowel, so an early shop -- even one hit before a single fight -- always
+  // has at least one real option on the table, without handing out enough
+  // to trivialize the shop's normal 25-65 gold tier.
+  var STARTING_GOLD = 20;
+
   function newPlayer(characterDef) {
     var player = {
-      ink: 22, maxInk: 22, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
+      ink: 22, maxInk: 22, gold: STARTING_GOLD, rack: [], items: [], consumables: [], usedSecondWind: false,
       bonusDamageUntilEndOfTurn: 0, skipDiscardNextTurn: false, bonusTilesToDraw: 0
     };
     if (characterDef && characterDef.startingItems) {

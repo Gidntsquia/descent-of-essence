@@ -4858,7 +4858,7 @@ Rules for the routine:
       (assert it in a quick script and say the max you shipped). Minor bump
       (can share the batch's).
 
-- [ ] BALANCE (Jaxon batch, item 6/7): START the player with enough gold to
+- [x] BALANCE (Jaxon batch, item 6/7): START the player with enough gold to
       buy something at an early shop. Find the cheapest floor-1 shop price
       bracket and set starting gold to comfortably cover the cheapest tier
       (judgment call on exact number — document it and the price it

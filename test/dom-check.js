@@ -1193,6 +1193,13 @@ async function main() {
   check('combat is active after entering a combat node', state.combatActive === true);
   check('rack has tiles', state.player.rack.length > 0);
 
+  // BALANCE ticket (GOALS.md, Jaxon batch item 6/7): a fresh run must start
+  // with enough gold to comfortably afford the cheapest shop-purchasable
+  // item (Errata Slip, 15 gold) before any combat gold has been earned --
+  // checked here, right after the run starts and before the first fight
+  // resolves, so no kill/event gold has touched state.player.gold yet.
+  check('fresh run starts with the chosen starting gold (20)', state.player.gold === 20);
+
   // UX ticket (GOALS.md 2026-08-21 batch item 1/7): word-building is
   // click/tap-tiles-only now -- #word-input is gone from the DOM entirely.
   // This helper drives the real rack tile buttons (and, for blanks, the real
