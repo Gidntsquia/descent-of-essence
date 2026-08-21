@@ -19,6 +19,15 @@
   var Achievements = (window.Wordbound.Achievements = {});
 
   var STORAGE_KEY = 'wordbound_achievements_v1';
+  // DESIGN/BALANCE ticket (GOALS.md, Jaxon directive 2026-08-21): first-run
+  // unlock gate for Overcharge/Rewrite. Separate key from STORAGE_KEY above
+  // because this flips on EITHER victory or game-over ("doing one run" per
+  // the ticket's own interpretation), not just the victory-only
+  // clear_a_run achievement -- storing it inside unlockedAchievements would
+  // conflate "unlocked the Victory achievement" with "has finished a run at
+  // all". Same try/catch + typeof-guard persistence pattern as
+  // loadProgress/saveProgress below.
+  var RUN_COMPLETED_KEY = 'wordbound_run_completed_v1';
 
   // Achievement definitions: what needs to be done to unlock them
   var ACHIEVEMENTS = {
@@ -126,6 +135,7 @@
 
   // Persistent state (loaded from localStorage)
   var unlockedAchievements = {};
+  var runCompletedFlag = false;
 
   // Load achievements from localStorage on module init
   function loadProgress() {
@@ -135,6 +145,7 @@
       if (stored) {
         unlockedAchievements = JSON.parse(stored);
       }
+      runCompletedFlag = localStorage.getItem(RUN_COMPLETED_KEY) === '1';
     } catch (e) {
       // localStorage unavailable (jsdom, private browsing, etc.)
     }
@@ -148,6 +159,26 @@
     } catch (e) {
       // localStorage unavailable (jsdom, private browsing, etc.)
     }
+  }
+
+  // Marks that the player has finished a run (victory OR game-over both
+  // count, per the unlock ticket's own interpretation). Idempotent, and
+  // returns true only on the call that actually flips it from false->true,
+  // so the caller can show a one-time "unlocked" callout.
+  function markRunCompleted() {
+    if (runCompletedFlag) return false;
+    runCompletedFlag = true;
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(RUN_COMPLETED_KEY, '1');
+    } catch (e) {
+      // localStorage unavailable (jsdom, private browsing, etc.) -- flag
+      // still holds in-memory for the rest of this session
+    }
+    return true;
+  }
+
+  function hasCompletedARun() {
+    return runCompletedFlag;
   }
 
   function unlock(achievementId) {
@@ -215,8 +246,10 @@
 
   function reset() {
     unlockedAchievements = {};
+    runCompletedFlag = false;
     resetRunState();
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(RUN_COMPLETED_KEY);
   }
 
   // Public API
@@ -229,6 +262,8 @@
   Achievements.trackBossDefeatedWithoutDamage = trackBossDefeatedWithoutDamage;
   Achievements.trackOverkill = trackOverkill;
   Achievements.trackRunCompletion = trackRunCompletion;
+  Achievements.markRunCompleted = markRunCompleted;
+  Achievements.hasCompletedARun = hasCompletedARun;
   Achievements.resetRunState = resetRunState;
   Achievements.saveProgress = saveProgress;
   Achievements.loadProgress = loadProgress;

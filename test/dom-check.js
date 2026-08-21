@@ -1194,6 +1194,44 @@ async function main() {
   check('combat is active after entering a combat node', state.combatActive === true);
   check('rack has tiles', state.player.rack.length > 0);
 
+  // DESIGN/BALANCE ticket (GOALS.md, Jaxon directive 2026-08-21):
+  // Overcharge/Rewrite first-run unlock gate. Checked right here, at the
+  // FIRST combat this fresh jsdom page ever enters, before anything else in
+  // this file has a chance to unlock it -- this is the only point in the
+  // whole script where "pre-first-run-completion" is actually true.
+  // Everything below this block runs post-unlock (matches a real player who
+  // has since finished a run), including the later "ink spend" block that
+  // exercises Overcharge/Rewrite through their real buttons.
+  {
+    const Achievements = window.Wordbound.Achievements;
+    const Game = window.Wordbound.Game;
+    check('unlock gate: fresh profile has not completed a run', Achievements.hasCompletedARun() === false);
+
+    const inkSpendRow = document.getElementById('ink-spend-row');
+    check('unlock gate: ink-spend-row is hidden pre-unlock', !!inkSpendRow && inkSpendRow.classList.contains('hidden'));
+
+    // Gate is UI/render-only -- the engine functions themselves must stay
+    // callable even while hidden (ticket: "Combat engine functions stay
+    // callable so test/simulate.js and the test harness are unaffected").
+    const inkBeforeGatedToggle = state.player.ink;
+    Game.toggleOvercharge();
+    check('unlock gate: toggleOvercharge is still callable pre-unlock (engine layer ungated)', state.overchargeArmed === true);
+    state.overchargeArmed = false;
+    state.player.ink = inkBeforeGatedToggle;
+
+    // Simulate a completed run (victory or game-over both count, per the
+    // ticket) and confirm the gate flips and the row becomes visible on the
+    // next render. openDeckViewer/closeDeckViewer is this file's existing
+    // no-side-effect pattern (used further below) for forcing a render
+    // without touching combat state.
+    const unlockedNow = Achievements.markRunCompleted();
+    check('unlock gate: markRunCompleted flips false->true on first call', unlockedNow === true);
+    check('unlock gate: markRunCompleted is idempotent (returns false the second time)', Achievements.markRunCompleted() === false);
+    Game.openDeckViewer();
+    Game.closeDeckViewer();
+    check('unlock gate: ink-spend-row becomes visible after unlock', !!inkSpendRow && !inkSpendRow.classList.contains('hidden'));
+  }
+
   // review B4: the fight-start log line used to read "A The Consonant
   // Constrictor appears!" (a hardcoded 'A ' prefix in front of names that
   // already carry their own article, or none at all for "Quoth").

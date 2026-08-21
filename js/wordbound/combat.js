@@ -55,14 +55,25 @@
   // Balance knobs (also read directly by game.js for the spend/UI side and
   // by test/balance-simulation.js's bot policy -- single source of truth so
   // nothing duplicates these numbers).
-  Combat.OVERCHARGE_INK_COST = 3;
-  Combat.OVERCHARGE_DAMAGE_MULTIPLIER = 1.5;
+  //
+  // RETUNE (GOALS.md DESIGN/BALANCE ticket, Jaxon directive 2026-08-21,
+  // verbatim: "Rewrite should be way cheaper, overcharge should be cheaper
+  // and have a more powerful effect"). Old values: OVERCHARGE_INK_COST=3,
+  // OVERCHARGE_DAMAGE_MULTIPLIER=1.5, REWRITE_INK_COST=4. Picked the exact
+  // numbers the ticket itself named as examples (3->2 cheaper + 1.5x->2x
+  // stronger for Overcharge; 4->2 for Rewrite) rather than going further --
+  // 4->2 keeps one point of headroom above the items.js 1-ink floor so
+  // Steady Transcription (rewriteCostReduction:1) still does something
+  // post-unlock; 4->1 would make that item dead on arrival. Same logic for
+  // Overcharge's 3->2 vs. Frugal Bookmark's overchargeCostReduction:1.
+  Combat.OVERCHARGE_INK_COST = 2;
+  Combat.OVERCHARGE_DAMAGE_MULTIPLIER = 2.0;
   // Rewrite (the other ink spend, GOALS.md's "consumable-style activated
   // ability" candidate): discard the whole rack and redraw fresh, for ink,
   // without ending the turn. The redraw/discard mechanics live in game.js
   // (they touch the draw pile and rack, not combat resolution) -- this is
   // just the shared cost constant.
-  Combat.REWRITE_INK_COST = 4;
+  Combat.REWRITE_INK_COST = 2;
 
   Combat.playWord = function (player, monster, word, comboState, options) {
     options = options || {};

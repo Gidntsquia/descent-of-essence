@@ -135,7 +135,8 @@
     hexedTileId: null, // set by a Hex monster intent, cleared when the rack that held it cycles away (see monster-intents ticket)
     proccedItemIds: [], // FUN OVERHAUL 8/8: item ids whose onWordPlayed hook fired on the just-played word; consumed + cleared in renderItemsOwned to flash those chips for one render only
     comboBumped: false, // FUN OVERHAUL 8/8: true for one render when the just-played word advanced the combo streak; consumed in renderCombat to re-pop the (already visible) combo chip
-    runStats: null // { wordsPlayed, bestWord, bestWordDamage, totalDamage, monstersDefeated, floorsCleared, goldEarned } -- reset in startRun, shown on the game-over/victory screens (review N6)
+    runStats: null, // { wordsPlayed, bestWord, bestWordDamage, totalDamage, monstersDefeated, floorsCleared, goldEarned } -- reset in startRun, shown on the game-over/victory screens (review N6)
+    justUnlockedOverchargeRewrite: false // DESIGN/BALANCE ticket (GOALS.md, 2026-08-21): true for exactly one game-over/victory screen visit, the run that first unlocks Overcharge/Rewrite -- drives a one-time callout, set in endRun, consumed in renderGameOver/renderVictory
   };
   Game._state = state; // exposed for headless/browser test inspection only
   Game._getMusicMode = function () { return currentMusicMode; }; // exposed for headless/browser test inspection only (review F2)
@@ -265,12 +266,21 @@
     stopBackgroundMusic();
     playSfx(victory ? 'victory' : 'defeat', null, victory ? playVictorySound : playDefeatSound);
     if (victory && Achievements) Achievements.trackRunCompletion();
+    // DESIGN/BALANCE ticket (GOALS.md, Jaxon directive 2026-08-21): the
+    // Overcharge/Rewrite first-run unlock gate counts EITHER victory or
+    // game-over as "doing one run" (ticket's own interpretation), unlike
+    // the victory-only clear_a_run achievement above -- so this fires
+    // unconditionally. markRunCompleted() returns true only the one time it
+    // actually flips the flag, which drives the one-time callout on the
+    // game-over/victory screen (see renderGameOver/renderVictory).
+    state.justUnlockedOverchargeRewrite = !!(Achievements && Achievements.markRunCompleted && Achievements.markRunCompleted());
     state.screen = victory ? 'VICTORY' : 'GAME_OVER';
     render();
   }
 
   Game.returnToMainMenu = function () {
     state.screen = 'MAIN_MENU';
+    state.justUnlockedOverchargeRewrite = false; // one-time callout consumed, see renderGameOver/renderVictory
     render();
   };
 
@@ -2494,14 +2504,23 @@
     }).join('');
   }
 
+  // DESIGN/BALANCE ticket (GOALS.md, 2026-08-21): one-time "unlocked"
+  // callout appended to the end-of-run stats text. Cheap by design (no new
+  // panel/DOM structure) -- ticket explicitly said "welcome if cheap, don't
+  // over-build it".
+  var OVERCHARGE_REWRITE_UNLOCK_MESSAGE =
+    ' Overcharge and Rewrite are now unlocked for your next run!';
+
   function renderGameOver() {
-    $('game-over-stats').textContent = 'You reached floor ' + state.floorNumber + '.';
+    $('game-over-stats').textContent = 'You reached floor ' + state.floorNumber + '.' +
+      (state.justUnlockedOverchargeRewrite ? OVERCHARGE_REWRITE_UNLOCK_MESSAGE : '');
     renderRunStats('game-over-run-stats');
     $('game-over-seed').textContent = 'Seed: ' + state.runSeed;
   }
 
   function renderVictory() {
-    $('victory-stats').textContent = 'You cleared all ' + Floor.TOTAL_FLOORS + ' floors. Wordbound complete.';
+    $('victory-stats').textContent = 'You cleared all ' + Floor.TOTAL_FLOORS + ' floors. Wordbound complete.' +
+      (state.justUnlockedOverchargeRewrite ? OVERCHARGE_REWRITE_UNLOCK_MESSAGE : '');
     renderRunStats('victory-run-stats');
     $('victory-seed').textContent = 'Seed: ' + state.runSeed;
   }
@@ -3187,6 +3206,19 @@
     var overchargeBtn = $('btn-overcharge');
     var rewriteBtn = $('btn-rewrite-rack');
     if (!overchargeBtn || !rewriteBtn) return;
+
+    // DESIGN/BALANCE ticket (GOALS.md, Jaxon directive 2026-08-21):
+    // "unlocked after doing one run so new players aren't confused" --
+    // controls stay HIDDEN (not just disabled) pre-unlock. UI/render gate
+    // only: Game.toggleOvercharge/Game.rewriteRack themselves stay callable
+    // unconditionally so test/balance-simulation.js's bot policy and any
+    // other direct-API caller are unaffected, per the ticket's own
+    // "Combat engine functions stay callable" instruction.
+    var unlocked = !!(Achievements && Achievements.hasCompletedARun && Achievements.hasCompletedARun());
+    var inkSpendRow = $('ink-spend-row');
+    if (inkSpendRow) inkSpendRow.classList.toggle('hidden', !unlocked);
+    if (!unlocked) return;
+
     var overchargeCost = Items.getOverchargeCost(state.player);
     var canOvercharge = state.player.ink >= overchargeCost;
     overchargeBtn.disabled = !state.overchargeArmed && !canOvercharge;

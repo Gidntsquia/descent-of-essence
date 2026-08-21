@@ -13699,3 +13699,123 @@ infrastructure if that hasn't been built yet, or the ZEX/TAZE SUPPLEMENT
 array otherwise), plus the still-open YAWL dictionary-merge follow-up
 from before. Work top to bottom per GOALS.md's own rule: the
 Rewrite/Overcharge ticket is next.
+
+---
+
+## 2026-08-21T16:50Z -- Rewrite/Overcharge retune + first-run unlock gate (parts 1 and 2 of 3 done and verified, part 3 balance check IN PROGRESS)
+
+**Picked up:** GOALS.md's next unchecked item, Jaxon's DESIGN/BALANCE
+directive (verbatim: "Rewrite should be way cheaper, overcharge should be
+cheaper and have a more powerful effect. Both should only be unlocked
+after doing one run so that new players aren't confused"). Three parts;
+this entry covers all three but part 3's confirmation was still running
+when this run's time budget forced a commit -- see the honesty note at
+the bottom before trusting the "done" framing above.
+
+**Housekeeping first:** this session started on a detached HEAD at the
+correct commit (8ad7da2, matching the true `origin/main` per
+`git ls-remote`) -- the local `main`/`origin/main` refs were just stale
+from before a prior force-push-equivalent history rewrite. Re-fetched and
+reset the local `main` branch to track `origin/main` properly; no actual
+divergence, just a stale local cache. Mentioning this in case a future run
+hits the same "detached HEAD" surprise and wonders if history was lost --
+it wasn't, `git ls-remote origin` is the source of truth if this recurs.
+
+**1. RETUNE (done).** Old: `OVERCHARGE_INK_COST=3`,
+`OVERCHARGE_DAMAGE_MULTIPLIER=1.5`, `REWRITE_INK_COST=4`
+(js/wordbound/combat.js). New: `OVERCHARGE_INK_COST=2`,
+`OVERCHARGE_DAMAGE_MULTIPLIER=2.0`, `REWRITE_INK_COST=2`. Picked the exact
+example numbers the ticket itself named (3->2 + 1.5x->2x for Overcharge,
+4->2 for Rewrite) rather than pushing further (e.g. Rewrite to 1) --
+4->2 and 3->2 both keep one point of headroom above items.js's
+`Math.max(1, cost - reduction)` floor, so Frugal Bookmark
+(`overchargeCostReduction:1`) and Steady Transcription
+(`rewriteCostReduction:1`) still do something post-retune instead of
+becoming dead items. Rationale documented inline in combat.js next to the
+constants.
+
+**2. UNLOCK GATE (done).** New localStorage key
+`wordbound_run_completed_v1` (js/wordbound/achievements.js), same
+try/catch + `typeof localStorage === 'undefined'` guard pattern as the
+existing `wordbound_achievements_v1` key -- kept separate rather than
+folded into the achievements object because this flips on EITHER victory
+or game-over (the ticket's own "doing one run" interpretation), not just
+the victory-only `clear_a_run` achievement. New
+`Achievements.markRunCompleted()` (idempotent, returns true only the call
+that actually flips false->true) and `Achievements.hasCompletedARun()`.
+`endRun(victory)` in game.js now calls `markRunCompleted()`
+unconditionally (was previously only calling the victory-only
+`trackRunCompletion()` for the achievement, which still fires
+victory-only as before -- these are two separate, deliberately
+non-identical flags).
+  - GATE IS RENDER-ONLY, per the ticket's explicit instruction ("Combat
+    engine functions stay callable so test/simulate.js and the test
+    harness are unaffected"): `renderInkSpendButtons()` toggles a new
+    `.hidden` class (reusing the project's existing `.hidden { display:
+    none !important }` rule) on a new `#ink-spend-row` id wrapping both
+    buttons, gated on `Achievements.hasCompletedARun()`. `Game
+    .toggleOvercharge`/`Game.rewriteRack` themselves were NOT touched --
+    still callable unconditionally, confirmed by a new test (below) that
+    calls `toggleOvercharge()` directly while the row is hidden and checks
+    it still armed.
+  - One-time "unlocked" callout (ticket: "welcome if cheap, don't
+    over-build it"): `endRun` sets
+    `state.justUnlockedOverchargeRewrite = markRunCompleted()`'s return
+    value; `renderGameOver`/`renderVictory` append one sentence to the
+    existing stats text (no new DOM/panel) when that flag is true;
+    `Game.returnToMainMenu` clears it so it only ever shows once, on the
+    exact game-over/victory screen that completed the very first run.
+  - Markup: `wordbound.html`'s `.ink-spend-row` div got `id="ink-spend-row"`
+    and starts with `class="ink-spend-row hidden"` in the raw HTML (so
+    there's no flash-of-visible-controls before the first render call
+    fixes it based on real localStorage state).
+
+**3. BALANCE CHECK (STILL RUNNING when this entry was written -- see
+honesty note below).** Confirmed `test/balance-simulation.js` actually
+models ink spends already (reads `Combat.OVERCHARGE_INK_COST`/
+`OVERCHARGE_DAMAGE_MULTIPLIER` directly and calls the real
+`Game.toggleOvercharge()` under a `killSecured` bot policy), so this
+ticket's "if the sim doesn't model ink spends, say so instead of claiming
+the check" caveat doesn't apply -- kicked off `node
+test/balance-simulation.js 50` (n=50 per strategy, matching the ticket's
+own "n=50" instruction) to re-confirm the 25-50% win-rate band still
+holds against the cheaper+stronger Overcharge. It was still running past
+this run's time budget; see the note below for what to do next.
+
+**Verification actually done:**
+- `node -c` on every touched .js file: clean.
+- `npm test`: full suite green, including 6 new checks added specifically
+  for this ticket (search "unlock gate:" in test/dom-check.js) --
+  fresh-profile `hasCompletedARun() === false`, `#ink-spend-row` carries
+  `.hidden` pre-unlock, `Game.toggleOvercharge()` still works while
+  hidden (engine layer proven ungated), `markRunCompleted()` flips
+  false->true exactly once and is idempotent after, `#ink-spend-row`
+  loses `.hidden` after unlock + a forced render. Placed at the FIRST
+  combat this fresh jsdom page ever enters (the only point in the whole
+  3480-line script where "pre-first-run-completion" is actually true) --
+  everything after it, including the pre-existing "ink spend" wiring
+  block ~2000 lines later, now runs post-unlock, which is why that
+  existing block's button-visible/enabled checks didn't need any changes
+  to keep passing.
+- `npm run test:mobile`: NOT run -- no CSS file was touched and no new
+  positioning/sizing/media-query rule was added, only reuse of the
+  project's existing `.hidden` utility class via `classList.toggle` (a
+  pattern already used elsewhere, e.g. panel show/hide). Per GOALS.md's
+  own mandate this is scoped to "CSS layout/panels (positioning, sizing,
+  media queries, flex/grid behavior)" changes, which this isn't.
+
+**NOT yet verified / honesty note (this is the reason the GOALS.md box
+stays UNCHECKED this run):** part 3's `balance-simulation.js 50` run was
+still in progress when this entry was written and this run's session
+needed to commit rather than hold the repo in an uncommitted state
+indefinitely. Everything committed alongside this entry is code-complete
+and passes `npm test` -- the retune and the gate are both real and
+working, just not yet balance-confirmed against the 25-50% band. **Next
+run: check whether that simulation run left a result anywhere retrievable,
+or just re-run `node test/balance-simulation.js 50` fresh (a few minutes)
+and read the "best" strategy win rate. If it's within 25-50%, check the
+GOALS.md box and bump nothing further (version already bumped v0.50 ->
+v0.51 in this commit, per the ticket's "Minor version bump"). If it's
+outside the band, this is a real balance finding worth a retune round
+before checking the box -- don't check it off on an unconfirmed
+assumption just because the code itself works.**
