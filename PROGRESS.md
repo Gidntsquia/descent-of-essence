@@ -11024,3 +11024,141 @@ box checked.
 **State:** working tree clean, matches what's about to be pushed. **Next
 run:** queue continues with the AUDIO ticket (more SFX, item 3/4 of Jaxon's
 same batch) -- unblocked, next in line top-to-bottom.
+
+## 2026-08-21T01:24Z -- AUDIO: 10 new interaction SFX + a pre-existing mute bug fixed (v0.35 -> v0.36)
+
+Picked up the next unchecked GOALS.md item: AUDIO (Jaxon request), item 3/4
+of the content/visual/audio/QA batch. Read the ticket's own npm-test mandate
+first (per this routine's standing instructions) and its verification
+language, since audio is one of the two things `npm test` explicitly cannot
+confirm (the other being drag-and-drop) -- kept that distinction sharp
+throughout rather than overclaiming.
+
+**Audited existing sound** first (`grep playCombatSound`, per the ticket's
+own instruction): two functions already existed, `playCombatSound` (word
+hits) and `playCounterattackSound` (monster counters), both wired straight
+to `ctx.destination` at a fixed gain. Also found `startBackgroundMusic` /
+`musicGainNode`, whose gain is set from `audioSettings.volume`/`.muted` --
+that's the pattern the ticket's "everything routes through mute+volume"
+requirement points at.
+
+**Built** (`js/wordbound/game.js` only): a new `sfxGainNode`, created lazily
+the same way `musicGainNode` is, gain kept in sync with `audioSettings` at
+the same two call sites `setMusicVolume`/`toggleMusicMute` already update
+`musicGainNode` from. A single `playSfx(name, debounceKey, synth)`
+dispatcher routes every new sound through it, so mute/volume compliance is
+structural (one gain node), not a per-sound guard. 10 new short synthesized
+sounds (triangle/sine/square/sawtooth, same voice family as the existing
+combat/music tones, all quieter than combat hits per the ticket's "combat
+hits stay loudest" constraint): tile stage, tile unstage, invalid-word
+rejection, gold gained, shop purchase, consumable use, heal (rest node),
+floor transition, boss entrance, victory stinger, defeat stinger. Wired at:
+`selectTileForWord`/`assignBlankLetter` (stage), `unstageTile` (unstage),
+`submitWord`'s `!result` branch (invalid word), `onMonsterDefeated` (gold,
+gated on `totalGold > 0`), `buyItem`/`buyShopTile` (purchase),
+`useConsumable` (consumable), the `rest` node branch of `enterCurrentNode`
+(heal), `advanceFloor` (floor transition, only on a real mid-run advance --
+placed AFTER the `floorNumber > TOTAL_FLOORS` check so a run-ending advance
+gets the victory stinger instead, not both), `startCombat` (boss entrance,
+gated on `node.type === 'boss'`), and `endRun` (victory/defeat, by the
+`victory` flag already passed in). Tile stage/unstage share one 35ms
+debounce key (the ticket's "fast tile taps shouldn't machine-gun" ask) --
+every other new sound is a single player-paced click with no realistic
+rapid-fire path, so left undebounced.
+
+**Judgment calls on what NOT to add** (the ticket explicitly says "pick the
+ones that read as responsiveness rather than noise," not "add all of
+these"): skipped drag pickup/drop (jsdom's own standing caveat says it
+can't verify drag at all, and the staged-tile drag code -- ghost elements,
+FLIP animation, threshold detection -- is intricate enough that adding
+untested audio into it felt like real risk for a genuinely optional sound);
+skipped generic button taps on major CTAs (broadest, noisiest candidate,
+and the highest-value moments were already covered by the more specific
+sounds above); left word-accepted-vs-weakness-hit alone, judging it
+ALREADY distinct per the ticket's own "if not already distinct" qualifier
+-- `playCombatSound`'s existing 3-tier pitch/tone split (crit/normal/weak)
+already tracks the resulting damage, which a weakness hit changes, so the
+player already hears it differently.
+
+**Bug found and fixed in the same touch:** `playCombatSound` and
+`playCounterattackSound` -- the two sound functions that predate this
+ticket -- never checked `audioSettings.muted` at all. Muting the game
+silenced the music loop but NOT combat hits or monster counterattacks, the
+two most frequent sounds in the entire game. This is squarely what the
+ticket's own "everything routes through the existing mute toggle" line
+asks for, and the fix is a single `if (audioSettings.muted) return;` guard
+added to each -- their internal gain math and `ctx.destination` routing are
+completely untouched, so their calibrated loudness when unmuted is
+byte-for-byte the same as before, only mute itself was broken and is now
+fixed. Deliberately did NOT route these two through the new
+volume-slider-scaled `sfxGainNode` -- their fixed gain constants (e.g.
+0.3) times `audioSettings.volume` (default 0.1) would be a real ~10x
+loudness cut to already-shipped, presumably already-tuned sound, which is
+a balance call outside an "add missing SFX" ticket's scope. Flagged
+plainly in GOALS.md and here: **the volume slider currently affects music
+and the 10 new sounds, but NOT combat hits or counterattacks** (those stay
+at fixed gain, mute-gated only) -- a deliberate, documented scope boundary
+for Jaxon to weigh in on, not an oversight.
+
+**Test infrastructure added:** `Game._sfxCallLog()` / `Game._clearSfxCallLog()`
+(test-only exposures, same house pattern as `Game._advanceFloor` etc.).
+Every sound call -- new AND the two pre-existing ones -- pushes
+`{name, played, muted}` to a capped in-memory log before the mute/debounce
+short-circuit runs, so a test can assert not just "did a sound fire" but
+"was it correctly suppressed, and because of what."
+
+**Verified:** `npm test` **444/444, ALL CHECKS PASSED** (19 new
+assertions, up from the prior 425): real end-to-end triggers for all 10 new
+sounds, each via the actual game action (real rack clicks for tile stage/
+unstage, a real rejected `submitWord` for invalid word, a real kill for
+gold, a real `buyItem` for purchase, a real `useConsumable`, a real
+rest-node entry for heal, the real `advanceFloor` for floor transition, a
+real boss-node entry for boss entrance, and -- for victory specifically --
+the SAME pre-existing boss-skip test flow that already drives the game to
+a genuine floor-3 VICTORY screen, not an isolated `endRun(true)` call, so
+the assertion proves the wiring survives the real code path); the tile-tap
+debounce (two rapid stage clicks in a row -> both logged, only the first
+marked played); mute suppressing both a new sound (invalidWord) and a
+pre-existing one (combatHit) in the same muted window, then unmuting and
+confirming combatHit plays again; and a forced-lethal-counterattack
+scenario (monster intent damage 9999 against 1 player HP) proving the
+defeat stinger fires from a genuine player death, not a direct function
+call. `npm run test:qa`: **26/26, real Chromium, zero console/page
+errors** across the full boss-reward flow -- this is the strongest
+available signal short of a human: it proves every new WebAudio call
+(oscillator creation, gain scheduling, the `sfxGainNode` connect graph)
+actually executes in a REAL browser's real Web Audio implementation
+without throwing, not just that jsdom's absent AudioContext silently
+no-ops it (jsdom has no Web Audio API at all -- the mute/debounce/trigger
+assertions above test the surrounding JS logic, never real audio).
+
+**NOT verified / explicitly out of scope**, same standing gap as every
+prior audio-touching ticket on this project: actual audibility, loudness
+balance/mix, and whether the chosen timbres read as intended ("does the
+purchase chime sound satisfying," "does the boss entrance read ominous").
+Neither jsdom nor this sandbox's headless Chromium has a real audio output
+device -- the sound palette (triangle/sine/square/sawtooth, matching the
+existing combat/music voice family; short durations; gains kept below the
+combat-hit gains) was chosen by cross-referencing the existing sounds'
+style and the ticket's own "quiet, feedback not fanfare" instruction, not
+confirmed by ear. This needs Jaxon's own playtest with speakers, flagged
+in GOALS.md's DONE note too.
+
+No CSS/layout was touched (all changes are in `js/wordbound/game.js` plus
+one version-string line in `wordbound.html`), so `npm run test:mobile`
+wasn't required per GOALS.md's own gating and wasn't run this pass.
+
+Version bumped v0.35 -> v0.36 (`wordbound.html`). GOALS.md's AUDIO ticket
+box checked, with the skip/judgment-call reasoning and the pre-existing
+mute-bug fix both documented inline in the ticket's own DONE note (not just
+here) so a future run or Jaxon can find the full reasoning without
+re-reading this entire PROGRESS.md entry.
+
+**State:** working tree clean, matches what's about to be pushed. **Next
+run:** GOALS.md's queue continues with the QA ticket (polish & small-details
+pass, item 4/4 and LAST of this batch by design -- meant to run after
+items/visual/audio have landed so their rough edges get caught too, which
+is now the case). If Jaxon has weighed in on the volume-slider-for-combat-
+sound gap flagged above by the time the next run starts, that's a free,
+independent, well-scoped follow-up to fold into a future pass; otherwise
+it's fine to leave as documented and move on to QA.

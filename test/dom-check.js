@@ -2604,6 +2604,219 @@ async function main() {
     check('elite defeat: log flags the 1.5x elite gold', state.messages.some((m) => /1\.5x/.test(m)));
   }
 
+  // AUDIO ticket (GOALS.md, 2026-08-21): interaction SFX for previously-silent
+  // events (tile stage/unstage, invalid word, gold, purchase, consumable use,
+  // heal, floor transition, boss entrance, victory/defeat). jsdom has no real
+  // Web Audio API, so these can't confirm audibility -- they assert the
+  // TRIGGER wiring via Game._sfxCallLog() (see game.js): which sound fired,
+  // for which event, whether mute suppressed it, and whether the tile-tap
+  // debounce ate a rapid-fire second call. Real audibility/mix still needs a
+  // human with speakers (see PROGRESS.md).
+  {
+    const Game = window.Wordbound.Game;
+    const Tiles = window.Wordbound.Tiles;
+    const Monsters = window.Wordbound.Monsters;
+
+    // Fresh regular (non-boss, non-elite) combat to work against.
+    state.screen = 'RUN';
+    state.combatActive = false;
+    const regDefId = Object.keys(Monsters.MONSTER_DEFS)[0];
+    const audioNode = { id: 'audio-test-combat', type: 'combat', defId: regDefId, cleared: false };
+    state.floor.nodes.push(audioNode);
+    state.currentNodeIndex = state.floor.nodes.length - 1;
+    Game.enterCurrentNode();
+    await new Promise((r) => setTimeout(r, 60));
+    check('audio setup: fresh combat is active', state.combatActive === true);
+    Game._clearSfxCallLog();
+
+    // -- tile stage / unstage, and the rapid-tap debounce --
+    const rackBtns = () => Array.from(document.querySelectorAll('#rack-display .letter-tile'));
+    const nonBlankCands = () => rackBtns().filter((b) => {
+      const t = state.player.rack.find((rt) => rt.id === b.getAttribute('data-tile-id'));
+      return t && t.letter !== '?';
+    });
+    const cands = nonBlankCands();
+    if (cands.length < 2) {
+      console.log('SKIP audio tile-tap checks -- fewer than 2 non-blank rack tiles');
+    } else {
+      const idA = cands[0].getAttribute('data-tile-id');
+      cands[0].dispatchEvent(new window.Event('click', { bubbles: true })); // stage tile A
+      check('audio: staging a tile logs a played tileStage call',
+        Game._sfxCallLog().some((e) => e.name === 'tileStage' && e.played === true));
+
+      // Stage a second tile immediately after -- inside the tileTap debounce
+      // window (35ms), so this call should be LOGGED but marked not played.
+      cands[1].dispatchEvent(new window.Event('click', { bubbles: true }));
+      const tileStageCalls = Game._sfxCallLog().filter((e) => e.name === 'tileStage');
+      check('audio: a rapid second tile-stage is logged but debounced (not played)',
+        tileStageCalls.length === 2 && tileStageCalls.filter((e) => e.played).length === 1);
+
+      Game._clearSfxCallLog();
+      const stagedA = document.querySelector('#staging-area .staged-tile[data-tile-id="' + idA + '"]');
+      if (stagedA) {
+        stagedA.dispatchEvent(new window.Event('click', { bubbles: true })); // unstage tile A
+        check('audio: unstaging a tile logs a played tileUnstage call',
+          Game._sfxCallLog().some((e) => e.name === 'tileUnstage' && e.played === true));
+      } else {
+        console.log('SKIP audio tile-unstage check -- staged tile element not found');
+      }
+    }
+    check('audio: a regular (non-boss) fight never logs bossEntrance',
+      Game._sfxCallLog().every((e) => e.name !== 'bossEntrance'));
+
+    // -- invalid word rejection, unmuted --
+    state.selectedTileIds = [];
+    state.blankAssignments = {};
+    document.getElementById('word-input').value = '';
+    Game._clearSfxCallLog();
+    Game.submitWord('ZZZZQQQQ');
+    check('audio: an unplayable word logs a played invalidWord call',
+      Game._sfxCallLog().some((e) => e.name === 'invalidWord' && e.played === true));
+
+    // -- mute suppresses new AND pre-existing sounds alike --
+    const muteBtn = document.getElementById('btn-toggle-music');
+    muteBtn.dispatchEvent(new window.Event('click', { bubbles: true })); // mute
+    Game._clearSfxCallLog();
+    Game.submitWord('ZZZZQQQQ');
+    check('audio: muted -- invalidWord is logged but marked not played',
+      Game._sfxCallLog().some((e) => e.name === 'invalidWord' && e.muted === true && e.played === false));
+    // Also covers the pre-existing playCombatSound, which used to ignore mute
+    // entirely (see the fix alongside this ticket in game.js): play a real
+    // word against the still-healthy monster and confirm it's suppressed too.
+    state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+    Game.submitWord('CAT');
+    await new Promise((r) => setTimeout(r, 400));
+    check('audio: muted -- a real word\'s combatHit is logged but marked not played',
+      Game._sfxCallLog().some((e) => e.name === 'combatHit' && e.muted === true && e.played === false));
+    muteBtn.dispatchEvent(new window.Event('click', { bubbles: true })); // unmute
+    check('audio: unmuted again -- a fresh combatHit plays', (() => {
+      Game._clearSfxCallLog();
+      state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+      Game.submitWord('CAT');
+      return true; // result checked just below, after the animation delay
+    })());
+    await new Promise((r) => setTimeout(r, 400));
+    check('audio: unmuted -- combatHit is logged as played',
+      Game._sfxCallLog().some((e) => e.name === 'combatHit' && e.played === true));
+
+    // -- gold gain on a kill --
+    state.selectedTileIds = [];
+    state.blankAssignments = {};
+    document.getElementById('word-input').value = '';
+    state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+    state.monster.hp = 1;
+    state.monster.maxHp = 1;
+    state.monster.intent = { type: 'attack', value: 0 };
+    state.hexedTileId = null;
+    state.player.hp = state.player.maxHp;
+    state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+    Game._clearSfxCallLog();
+    Game.submitWord('CAT');
+    await new Promise((r) => setTimeout(r, 800));
+    check('audio: killing the monster for gold logs a played goldGain call',
+      Game._sfxCallLog().some((e) => e.name === 'goldGain' && e.played === true));
+    if (state.screen === 'TILE_REWARD') Game.skipTileReward();
+    if (state.bossRewardOptions) Game.skipBossItemReward();
+
+    // -- shop purchase --
+    state.player.gold = 9999;
+    const shopOptions = Game._rollShopOptions();
+    Game._clearSfxCallLog();
+    Game.buyItem(shopOptions[0]);
+    check('audio: a shop purchase logs a played purchase call',
+      Game._sfxCallLog().some((e) => e.name === 'purchase' && e.played === true));
+
+    // -- consumable use (test-only no-op def, same pattern as the useConsumable
+    // death-guard check above) --
+    {
+      const Consumables = window.Wordbound.Consumables;
+      const savedCombatActive = state.combatActive;
+      const savedScreen = state.screen;
+      const savedConsumables = state.player.consumables.slice();
+      Consumables.CONSUMABLE_DEFS['_test_audio_consumable'] = {
+        id: '_test_audio_consumable', name: 'Test Audio Consumable', hint: 'test-only, not a real consumable',
+        rarity: 'common', effect: function () { return { message: 'Test Audio Consumable used.' }; }
+      };
+      state.combatActive = true;
+      state.screen = 'RUN';
+      if (!state.monster) state.monster = Monsters.createMonster(regDefId);
+      state.monster.hp = Math.max(state.monster.hp, 1);
+      state.player.consumables.push('_test_audio_consumable');
+      Game._clearSfxCallLog();
+      Game.useConsumable('_test_audio_consumable');
+      check('audio: using a consumable logs a played consumable call',
+        Game._sfxCallLog().some((e) => e.name === 'consumable' && e.played === true));
+      delete Consumables.CONSUMABLE_DEFS['_test_audio_consumable'];
+      state.combatActive = savedCombatActive;
+      state.screen = savedScreen;
+      state.player.consumables = savedConsumables;
+    }
+
+    // -- rest-node heal --
+    state.screen = 'RUN';
+    state.combatActive = false;
+    state.player.hp = Math.max(1, state.player.maxHp - 5);
+    const restNode = { id: 'audio-test-rest', type: 'rest', cleared: false };
+    state.floor.nodes.push(restNode);
+    state.currentNodeIndex = state.floor.nodes.length - 1;
+    Game._clearSfxCallLog();
+    Game.enterCurrentNode();
+    check('audio: resting at a rest node logs a played heal call',
+      Game._sfxCallLog().some((e) => e.name === 'heal' && e.played === true));
+
+    // -- floor transition via advanceFloor -- saved/restored the same way the
+    // onFloorAdvance wiring check earlier in this file does.
+    {
+      const savedFloorNumber = state.floorNumber;
+      const savedFloor = state.floor;
+      const savedNodeIndex = state.currentNodeIndex;
+      const savedRunStats = Object.assign({}, state.runStats);
+      state.floorNumber = 1; // TOTAL_FLOORS is 3 -- 1 -> 2 is a real mid-run advance, not a victory
+      Game._clearSfxCallLog();
+      Game._advanceFloor();
+      check('audio: a mid-run floor advance logs a played floorTransition call',
+        Game._sfxCallLog().some((e) => e.name === 'floorTransition' && e.played === true));
+      state.floorNumber = savedFloorNumber;
+      state.floor = savedFloor;
+      state.currentNodeIndex = savedNodeIndex;
+      state.runStats = savedRunStats;
+    }
+
+    // -- boss entrance --
+    state.screen = 'RUN';
+    state.combatActive = false;
+    const bossDefId = Object.keys(Monsters.BOSS_DEFS)[0];
+    const audioBossNode = { id: 'audio-test-boss', type: 'boss', defId: bossDefId, cleared: false };
+    state.floor.nodes.push(audioBossNode);
+    state.currentNodeIndex = state.floor.nodes.length - 1;
+    Game._clearSfxCallLog();
+    Game.enterCurrentNode();
+    await new Promise((r) => setTimeout(r, 60));
+    check('audio: entering a boss fight logs a played bossEntrance call',
+      Game._sfxCallLog().some((e) => e.name === 'bossEntrance' && e.played === true));
+
+    // -- defeat stinger: force a lethal counterattack --
+    state.monster.traitPhases = [{ hpThreshold: 1, traitId: 'plain' }];
+    state.monster.hp = 999999;
+    state.monster.maxHp = 999999;
+    state.monster.intent = { type: 'attack', value: 9999 };
+    state.hexedTileId = null;
+    state.player.hp = 1;
+    state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
+    Game._clearSfxCallLog();
+    Game.submitWord('CAT');
+    await new Promise((r) => setTimeout(r, 400));
+    check('audio: dying to a counterattack logs a played defeat call',
+      Game._sfxCallLog().some((e) => e.name === 'defeat' && e.played === true));
+    check('audio block: produced zero errors', errors.length === 0);
+    if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
+
+    // Return to a neutral state -- the boss-skip block below resets
+    // screen/combatActive itself before each of its own scenarios, same as
+    // every other block in this file that ends mid-run, so no further
+    // restoration is needed here.
+  }
+
   // DESIGN FIX (GOALS.md, 2026-08-20, Jaxon's ruling): bosses cannot be
   // skipped via the Empty Shelf "sit and breathe" event. A pending skip must
   // still be honored for a regular combat, but a boss node starts the fight
@@ -2693,8 +2906,13 @@ async function main() {
     // (b) the FINAL boss (floor 3): the fight happens and beating it still
     // triggers VICTORY (the skipped-boss advanceFloor branch was removed, so
     // this confirms the real kill path still wins the run).
+    window.Wordbound.Game._clearSfxCallLog();
     await enterAndKillBoss(window.Wordbound.Floor.TOTAL_FLOORS, 'boss_sovereign', 'boss-skip/floor3');
     check('boss-skip/floor3: beating the final boss triggers VICTORY', state.screen === 'VICTORY');
+    // AUDIO ticket (GOALS.md, 2026-08-21): confirm the victory stinger fires
+    // on a REAL end-to-end victory (not just an isolated endRun(true) call).
+    check('audio: reaching real VICTORY logs a played victory call',
+      window.Wordbound.Game._sfxCallLog().some((e) => e.name === 'victory' && e.played === true));
     // VISUAL: leaving the run screen (VICTORY here) must clear the floor
     // tint classes -- they're only meaningful while state.screen === 'RUN'.
     check('visual: <body> has no floor-N class on the VICTORY screen',

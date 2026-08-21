@@ -3769,7 +3769,7 @@ Rules for the routine:
       but actual frame-rate on real hardware needs Jaxon's phone, same
       standing gap as the rest of this project's touch/feel verification).
 
-- [ ] AUDIO (Jaxon request): more sound effects, so the game feels more
+- [x] AUDIO (Jaxon request): more sound effects, so the game feels more
       responsive. Audit what already has sound (grep playCombatSound /
       the audio module) and add short, subtle synthesized SFX (existing
       WebAudio approach, no external audio files) for the interactions that
@@ -3792,6 +3792,85 @@ Rules for the routine:
       broken AudioContext call would surface there). Actual sound quality/mix
       is Jaxon's ears' call -- flag it for his next playtest. Minor version
       bump.
+      DONE 2026-08-21T01:24Z, v0.35 -> v0.36. Added 10 new synthesized SFX
+      (`js/wordbound/game.js`, all WebAudio, no external files): tile stage,
+      tile unstage, invalid-word rejection, gold gained, shop purchase,
+      consumable use, heal (rest node), floor transition, boss entrance,
+      victory/defeat stingers. All route through a new shared `sfxGainNode`
+      (mirrors the existing `musicGainNode` pattern) whose gain is
+      muted/volume-driven, so every new sound respects the existing mute
+      toggle and volume slider with no per-sound guard code. Tile stage/
+      unstage share one 35ms debounce key so rapid-fire tile taps (building
+      a word fast) don't stack overlapping oscillators.
+      SKIPPED, with reasons (per the ticket's own "pick ones that read as
+      responsiveness" framing): drag pickup/drop (jsdom can't verify it at
+      all per GOALS.md's own standing caveat, and the staged-tile drag code
+      is intricate enough that wiring untested audio into it felt like
+      unjustified risk for a "nice to have" sound); button taps on major
+      CTAs (broad surface, real risk of tipping into the "noise" the ticket
+      explicitly warns against, and the highest-value moments -- purchase,
+      consumable use, floor transition, boss/victory/defeat -- were already
+      covered without it); word-accepted vs weakness-hit differentiation
+      was judged ALREADY sufficiently distinct (playCombatSound's existing
+      damage-tier pitch/tone split already reflects a weak-point hit
+      through the resulting damage number) so left untouched, per the
+      ticket's own "if not already distinct" qualifier.
+      BUG FOUND AND FIXED IN THE SAME TOUCH: `playCombatSound` and
+      `playCounterattackSound` (the two PRE-EXISTING sound functions) wired
+      straight to `ctx.destination` and had never respected `audioSettings
+      .muted` at all -- muting the game silenced the music but NOT combat
+      hits or monster counterattacks, the two most frequent sounds in the
+      game. Added a one-line `if (audioSettings.muted) return;` guard to
+      each (verified via the new `_sfxCallLog` -- see below) WITHOUT
+      touching their internal gain math or destination routing, so their
+      calibrated loudness when unmuted is byte-for-byte unchanged -- only
+      mute itself was broken, now fixed. Deliberately did NOT also route
+      them through the new volume-slider-scaled `sfxGainNode`: doing so
+      would multiply their fixed gain constants by `audioSettings.volume`
+      (default 0.1), a real ~10x loudness cut to already-shipped, presumably
+      already-tuned combat/counter sound -- a balance-sensitive judgment
+      call outside a "add missing SFX" ticket's scope. Flagging for Jaxon /
+      a future pass: the volume slider currently does nothing for combat
+      hits or counterattacks (always full fixed gain when unmuted), only
+      for music and the new SFX added here.
+      TEST INFRASTRUCTURE (`Game._sfxCallLog()` / `Game._clearSfxCallLog()`,
+      test-only exposures, same house pattern as `Game._advanceFloor` etc.):
+      every `playSfx()` call (new sounds) and both pre-existing sound
+      functions now push `{name, played, muted}` to a capped in-memory log
+      BEFORE the mute/debounce short-circuit, so a test can assert not just
+      "did it play" but "was it correctly suppressed and why."
+      VERIFIED: `npm test` 444/444, ALL CHECKS PASSED (19 new assertions):
+      real end-to-end triggers for all 10 new sounds (tile stage/unstage via
+      real rack clicks, invalid word via a real rejected `submitWord`, gold
+      via a real kill, purchase via a real `buyItem`, consumable via a real
+      `useConsumable`, heal via a real rest-node entry, floor transition via
+      the real `advanceFloor`, boss entrance via a real boss-node entry,
+      victory via the SAME real end-to-end boss-skip flow that already
+      drives the game to a genuine VICTORY screen -- not an isolated call);
+      the tile-tap debounce (two rapid stage clicks -> both logged, only the
+      first marked played); mute suppressing both a new sound (invalidWord)
+      AND a pre-existing one (combatHit) in the same muted window, then
+      unmuting and confirming combatHit plays again; and a forced-lethal-
+      counterattack scenario proving the defeat stinger fires on a real
+      player death, not just a direct `endRun(false)` call. `npm run
+      test:qa`: 26/26, real Chromium, zero console/page errors across the
+      full boss-reward flow -- this is the strongest signal available
+      without a human: it proves every new WebAudio call (oscillator
+      creation, gain scheduling, connect graph) actually executes in a real
+      browser's real Web Audio implementation without throwing, not just
+      that jsdom's mocked absence of AudioContext silently no-ops it. No
+      CSS/layout touched, so `npm run test:mobile` wasn't required or run.
+      NOT verified / explicitly out of scope, same standing gap as every
+      other audio ticket on this project: actual audibility, loudness
+      balance/mix, and whether the synthesized timbres read as intended
+      (e.g. "purchase sounds satisfying," "boss entrance reads ominous") --
+      jsdom cannot hear, and Chromium headless in this sandbox has no real
+      audio output device either. This needs Jaxon's own ears at his next
+      playtest; the sound palette (triangle/sine/square/sawtooth, same
+      family as the existing combat/music voices, short durations,
+      deliberately quiet gains relative to combat hits) was chosen by
+      design intent and cross-checked against the existing sounds'
+      style, not by ear.
 
 - [ ] QA (Jaxon request) -- polish & small-details review pass. LAST of this
       batch on purpose: run it after the items/visual/audio tickets above

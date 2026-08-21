@@ -19,6 +19,7 @@
   var audioContext = null;
   var musicOscillators = [];
   var musicGainNode = null;
+  var sfxGainNode = null; // AUDIO ticket (GOALS.md, 2026-08-21): shared master gain for the new interaction SFX below, mirroring musicGainNode's pattern -- lets every new sound respect mute/volume via one gain node instead of a per-sound guard
   var isPlayingMusic = false;
   var currentMusicMode = null; // 'normal' or 'boss'
 
@@ -133,6 +134,8 @@
   Game._celebrateHit = function (damage, magnificent) { return celebrateHit(damage, magnificent); }; // FUN OVERHAUL 8/8: exposed so tests can assert the CRUSHING/MAGNIFICENT DOM appends (jsdom can't verify the animation timing)
   Game._rollShopOptions = function () { return rollShopOptions(); }; // exposed so tests can assert the guaranteed-consumable-slot odds without needing a real shop node
   Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
+  Game._sfxCallLog = function () { return sfxCallLog.slice(); }; // AUDIO ticket (GOALS.md, 2026-08-21): exposed so tests can assert which SFX fired, whether mute suppressed them, and whether the tile-tap debounce ate a burst -- jsdom has no real Web Audio to listen to, this is the substitute
+  Game._clearSfxCallLog = function () { sfxCallLog.length = 0; lastSfxAt = {}; }; // AUDIO ticket: reset between test cases so each assertion starts from a clean log/debounce state
 
   function $(id) { return document.getElementById(id); }
 
@@ -228,6 +231,7 @@
     // CONTENT ticket (GOALS.md, 2026-08-21): the only item hook fired on a
     // floor transition rather than in-combat -- see items.js's Acquisitions
     // Budget, the sole current onFloorAdvance user.
+    playSfx('floorTransition', null, playFloorTransitionSound);
     var floorCtx = { player: state.player, floorNumber: state.floorNumber, messages: [] };
     Items.runHook('onFloorAdvance', floorCtx, state.player);
     floorCtx.messages.forEach(function (msg) { log(msg); });
@@ -238,6 +242,7 @@
 
   function endRun(victory) {
     stopBackgroundMusic();
+    playSfx(victory ? 'victory' : 'defeat', null, victory ? playVictorySound : playDefeatSound);
     if (victory && Achievements) Achievements.trackRunCompletion();
     state.screen = victory ? 'VICTORY' : 'GAME_OVER';
     render();
@@ -300,6 +305,7 @@
       var healed = Math.round(state.player.maxHp * 0.5);
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + healed);
       log('You rest and recover ' + healed + ' HP.');
+      playSfx('heal', null, playHealSound);
       node.cleared = true;
       state.currentNodeIndex += 1;
       render();
@@ -400,6 +406,7 @@
       state.shopOptions = rollShopOptions();
     }
     log('You bought ' + def.name + ' for ' + def.shopPrice + ' gold.');
+    playSfx('purchase', null, playPurchaseSound);
     render();
   };
 
@@ -416,6 +423,7 @@
     state.player.gold -= VARIANT_TILE_SHOP_PRICE;
     state.deck.push(offer);
     log('You bought a ' + Tiles.describeVariant(offer.variant) + ' tile for ' + VARIANT_TILE_SHOP_PRICE + ' gold.');
+    playSfx('purchase', null, playPurchaseSound);
     // Re-roll so the sold tile isn't left on the shelf as a dead, already-
     // owned option (same reason Game.buyItem re-rolls its own list).
     state.shopTileOffer = rollShopTileOffer();
@@ -568,6 +576,7 @@
     state.combatActive = true;
     var isBoss = node.type === 'boss';
     startBackgroundMusic(isBoss);
+    if (isBoss) playSfx('bossEntrance', null, playBossEntranceSound);
     log(state.monster.name + ' appears!');
     // Telegraphed monster actions (GOALS.md "FUN OVERHAUL 2/8"): pre-roll
     // what the monster does on ITS first turn before the player acts.
@@ -717,6 +726,7 @@
 
     if (!result) {
       log('"' + word + '" is not playable -- not a word you know, or you don\'t have those tiles.');
+      playSfx('invalidWord', null, playInvalidWordSound);
       render();
       return;
     }
@@ -964,6 +974,7 @@
     if (isElite) goldMsg += ' (elite 1.5x)';
     goldMsg += '.';
     log(goldMsg);
+    if (totalGold > 0) playSfx('goldGain', null, playGoldGainSound);
 
     // A Wager with the Stacks (GOALS.md "FUN OVERHAUL 7/8") rides on the
     // NEXT fight after the event: winning it without ever repeating a word
@@ -1162,6 +1173,7 @@
     var monsterHpBefore = state.monster.hp;
     var result = Wordbound.Consumables.useConsumable(consumableId, { player: state.player, monster: state.monster });
     if (result.message) log(result.message);
+    playSfx('consumable', null, playConsumableSound);
     // No shipped consumable deals direct damage today, but a future one
     // might (via ctx.monster.hp) -- route through the same defeat path
     // submitWord uses instead of re-rendering onto an already-dead monster.
@@ -1254,6 +1266,14 @@
   }
 
   function playCombatSound(damage, comboLevel) {
+    // AUDIO ticket (GOALS.md, 2026-08-21): this function predates the shared
+    // mute/volume plumbing below and connects straight to ctx.destination at a
+    // fixed gain (unlike the new sounds, which route through sfxGainNode) --
+    // retuning its absolute loudness is a separate balance call outside this
+    // ticket's scope, but it should still go SILENT on mute like every other
+    // sound in the game, which this one previously didn't.
+    logSfxCall('combatHit', !audioSettings.muted);
+    if (audioSettings.muted) return;
     try {
       var ctx = initAudioContext();
       var now = ctx.currentTime;
@@ -1307,6 +1327,9 @@
   }
 
   function playCounterattackSound(damage, isBoss) {
+    // AUDIO ticket (GOALS.md, 2026-08-21): same mute fix as playCombatSound above.
+    logSfxCall('counterattack', !audioSettings.muted);
+    if (audioSettings.muted) return;
     try {
       var ctx = initAudioContext();
       var now = ctx.currentTime;
@@ -1330,6 +1353,133 @@
     } catch (e) {
       // audio context not supported, silently fail
     }
+  }
+
+  // ---- interaction SFX (AUDIO ticket, GOALS.md, 2026-08-21) -----------------
+  // Short, quiet synthesized blips for interactions that were previously
+  // silent (tile stage/unstage, invalid word, gold, purchase, consumable use,
+  // heal, floor transition, boss entrance, victory/defeat). All route through
+  // sfxGainNode (created lazily, same lazy pattern as musicGainNode) so mute
+  // and the volume slider affect them automatically -- no per-sound guard
+  // needed. Deliberately quieter than playCombatSound/playCounterattackSound
+  // above so combat hits stay the loudest thing per the ticket's own ask.
+  //
+  // sfxCallLog + logSfxCall exist purely for test inspection (jsdom has no
+  // real Web Audio API, so a test can't hear these -- it CAN assert that the
+  // right trigger fired, with what muted state, and whether a debounce
+  // window ate it). Exposed read-only via Game._sfxCallLog /
+  // Game._clearSfxCallLog. Real audibility still needs a human with speakers.
+  var sfxCallLog = [];
+  function logSfxCall(name, played) {
+    sfxCallLog.push({ name: name, played: played, muted: audioSettings.muted });
+    if (sfxCallLog.length > 200) sfxCallLog.shift(); // unbounded growth guard, not a real limit on a normal play session
+  }
+
+  // Rapid-fire guard (ticket: "fast tile taps shouldn't machine-gun") -- tile
+  // stage/unstage share one debounce key so quickly building a word by
+  // clicking several tiles in a burst doesn't stack overlapping oscillators
+  // into a buzz. Every other new SFX is a discrete, player-paced action
+  // (one purchase click, one floor transition, ...) with no realistic
+  // rapid-fire path, so only this one needs a window.
+  var lastSfxAt = {};
+  var SFX_DEBOUNCE_MS = { tileTap: 35 };
+
+  function getSfxGainNode(ctx) {
+    if (!sfxGainNode) {
+      sfxGainNode = ctx.createGain();
+      sfxGainNode.connect(ctx.destination);
+      sfxGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, ctx.currentTime);
+    }
+    return sfxGainNode;
+  }
+
+  // name: log/debounce key. debounceKey: optional shared SFX_DEBOUNCE_MS
+  // bucket (falls back to name). synth(ctx, now, master): builds and starts
+  // the actual oscillator(s), connecting into `master` (not ctx.destination).
+  function playSfx(name, debounceKey, synth) {
+    var played = !audioSettings.muted;
+    if (played) {
+      var key = debounceKey || name;
+      var minGap = SFX_DEBOUNCE_MS[key];
+      if (minGap) {
+        var now = Date.now();
+        if (lastSfxAt[key] && now - lastSfxAt[key] < minGap) played = false;
+        else lastSfxAt[key] = now;
+      }
+    }
+    logSfxCall(name, played);
+    if (!played) return;
+    try {
+      var ctx = initAudioContext();
+      var master = getSfxGainNode(ctx);
+      synth(ctx, ctx.currentTime, master);
+    } catch (e) {
+      // audio context not supported, silently fail
+    }
+  }
+
+  function playTone(ctx, master, opts) {
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = opts.type || 'sine';
+    osc.connect(gain);
+    gain.connect(master);
+    osc.frequency.setValueAtTime(opts.freq, opts.start);
+    if (opts.endFreq) osc.frequency.exponentialRampToValueAtTime(Math.max(1, opts.endFreq), opts.start + opts.duration);
+    gain.gain.setValueAtTime(opts.gain, opts.start);
+    gain.gain.exponentialRampToValueAtTime(0.001, opts.start + opts.duration);
+    osc.start(opts.start);
+    osc.stop(opts.start + opts.duration);
+  }
+
+  function playTileStageSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'triangle', freq: 720, endFreq: 640, duration: 0.05, gain: 0.09, start: now });
+  }
+
+  function playTileUnstageSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'triangle', freq: 460, endFreq: 400, duration: 0.05, gain: 0.08, start: now });
+  }
+
+  function playInvalidWordSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'sawtooth', freq: 180, endFreq: 120, duration: 0.14, gain: 0.1, start: now });
+  }
+
+  function playGoldGainSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'triangle', freq: 660, duration: 0.09, gain: 0.09, start: now });
+    playTone(ctx, master, { type: 'triangle', freq: 880, duration: 0.11, gain: 0.09, start: now + 0.06 });
+  }
+
+  function playPurchaseSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'square', freq: 500, duration: 0.07, gain: 0.07, start: now });
+    playTone(ctx, master, { type: 'square', freq: 750, duration: 0.1, gain: 0.08, start: now + 0.05 });
+  }
+
+  function playConsumableSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'sine', freq: 900, endFreq: 1400, duration: 0.15, gain: 0.08, start: now });
+  }
+
+  function playHealSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'sine', freq: 440, endFreq: 660, duration: 0.25, gain: 0.1, start: now });
+  }
+
+  function playFloorTransitionSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'sine', freq: 220, endFreq: 520, duration: 0.5, gain: 0.09, start: now });
+  }
+
+  function playBossEntranceSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'sawtooth', freq: 70, duration: 0.45, gain: 0.16, start: now });
+    playTone(ctx, master, { type: 'square', freq: 105, duration: 0.4, gain: 0.1, start: now + 0.08 });
+  }
+
+  function playVictorySound(ctx, now, master) {
+    playTone(ctx, master, { type: 'triangle', freq: 523.25, duration: 0.16, gain: 0.11, start: now });
+    playTone(ctx, master, { type: 'triangle', freq: 659.25, duration: 0.16, gain: 0.11, start: now + 0.13 });
+    playTone(ctx, master, { type: 'triangle', freq: 784.0, duration: 0.3, gain: 0.12, start: now + 0.26 });
+  }
+
+  function playDefeatSound(ctx, now, master) {
+    playTone(ctx, master, { type: 'sawtooth', freq: 300, endFreq: 260, duration: 0.22, gain: 0.11, start: now });
+    playTone(ctx, master, { type: 'sawtooth', freq: 220, endFreq: 180, duration: 0.35, gain: 0.11, start: now + 0.2 });
   }
 
   function startBackgroundMusic(isBoss) {
@@ -1456,6 +1606,9 @@
     if (musicGainNode) {
       musicGainNode.gain.setValueAtTime(audioSettings.volume, audioContext.currentTime);
     }
+    if (sfxGainNode) {
+      sfxGainNode.gain.setValueAtTime(audioSettings.volume, audioContext.currentTime);
+    }
   }
 
   function toggleMusicMute() {
@@ -1465,6 +1618,9 @@
       // Restore the actual chosen volume on unmute, not a hardcoded default --
       // previously this reset to 0.1 regardless of what the slider was set to.
       musicGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, audioContext.currentTime);
+    }
+    if (sfxGainNode) {
+      sfxGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, audioContext.currentTime);
     }
     return !audioSettings.muted;
   }
@@ -1569,6 +1725,7 @@
     delete state.blankAssignments[tileId];
     markSettle(tileId); // MOBILE INPUT 3/3: settle where it lands back in the rack
     hapticTick();
+    playSfx('tileUnstage', 'tileTap', playTileUnstageSound);
     syncWordInput();
     render();
     flipTile(fromRect, tileElIn('rack-display', tileId));
@@ -1631,6 +1788,7 @@
     state.selectedTileIds.push(tile.id);
     markSettle(tile.id); // MOBILE INPUT 3/3: settle where it lands in the play area
     hapticTick();
+    playSfx('tileStage', 'tileTap', playTileStageSound);
     // The selection array is the source of truth; rebuild the input from it
     // rather than surgically edit the string, so removals from the middle
     // work correctly too.
@@ -1672,6 +1830,7 @@
       state.selectedTileIds.push(tileId);
       markSettle(tileId); // MOBILE INPUT 3/3: settle the blank as it lands staged
       hapticTick();
+      playSfx('tileStage', 'tileTap', playTileStageSound);
     }
     state.blankPickerOpen = false;
     state.blankPickerTileId = null;
