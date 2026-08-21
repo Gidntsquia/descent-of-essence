@@ -10,12 +10,117 @@ body {
 }
 
 #wb-root {
+  position: relative;
+  z-index: 1;
   max-width: 640px;
   margin: 0 auto;
   padding: 24px 16px 60px;
 }
 
 .hidden { display: none !important; }
+
+/* VISUAL (Jaxon request, 2026-08-21): ambient Boundless-Archive backdrop --
+   bookshelf-silhouette bands (a repeating-linear-gradient "spine" pattern,
+   masked to fade out near the center where panels sit), drifting dust
+   motes/loose letters, and a per-floor color tint. All CSS-only (gradients
+   + one inline SVG data-URI noise texture below, no external assets, per
+   house convention). Fixed + z-index:0 so it always sits behind #wb-root
+   (z-index:1 above) regardless of scroll. pointer-events:none + aria-hidden
+   so it never intercepts input or gets announced to screen readers -- purely
+   decorative. Kept deliberately low-opacity/low-contrast so it never
+   competes with foreground text or tile legibility. */
+#wb-ambient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wb-ambient-shelves {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background-image:
+    repeating-linear-gradient(90deg,
+      rgba(138, 106, 58, 0.9) 0px, rgba(138, 106, 58, 0.9) 22px,
+      rgba(90, 68, 38, 0.9) 22px, rgba(90, 68, 38, 0.9) 30px,
+      rgba(120, 92, 50, 0.9) 30px, rgba(120, 92, 50, 0.9) 46px,
+      rgba(70, 52, 30, 0.9) 46px, rgba(70, 52, 30, 0.9) 58px,
+      rgba(110, 84, 46, 0.9) 58px, rgba(110, 84, 46, 0.9) 80px,
+      rgba(60, 44, 26, 0.9) 80px, rgba(60, 44, 26, 0.9) 96px),
+    repeating-linear-gradient(0deg,
+      transparent 0px, transparent 210px,
+      rgba(15, 12, 8, 0.6) 210px, rgba(15, 12, 8, 0.6) 216px);
+  -webkit-mask-image: radial-gradient(ellipse 70% 62% at 50% 42%, transparent 40%, black 88%);
+  mask-image: radial-gradient(ellipse 70% 62% at 50% 42%, transparent 40%, black 88%);
+}
+
+.wb-ambient-motes { position: absolute; inset: 0; }
+.wb-ambient-motes .mote {
+  position: absolute;
+  bottom: -5%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(232, 223, 200, 0.5);
+  opacity: 0;
+}
+.wb-ambient-motes .mote-letter {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-weight: bold;
+  color: rgba(232, 223, 200, 0.22);
+}
+.wb-ambient-motes .mote:nth-child(1) { left: 6%; }
+.wb-ambient-motes .mote:nth-child(2) { left: 18%; width: 2px; height: 2px; }
+.wb-ambient-motes .mote:nth-child(3) { left: 30%; font-size: 18px; }
+.wb-ambient-motes .mote:nth-child(4) { left: 46%; width: 2px; height: 2px; }
+.wb-ambient-motes .mote:nth-child(5) { left: 58%; font-size: 24px; }
+.wb-ambient-motes .mote:nth-child(6) { left: 72%; width: 3px; height: 3px; }
+.wb-ambient-motes .mote:nth-child(7) { left: 84%; font-size: 19px; }
+.wb-ambient-motes .mote:nth-child(8) { left: 94%; width: 2px; height: 2px; }
+
+@keyframes wbMoteDrift {
+  0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+  8% { opacity: 0.35; }
+  92% { opacity: 0.18; }
+  100% { transform: translateY(-115vh) translateX(24px) rotate(8deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .wb-ambient-motes .mote { animation: wbMoteDrift linear infinite; }
+  .wb-ambient-motes .mote:nth-child(1) { animation-duration: 34s; animation-delay: 0s; }
+  .wb-ambient-motes .mote:nth-child(2) { animation-duration: 41s; animation-delay: 5s; }
+  .wb-ambient-motes .mote:nth-child(3) { animation-duration: 52s; animation-delay: 2s; }
+  .wb-ambient-motes .mote:nth-child(4) { animation-duration: 37s; animation-delay: 9s; }
+  .wb-ambient-motes .mote:nth-child(5) { animation-duration: 48s; animation-delay: 14s; }
+  .wb-ambient-motes .mote:nth-child(6) { animation-duration: 44s; animation-delay: 3s; }
+  .wb-ambient-motes .mote:nth-child(7) { animation-duration: 55s; animation-delay: 18s; }
+  .wb-ambient-motes .mote:nth-child(8) { animation-duration: 39s; animation-delay: 11s; }
+}
+/* Reduced motion: skip the drift, keep faint static specks instead of
+   nothing -- the ambient identity survives, just without the motion. */
+@media (prefers-reduced-motion: reduce) {
+  .wb-ambient-motes .mote { opacity: 0.12; bottom: 40%; }
+  .wb-ambient-motes .mote-letter { opacity: 0.10; }
+}
+
+/* Per-floor tint (FLOORS in THEME.md: 1 Overdue Aisles/warm parchment,
+   2 Reference Wing/cooler denser stacks, 3 The Binding/deep vault red) so
+   descending reads as moving somewhere, not just a number changing. Class
+   toggled on <body> by Game.render()/renderRun() (js/wordbound/game.js). */
+.wb-floor-tint {
+  position: absolute;
+  inset: 0;
+  transition: background 1.2s ease;
+  background: transparent;
+}
+body.floor-1 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(154, 122, 58, 0.12), transparent 65%); }
+body.floor-2 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(90, 110, 130, 0.11), transparent 65%); }
+body.floor-3 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(140, 60, 50, 0.13), transparent 65%); }
 
 /* Screen/panel transitions (GOALS.md FEEL review F3): map -> combat ->
    reward -> map was a hard cut everywhere. These fire once, exactly when an
@@ -37,8 +142,18 @@ body {
   }
 }
 
+/* VISUAL: subtle vellum/parchment grain on panels (an inline SVG
+   feTurbulence noise texture, ~0.05 alpha baked into the SVG itself so it
+   reads as texture, not visible speckle) layered under the existing panel
+   gradient via background-blend-mode. Static (no animation cost) and low
+   enough contrast it doesn't touch text/tile legibility. */
 .panel {
-  background: linear-gradient(to bottom, #2a2418 0%, #241f17 100%);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.55  0 0 0 0 0.48  0 0 0 0 0.32  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(to bottom, #2a2418 0%, #241f17 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 140px 140px, auto;
+  background-blend-mode: soft-light, normal;
   border: 2px solid #4a4130;
   border-radius: 8px;
   padding: 28px 24px;

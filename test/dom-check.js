@@ -2671,6 +2671,13 @@ async function main() {
     // and then skips the first regular combat on the following floor.
     await enterAndKillBoss(1, 'boss_vowelmaw', 'boss-skip/floor1');
     check('boss-skip/floor1: beating the boss advanced to floor 2', state.floorNumber === 2 && state.screen === 'RUN');
+    // VISUAL (per-floor ambient tint, GOALS.md): <body> should carry exactly
+    // one floor-N class, matching the CURRENT floor, and it should already
+    // have flipped from floor-1 to floor-2 now that the boss kill advanced
+    // the floor and re-rendered -- proves the wiring in Game.render()/
+    // renderRun() actually runs end-to-end, not just in isolation.
+    check('visual: <body> carries floor-2 (not floor-1) after advancing floors',
+      document.body.classList.contains('floor-2') && !document.body.classList.contains('floor-1') && !document.body.classList.contains('floor-3'));
     check('boss-skip/floor1: the skip flag is STILL pending after the boss fight', state.pendingEventSkipNextCombat === true);
     // The next regular combat on floor 2 is now skipped by the surviving flag.
     state.combatActive = false;
@@ -2688,6 +2695,10 @@ async function main() {
     // this confirms the real kill path still wins the run).
     await enterAndKillBoss(window.Wordbound.Floor.TOTAL_FLOORS, 'boss_sovereign', 'boss-skip/floor3');
     check('boss-skip/floor3: beating the final boss triggers VICTORY', state.screen === 'VICTORY');
+    // VISUAL: leaving the run screen (VICTORY here) must clear the floor
+    // tint classes -- they're only meaningful while state.screen === 'RUN'.
+    check('visual: <body> has no floor-N class on the VICTORY screen',
+      !document.body.classList.contains('floor-1') && !document.body.classList.contains('floor-2') && !document.body.classList.contains('floor-3'));
     check('boss-skip: the whole boss-skip flow produced zero errors', errors.length === 0);
     if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
   }

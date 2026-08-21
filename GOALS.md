@@ -3683,7 +3683,7 @@ Rules for the routine:
       this ticket, so `npm run test:mobile` wasn't required and wasn't run.
       Version bumped v0.33 -> v0.34 (`wordbound.html`).
 
-- [ ] VISUAL (Jaxon request): make the background/visuals fit the theme
+- [x] VISUAL (Jaxon request): make the background/visuals fit the theme
       better. Right now the game plays on a mostly flat dark backdrop; the
       theme is the Boundless Archive -- a library gone feral (THEME.md).
       Give the game an ambient visual identity: e.g. layered CSS-gradient /
@@ -3707,6 +3707,67 @@ Rules for the routine:
       real-browser screenshot pass at desktop + 375px in PROGRESS.md terms
       (describe what was visually confirmed -- element visibility/contrast --
       and say plainly that aesthetic judgment is Jaxon's). Minor version bump.
+      DONE 2026-08-21T01:02Z, v0.34 -> v0.35. All four hard constraints
+      followed: no external assets (CSS gradients + one inline SVG
+      feTurbulence data-URI for parchment grain -- see wordbound.css), a
+      fixed `#wb-ambient-bg` layer sits at z-index:0 (pointer-events:none,
+      aria-hidden) strictly behind `#wb-root` (bumped to z-index:1) so it
+      never intercepts input or gets announced to screen readers, all motion
+      is transform+opacity only inside `@media (prefers-reduced-motion:
+      no-preference)` with a static-faint fallback under `reduce`, and only
+      wordbound.css/wordbound.html were touched (grepped css/style.css and
+      index.html afterward to confirm zero changes reached Descent of
+      Essence).
+      WHAT WAS BUILT: (1) a bookshelf-silhouette backdrop -- two layered
+      repeating-linear-gradients (vertical "spine" bands of varying width/
+      color + horizontal shelf-divider lines), masked via radial-gradient to
+      fade out near where the panel sits so it never competes with content;
+      (2) 8 drifting dust motes (3 rendered as faint letter glyphs -- Q/A/Z
+      -- per the ticket's "stray letters" suggestion, the rest plain dots),
+      each an absolutely-positioned span animating translateY/translateX/
+      opacity on its own randomized duration+delay so they don't move in
+      lockstep; (3) a subtle SVG-noise vellum texture layered under the
+      existing `.panel` gradient via `background-blend-mode: soft-light`
+      (alpha baked to 0.05 in the SVG itself, so it reads as grain not
+      speckle); (4) a per-floor tint (`body.floor-1/2/3 .wb-floor-tint`,
+      warm amber -> cool blue-grey -> deep red, matching THEME.md's Overdue
+      Aisles/Reference Wing/The Binding escalation) toggled by a new
+      `document.body.classList` call in `Game.render()`/`renderRun()`
+      (js/wordbound/game.js) -- cleared on every non-run screen, set to
+      `floor-` + `state.floorNumber` while on the run screen, with a 1.2s CSS
+      transition so it eases rather than snaps on floor change.
+      VERIFIED: `npm test` ALL CHECKS PASSED (425/425 -- 2 new targeted DOM
+      assertions added: `<body>` carries exactly `floor-2` (not floor-1/3)
+      immediately after a real floor-1->floor-2 boss-kill advance, proving
+      the render() wiring runs end-to-end not just in isolation; and
+      `<body>` carries NO floor-N class on the VICTORY screen, proving the
+      clear-on-non-run-screen branch works). `npm run test:mobile` clean at
+      375/414px, zero overflow warnings (the ambient layer is `position:
+      fixed` + `pointer-events: none`, so it can't itself cause scroll/
+      overflow, but confirmed rather than assumed). `npm run test:qa` clean,
+      real Chromium, zero console/page errors across the full boss-reward
+      flow (which crosses a real floor-1->2 tint transition).
+      REAL-BROWSER SCREENSHOT PASS (Playwright, desktop 1024px + mobile
+      375px, script run then discarded -- not committed): main menu and an
+      in-run floor-1 screen at both widths -- confirmed visually: bookshelf
+      bands render as intended (readable, subtle, don't fight panel text),
+      panel text/buttons/HP-gold-floor HUD all fully legible with normal
+      contrast, no visual clipping or overlap at 375px, dust motes visible
+      as faint specks without being distracting. Per-floor tint: the CSS
+      itself was confirmed via `getComputedStyle` (floor-1/2/3 each produce
+      a distinct `background-image` color on `.wb-floor-tint`, not just
+      "class toggles"), but the visual DIFFERENCE between floors in a still
+      screenshot is genuinely subtle by design (the ticket's own
+      "readability first... low-contrast" constraint) -- close but
+      noticeable side-by-side, not a dramatic shift. Whether that's the
+      right amount of subtlety (vs. wanting it more pronounced) is an
+      aesthetic call, explicitly Jaxon's per the ticket's own verification
+      language, not something this run should tune further by guessing.
+      NOT verified / out of scope: real mid-range-phone jank/performance
+      (the sandbox can't measure that; the animation is deliberately cheap --
+      8 elements, transform/opacity only, no layout-triggering properties --
+      but actual frame-rate on real hardware needs Jaxon's phone, same
+      standing gap as the rest of this project's touch/feel verification).
 
 - [ ] AUDIO (Jaxon request): more sound effects, so the game feels more
       responsive. Audit what already has sound (grep playCombatSound /

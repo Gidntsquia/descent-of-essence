@@ -10930,3 +10930,97 @@ ticket box checked. Committed and pushed to `main`.
 **State:** working tree clean, matches what was pushed. **Next run:**
 GOALS.md's queue continues with the VISUAL ticket (background/visuals fit
 theme) -- item 2/4 of the same batch, next in line top-to-bottom.
+
+## 2026-08-21T01:02Z -- VISUAL: ambient Boundless-Archive backdrop (v0.34 -> v0.35)
+
+Started this run on the BALANCE rebalance ticket (still open at the time),
+did a full round 7 (player HP 22->23, pooled n=100 sim data showing 47% win
+rate in-band) -- but on push discovered a concurrent session (and Jaxon
+himself, waking to review the flagged win-rate collapse) had already closed
+that exact ticket at v0.33 with a similar conclusion (3/4 targets met, floor2
+share accepted as a known/documented gap) AND a further session had already
+completed the next queued CONTENT ticket (9 new items, v0.34). Reset to
+`origin/main` (80a9ac0) and discarded this run's now-redundant rebalance
+work rather than pushing a conflicting/inferior round on top, per this
+project's established collision-handling practice. No time was wasted
+end-to-end -- the balance conclusion this run reached independently (in-band
+win rate, floor2 persistently the hardest content, accept and move on)
+matched what had already landed, which is itself a useful cross-check even
+though the commits were discarded.
+
+Picked up the next unchecked queue item: VISUAL (Jaxon request) -- ambient
+visual identity for the Boundless Archive theme. Read THEME.md (library-gone-
+feral premise, floor names: Overdue Aisles / Reference Wing / The Binding)
+and the existing wordbound.css structure first.
+
+**Built**, all in wordbound.css/wordbound.html only (js/wordbound/game.js
+got a small hook for the floor-tint class, per the ticket's own example
+list):
+1. A fixed `#wb-ambient-bg` layer (z-index:0, `#wb-root` bumped to z-index:1
+   to sit above it, `pointer-events:none` + `aria-hidden` so it's purely
+   decorative) containing:
+   - `.wb-ambient-shelves`: two layered `repeating-linear-gradient`s (varied-
+     width vertical "book spine" color bands + horizontal shelf-divider
+     lines), masked via `radial-gradient` so it fades out near the panel
+     rather than fighting with content.
+   - `.wb-ambient-motes`: 8 small absolutely-positioned spans drifting
+     upward via CSS keyframes (translateY/translateX/opacity only, no
+     layout-triggering properties), each with its own randomized duration/
+     delay so they don't move in lockstep. 3 of the 8 render as faint
+     letter glyphs (Q/A/Z) instead of plain dots, per the ticket's own
+     "stray letters" suggestion. All gated under `@media
+     (prefers-reduced-motion: no-preference)`; under `reduce` they render
+     as static faint specks instead of vanishing entirely.
+   - `.wb-floor-tint`: a per-floor radial-gradient tint (floor1 warm amber,
+     floor2 cooler blue-grey, floor3 deep red -- matching THEME.md's
+     Overdue Aisles -> Reference Wing -> The Binding escalation), toggled
+     via `body.floor-1/2/3` classes.
+2. `.panel` got a subtle vellum/parchment grain: an inline SVG
+   `feTurbulence` noise texture (alpha baked to 0.05 in the SVG itself),
+   layered under the existing panel gradient via `background-blend-mode:
+   soft-light`. Static, no animation cost.
+3. `js/wordbound/game.js`: `render()` now clears `floor-1/2/3` from
+   `document.body.classList` at the top (so every non-run screen shows the
+   neutral backdrop), and `renderRun()` re-adds `floor-` + the current
+   `state.floorNumber` -- same `classList.toggle` pattern the existing
+   `touch-mode` class already uses elsewhere in this file.
+
+**Verification (per the ticket's own mandate, all actually run):**
+- `npm test`: ALL CHECKS PASSED, 425/425. Added 2 new targeted DOM
+  assertions in test/dom-check.js (piggybacked on the existing boss-skip
+  flow, which already crosses a real floor-1->2 advance and later reaches
+  VICTORY): `<body>` carries exactly `floor-2` right after a real boss-kill
+  floor advance (proves the render() wiring runs end-to-end, not just in an
+  isolated call), and `<body>` carries NO floor-N class on the VICTORY
+  screen (proves the clear-on-non-run-screen branch works).
+- `npm run test:mobile`: clean, zero overflow warnings at 375/414px across
+  all 4 screens it checks (main menu, combat, tile-reward, game-over) plus
+  the touch-mode check.
+- `npm run test:qa`: clean, real Chromium, zero console/page errors across
+  the full boss-reward flow (crosses a real floor tint transition).
+- **Real-browser screenshot pass** (Playwright, desktop 1024px + mobile
+  375px, ad-hoc script written and discarded after use, not committed):
+  main menu and an in-run floor-1 screen at both widths. Confirmed
+  visually: bookshelf bands render as intended, subtle and don't compete
+  with panel text; all HUD/panel text and buttons stay fully legible with
+  no contrast loss; zero clipping/overlap at 375px; dust motes visible as
+  faint, non-distracting specks. Per-floor tint: confirmed via
+  `getComputedStyle` that floor-1/2/3 each produce a genuinely distinct
+  `background-image` color (not just a class-toggle no-op), but in a still
+  screenshot the visual difference between floors is subtle by design (the
+  ticket's own "readability first... low-contrast" constraint) -- noticeable
+  side-by-side, not dramatic. Whether that's the right amount of
+  subtlety is Jaxon's aesthetic call, not something to keep tuning by guess.
+
+**NOT verified / explicitly out of scope:** real mid-range-phone animation
+performance -- the sandbox can't measure actual frame rate/jank; the
+8-element transform/opacity-only animation is deliberately cheap by design,
+but confirming it doesn't jank real hardware needs Jaxon's phone, same
+standing gap as this project's other touch/feel verification items.
+
+Version bumped v0.34 -> v0.35 (`wordbound.html`). GOALS.md's VISUAL ticket
+box checked.
+
+**State:** working tree clean, matches what's about to be pushed. **Next
+run:** queue continues with the AUDIO ticket (more SFX, item 3/4 of Jaxon's
+same batch) -- unblocked, next in line top-to-bottom.

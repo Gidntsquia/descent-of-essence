@@ -2084,6 +2084,11 @@
   }
 
   function render() {
+    // VISUAL (per-floor ambient tint, GOALS.md): cleared here and re-added
+    // by renderRun() below -- only the run screen ever wants a floor class,
+    // so every other screen (menu/character-select/game-over/victory) just
+    // clears it back to the neutral backdrop.
+    if (document.body) document.body.classList.remove('floor-1', 'floor-2', 'floor-3');
     $('howto-overlay').classList.toggle('hidden', !state.howToPlayOpen);
     renderBlankPicker();
     if (state.screen === 'MAIN_MENU') { show('screen-main-menu'); renderMainMenu(); return; }
@@ -2167,6 +2172,7 @@
   }
 
   function renderRun() {
+    if (document.body) document.body.classList.add('floor-' + state.floorNumber);
     $('player-hp-display').textContent = 'HP ' + state.player.hp + ' / ' + state.player.maxHp;
     $('gold-display').textContent = state.player.gold + ' 🪙';
     var floorName = getFloorName(state.floorNumber);
