@@ -20,7 +20,7 @@
 //   4. Zero console errors / page errors across the whole run.
 //
 // Test scaffolding notes (setup vs. interaction): jumping the run position
-// to the boss node and topping up player HP go through Game._state -- that's
+// to the boss node and topping up player ink go through Game._state -- that's
 // setup, kept out of the assertions. Every INTERACTION being verified
 // (entering nodes, playing words, picking rewards) is a real click or real
 // typing on the visible UI.
@@ -179,7 +179,7 @@ async function main() {
   check('run starts via real clicks (character select reachable and clickable)', true);
 
   // give the boss fights headroom so QA doesn't flake on player death (setup, not interaction)
-  await page.evaluate('(function(){var p=window.Wordbound.Game._state.player;p.maxHp=200;p.hp=200;})()');
+  await page.evaluate('(function(){var p=window.Wordbound.Game._state.player;p.maxInk=200;p.ink=200;})()');
 
   await page.click('.node-pill.node-current');
   const firstNodeState = await page.evaluate(
@@ -271,7 +271,7 @@ async function main() {
       if (s.floor.nodes[i].type === 'boss') { s.currentNodeIndex = i; break; }
       s.floor.nodes[i].cleared = true;
     }
-    s.player.hp = 200;
+    s.player.ink = 200;
   })()`);
   await page.evaluate('window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();');
   await page.click('.node-pill.node-current');

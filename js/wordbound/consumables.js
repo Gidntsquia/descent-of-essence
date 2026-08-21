@@ -20,18 +20,18 @@
     CONSUMABLE_DEFS[d.id] = d;
   }
 
-  // Errata Slip: Heal 8 HP (or to max, whichever is less)
+  // Errata Slip: Heal 8 ink (or to max, whichever is less)
   def({
     id: 'errata_slip',
     name: 'Errata Slip',
-    hint: 'Restore 8 HP (or to max). A correction slip from the Archive.',
+    hint: 'Restore 8 ink (or to max). A correction slip from the Archive.',
     rarity: 'common',
     shopPrice: 15,
     effect: function (ctx) {
-      var healed = Math.min(8, ctx.player.maxHp - ctx.player.hp);
-      ctx.player.hp += healed;
+      var healed = Math.min(8, ctx.player.maxInk - ctx.player.ink);
+      ctx.player.ink += healed;
       return {
-        message: 'Errata Slip: Restored ' + healed + ' HP!',
+        message: 'Errata Slip: Restored ' + healed + ' ink!',
         healed: healed
       };
     }

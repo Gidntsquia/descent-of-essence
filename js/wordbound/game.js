@@ -157,7 +157,7 @@
   // difficulty onto any single floor.
   function newPlayer(characterDef) {
     var player = {
-      hp: 22, maxHp: 22, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
+      ink: 22, maxInk: 22, gold: 0, rack: [], items: [], consumables: [], usedSecondWind: false,
       bonusDamageUntilEndOfTurn: 0, skipDiscardNextTurn: false, bonusTilesToDraw: 0
     };
     if (characterDef && characterDef.startingItems) {
@@ -302,9 +302,9 @@
     } else if (node.type === 'event') {
       startEvent(node);
     } else if (node.type === 'rest') {
-      var healed = Math.round(state.player.maxHp * 0.5);
-      state.player.hp = Math.min(state.player.maxHp, state.player.hp + healed);
-      log('You rest and recover ' + healed + ' HP.');
+      var healed = Math.round(state.player.maxInk * 0.5);
+      state.player.ink = Math.min(state.player.maxInk, state.player.ink + healed);
+      log('You rest and recover ' + healed + ' ink.');
       playSfx('heal', null, playHealSound);
       node.cleared = true;
       state.currentNodeIndex += 1;
@@ -781,8 +781,8 @@
       log('Gilded tile' + (variantGold > GILDED_GOLD_PER_TILE ? 's' : '') + ': +' + variantGold + ' gold!');
     }
     if (variantHeal > 0) {
-      state.player.hp = Math.min(state.player.maxHp, state.player.hp + variantHeal);
-      log('Vampiric tile' + (variantHeal > VAMPIRIC_HEAL_PER_TILE ? 's' : '') + ': healed ' + variantHeal + ' HP.');
+      state.player.ink = Math.min(state.player.maxInk, state.player.ink + variantHeal);
+      log('Vampiric tile' + (variantHeal > VAMPIRIC_HEAL_PER_TILE ? 's' : '') + ': healed ' + variantHeal + ' ink.');
     }
     if (crackedCount > 0) {
       log('A Volatile tile cracks' + (crackedCount > 1 ? ' (x' + crackedCount + ')' : '') + ' -- gone for the rest of the fight.');
@@ -826,13 +826,13 @@
     // player's OWN turn, inside the onWordPlayed hook above -- before the
     // monster ever gets a counterattack. The normal player-death check
     // further down only covers the counterattack path, and the killing-blow
-    // branch below never checks player HP at all (it didn't need to before
+    // branch below never checks player ink at all (it didn't need to before
     // an item could hurt the player on their own turn) -- so a word that
     // kills the monster AND, via Cursed Quill, drops the player to 0 in the
     // same blow would otherwise fall through to the reward screen with a
     // "dead" player still in play. Catch it here, after the log lines above
     // so the player sees what happened, but before either branch runs.
-    if (state.player.hp <= 0) {
+    if (state.player.ink <= 0) {
       state.combatActive = false;
       endRun(false);
       return;
@@ -909,11 +909,11 @@
       var dmgCtx = { player: state.player, monster: state.monster, damage: actionResult.damage };
       if (dmgCtx.damage > 0) {
         Items.runHook('onPlayerDamaged', dmgCtx, state.player);
-        state.player.hp = Math.max(0, state.player.hp - dmgCtx.damage);
+        state.player.ink = Math.max(0, state.player.ink - dmgCtx.damage);
       }
       log(actionResult.message);
 
-      if (state.player.hp <= 0) {
+      if (state.player.ink <= 0) {
         state.combatActive = false;
         endRun(false);
         return;
@@ -1030,7 +1030,7 @@
     // Track achievements
     if (Achievements) {
       if (wasBoss) {
-        Achievements.trackBossDefeatedWithoutDamage(state.monster.defId, state.player.hp < state.player.maxHp);
+        Achievements.trackBossDefeatedWithoutDamage(state.monster.defId, state.player.ink < state.player.maxInk);
       }
       Achievements.trackOverkill(overkill);
       Achievements.trackItemsCollected(state.player.items.length);
@@ -1249,11 +1249,11 @@
   }
 
   function animatePlayerDamage() {
-    var hpDisplay = $('player-hp-display');
-    hpDisplay.classList.remove('take-damage');
-    void hpDisplay.offsetWidth; // trigger reflow to restart animation
-    hpDisplay.classList.add('take-damage');
-    setTimeout(function () { hpDisplay.classList.remove('take-damage'); }, 400);
+    var inkDisplay = $('player-ink-display');
+    inkDisplay.classList.remove('take-damage');
+    void inkDisplay.offsetWidth; // trigger reflow to restart animation
+    inkDisplay.classList.add('take-damage');
+    setTimeout(function () { inkDisplay.classList.remove('take-damage'); }, 400);
   }
 
   // ---- sound effects --------------------------------------------------------
@@ -2345,7 +2345,7 @@
 
   function renderRun() {
     if (document.body) document.body.classList.add('floor-' + state.floorNumber);
-    $('player-hp-display').textContent = 'HP ' + state.player.hp + ' / ' + state.player.maxHp;
+    $('player-ink-display').textContent = 'Ink ' + state.player.ink + ' / ' + state.player.maxInk;
     $('gold-display').textContent = state.player.gold + ' 🪙';
     var floorName = getFloorName(state.floorNumber);
     $('floor-label').textContent = 'Floor ' + state.floorNumber + ' / ' + Floor.TOTAL_FLOORS + (floorName ? ' — ' + floorName : '');

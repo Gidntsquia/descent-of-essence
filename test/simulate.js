@@ -130,15 +130,15 @@ async function analyze() {
     }
 
     const state = Game._state;
-    if (state.player && state.player.hp > 0 && state.player.rack && state.player.rack.length > 0) {
+    if (state.player && state.player.ink > 0 && state.player.rack && state.player.rack.length > 0) {
       console.log('✓ Player state initialized during combat');
-      console.log('  ✓ Player HP: ' + state.player.hp);
+      console.log('  ✓ Player Ink: ' + state.player.ink);
       console.log('  ✓ Rack tiles: ' + state.player.rack.length);
       console.log('  ✓ Current monster: ' + (state.monster?.name || 'unknown'));
       passed++;
     } else {
       console.log('✗ Player state incomplete during combat');
-      issues.push('Player state not properly initialized (hp=' + state.player.hp + ', rack=' + state.player.rack?.length + ')');
+      issues.push('Player state not properly initialized (ink=' + state.player.ink + ', rack=' + state.player.rack?.length + ')');
     }
   }
 
@@ -230,7 +230,7 @@ async function analyze() {
           }
         }
 
-        console.log('Run ' + runNum + ': ✓ Playable (Player HP: ' + Game._state.player.hp + ')');
+        console.log('Run ' + runNum + ': ✓ Playable (Player Ink: ' + Game._state.player.ink + ')');
       }
     } catch (e) {
       playabilityIssues++;

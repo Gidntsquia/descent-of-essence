@@ -35,11 +35,12 @@
 //     ctx: { player, monster, turnDamage, rng }. turnDamage is the damage
 //     the player's word just dealt this turn (Devour's condition checks
 //     it). Mutates player.rack / monster.hp / monster.attack /
-//     monster.mendUsed as appropriate; never mutates player.hp directly
+//     monster.mendUsed as appropriate; never mutates player.ink directly
 //     (caller applies `damage`, same as it always has, so item hooks like
 //     Thick Skin/Second Wind that adjust ctx.damage still run normally).
 //     Devour/Mend/Enrage/Hex all deal 0 `damage` -- they're a monster
-//     "using their turn" on something other than a hit.
+//     "using their turn" on something other than a hit. Attack/Heavy Blow
+//     damage spills the player's ink (see ctx.player.ink in game.js).
 
 (function () {
   window.Wordbound = window.Wordbound || {};
@@ -124,13 +125,13 @@
 
     if (intent.type === 'attack') {
       result.damage = intent.value;
-      result.message = monster.name + ' hits you for ' + result.damage + '.';
+      result.message = monster.name + ' hits you, spilling ' + result.damage + ' ink.';
       return result;
     }
 
     if (intent.type === 'heavy') {
       result.damage = intent.value;
-      result.message = monster.name + ' lands a Heavy Blow for ' + result.damage + '!';
+      result.message = monster.name + ' lands a Heavy Blow, spilling ' + result.damage + ' ink!';
       return result;
     }
 

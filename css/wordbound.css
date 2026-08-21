@@ -315,7 +315,7 @@ h2 {
   font-size: 1.1rem;
   margin-bottom: 8px;
 }
-.run-header > .hp-display,
+.run-header > .ink-display,
 .run-header > .gold-display,
 .run-header > .floor-label {
   flex-shrink: 0;
@@ -325,8 +325,8 @@ h2 {
   0% { color: #ff6060; }
   100% { color: #e08a8a; }
 }
-.hp-display { color: #e08a8a; font-weight: bold; white-space: nowrap; }
-.hp-display.take-damage {
+.ink-display { color: #e08a8a; font-weight: bold; white-space: nowrap; }
+.ink-display.take-damage {
   animation: playerDamageFlash 0.4s ease-out;
 }
 .gold-display { color: #f0d789; font-weight: bold; white-space: nowrap; }

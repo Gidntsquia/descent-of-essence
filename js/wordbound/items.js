@@ -22,7 +22,7 @@
 //                            result is the object Combat.playWord returned;
 //                            hooks may add to result.damage (already applied
 //                            to monster.hp by the caller's follow-up) or heal
-//                            player.hp. See applyBonusDamage below.
+//                            player.ink. See applyBonusDamage below.
 //                            previousWord (GOALS.md "FUN OVERHAUL 4/8") is the
 //                            upper-cased word played immediately before this
 //                            one THIS FIGHT, or null on the fight's first word
@@ -169,7 +169,7 @@
       onWordPlayed: function (ctx) {
         var VOWELS = ['A', 'E', 'I', 'O', 'U'];
         var healed = ctx.word.split('').filter(function (l) { return VOWELS.indexOf(l) !== -1; }).length;
-        if (healed > 0) ctx.player.hp = Math.min(ctx.player.maxHp, ctx.player.hp + healed);
+        if (healed > 0) ctx.player.ink = Math.min(ctx.player.maxInk, ctx.player.ink + healed);
       }
     }
   });
@@ -197,8 +197,8 @@
     hooks: {
       onPlayerDamaged: function (ctx) {
         if (ctx.player.usedSecondWind) return;
-        if (ctx.damage < ctx.player.hp) return;
-        ctx.damage = ctx.player.hp - 1;
+        if (ctx.damage < ctx.player.ink) return;
+        ctx.damage = ctx.player.ink - 1;
         ctx.player.usedSecondWind = true;
       }
     }
@@ -230,7 +230,7 @@
     hooks: {
       onWordPlayed: function (ctx) {
         if (ctx.word.length >= 5) {
-          ctx.player.hp = Math.min(ctx.player.maxHp, ctx.player.hp + 2);
+          ctx.player.ink = Math.min(ctx.player.maxInk, ctx.player.ink + 2);
         }
       }
     }
@@ -404,7 +404,7 @@
       onWordPlayed: function (ctx) {
         if (ctx.word.length < 6) return;
         Items.applyPercentBonus(ctx, 0.25);
-        ctx.player.hp = Math.min(ctx.player.maxHp, ctx.player.hp + 1);
+        ctx.player.ink = Math.min(ctx.player.maxInk, ctx.player.ink + 1);
         ctx.messages.push('Long-S Ligature: +25% and mended!');
       }
     }
@@ -421,12 +421,12 @@
         Items.applyBonusDamage(ctx, 10);
         // Deliberately no floor here (unlike Thick Skin/Second Wind's
         // damage-reduction hooks) -- the ticket's own wording is "can kill
-        // you, that's the deal." Game.submitWord checks player.hp right
+        // you, that's the deal." Game.submitWord checks player.ink right
         // after onWordPlayed hooks run specifically so this self-damage
         // (which lands on the player's OWN turn, before any monster
         // counterattack) can end the run even on a word that also kills
         // the monster in the same blow.
-        ctx.player.hp = Math.max(0, ctx.player.hp - 2);
+        ctx.player.ink = Math.max(0, ctx.player.ink - 2);
         ctx.messages.push('Cursed Quill: +10, and it costs you 2.');
       }
     }
@@ -644,11 +644,11 @@
         var chunks = Math.floor((ctx.player.gold || 0) / 10);
         if (chunks <= 0) return;
         var spent = chunks * 10;
-        var hpGain = chunks * 2;
+        var inkGain = chunks * 2;
         ctx.player.gold -= spent;
-        ctx.player.maxHp += hpGain;
-        ctx.player.hp += hpGain;
-        ctx.messages.push('Acquisitions Budget: spent ' + spent + ' gold for +' + hpGain + ' max HP!');
+        ctx.player.maxInk += inkGain;
+        ctx.player.ink += inkGain;
+        ctx.messages.push('Acquisitions Budget: spent ' + spent + ' gold for +' + inkGain + ' max ink!');
       }
     }
   });

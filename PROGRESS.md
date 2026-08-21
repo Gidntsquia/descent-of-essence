@@ -11523,3 +11523,119 @@ sequencing rationale). The next one (INK system) is explicitly marked
 MULTI-RUN and structural -- read its full spec in GOALS.md before starting,
 it's a big one. **Before doing anything else, run `git log
 main..origin/main` and confirm it's empty.**
+
+## 2026-08-21T05:29Z -- INK system run 1/2-4: pure HP -> Ink rename, mechanically identical (v0.39 -> v0.40)
+
+Picked up the INK ticket (first unchecked item, GOALS.md's "FEATURE, STRUCTURAL
+(Jaxon's decision, 2026-08-21): replace the player's HP with INK"). The ticket's
+own sequencing note says this is likely 2-4 runs and explicitly scopes run 1 to
+"rename/convert (pure HP->ink swap, mechanically identical, all tests green)" --
+that's exactly what this run did. **The ink SPEND mechanics (overcharge,
+ink-costed abilities/shop options) are NOT implemented yet** -- that's run 2+,
+tracked below. This run only renamed the resource and swept its terminology;
+every number, clamp, and formula is byte-for-byte what it was under the HP name.
+
+Also hit the same stale-remote-ref trap the last two runs logged (a shallow
+clone left `origin/main` pointing at an old 3-commit history until
+`git fetch --unshallow` corrected it) -- caught it immediately this time by
+running `git log main..origin/main` per the previous run's instruction before
+touching anything, and it resolved cleanly (`git fetch --unshallow` then
+`git branch main -f e1125d8 && git checkout main`). No wasted work this time;
+flagging again in case whatever container-init step keeps producing this
+shallow-clone artifact is worth someone looking at directly, since three
+consecutive runs have now hit it.
+
+**Scope discipline:** monsters KEEP their HP/damage exactly as the fresh
+rebalance tuned them -- only PLAYER life/mana changed. Before touching
+anything, grepped every `player.hp`/`player.maxHp` occurrence across the repo
+and separately confirmed which files belong to Wordbound (`js/wordbound/*`,
+`wordbound.html`, `css/wordbound.css`, the Wordbound-loading `test/*.js` +
+`tools/record-gameplay.js`) vs. Descent of Essence (`js/game.js`, `js/ui/`,
+`js/systems/`, `js/data/` -- untouched, wrong game entirely). Monster/boss
+`.hp`/`.maxHp` fields, comments, and UI (`.monster-hp-*`, boss Mend heal
+messages) are all still HP by design and were left alone throughout.
+
+**What changed:**
+- **Data model:** `state.player.hp`/`.maxHp` -> `state.player.ink`/`.maxInk`
+  everywhere in `js/wordbound/game.js`, `combat.js`, `consumables.js`,
+  `events.js`, `items.js`, `achievements.js` (the file holds unlockable-item
+  defs, not achievement tracking -- one hook there touched). `newPlayer()`'s
+  starting object literal (`ink: 22, maxInk: 22`) is the new source of truth;
+  the number itself (22) is untouched, so nothing about difficulty moved.
+- **UI:** `#player-hp-display`/`.hp-display` -> `#player-ink-display`/
+  `.ink-display` (`wordbound.html`, `css/wordbound.css`, the
+  `animatePlayerDamage`/`renderRun` DOM lookups in `game.js`). Display text
+  "HP 15 / 22" -> "Ink 15 / 22". Game-over heading "You Died" -> "The Well Ran
+  Dry" per the ticket's own example phrasing.
+- **Log/flavor text swept to ink language** across rest nodes, Vampiric tiles,
+  Acquisitions Budget, Errata Slip, every `events.js` gamble/choice string,
+  and monster attack/heavy-blow messages -- the latter now read "hits you,
+  spilling N ink" / "lands a Heavy Blow, spilling N ink!" (ticket's own
+  example flavor: "attacks spill it"). Monster Mend ("healing N HP") is
+  untouched -- that's the monster's own HP, not ink.
+- **THEME.md:** added a short "## Ink" lore section (Archive-voice, explains
+  the fictional justification for one unified resource and seeds the "the
+  well ran dry" phrasing used on the game-over screen) and updated the 4 item
+  table rows that referenced "HP" (Errata Slip, Marginalia, Vowel Leech,
+  Second Wind). README.md's one dev-facing mention updated too.
+- **Tests:** every player-mock object literal and assertion across
+  `test/dom-check.js` (the bulk of it -- ~35 `{ ..., hp: N, maxHp: N }` mocks
+  plus another ~15 message/label strings), `verify-seeded-runs.js`,
+  `verify-consumables-fix.js`, `simulate.js`, `orchestrator-qa-boss-reward.js`,
+  `balance-simulation.js`, and `tools/record-gameplay.js` renamed to match.
+  Caught two places where I'd changed a source log message's wording (Vampiric
+  tile heal, Acquisitions Budget) where a test asserted on the OLD literal
+  string -- those would have been silent false-negatives (or worse, silent
+  false-positives if the substring still happened to match) if I'd only
+  renamed the property and not re-read every assertion string; fixed both
+  before running anything. `monster.hp`/`monster.maxHp` mocks in the same
+  test file were left untouched throughout (verified via targeted grep after
+  every edit pass, not just at the end).
+- Version bumped v0.39 -> v0.40 in `wordbound.html` per GOALS.md's "significant
+  polish" convention.
+
+**Verification actually done (all real runs, not assumed):** `npm test` --
+450/450 checks pass, zero FAILs, zero SKIPs. `npm run test:mobile` -- main
+menu + combat + tile-reward + game-over screens all clean at 375px/414px,
+touch-mode input OK. `npm run test:run-header` -- zero horizontal overflow
+375-1280px (the historic 481-780px weak spot specifically re-checked and
+clean). `npm run test:qa` -- full real-Chromium character-select -> node-map
+-> combat -> boss -> tile-reward -> boss-reward -> floor-advance click-through,
+zero console errors (this is the test that pokes `player.ink`/`maxInk`
+directly via `page.evaluate` to top up between fights, so it's a real
+end-to-end proof the renamed field works from outside the closure too, not
+just in jsdom). `npm run test:itch-build` -- the packaged/unzipped build's
+dom-check + a real-browser load both clean, zero 404s.
+
+**Balance sim (small sample, sanity check only):** `node test/balance-simulation.js
+5` (5 runs/strategy -- it's slow, jsdom + a 548k-word anagram index built
+per run, so a full n=30-50 pass wasn't attempted this run since a rename
+diff has no mechanism to shift win rate). "best" strategy: 2/5 wins (40%),
+squarely inside the established 35-50% band; "first" (a deliberately weak
+baseline, not the balance target) 0/5 as expected. This is exactly what
+"mechanically identical" predicts -- `ink: 22` is the same integer `hp: 22`
+was, every clamp/formula untouched, every monster stat untouched -- so this
+was a confirmation, not a discovery. Flagging the sample size honestly: n=5
+is small enough that this number alone wouldn't have caught a subtle
+regression; the real confidence here comes from the diff itself changing zero
+math, plus `npm test`'s 450 checks exercising these exact formulas against
+the renamed fields. A future balance-relevant run should still use the
+n=30-50 sample this ticket's own numbers were established with.
+
+**State:** working tree clean except this log entry, both games fully
+playable and passing every automated check that ran. GOALS.md's ink ticket
+box is intentionally left UNCHECKED -- this is run 1 of an explicitly
+multi-run ticket, and the spend-mechanics half (the actual "mana" design
+space: overcharge, ink-costed abilities/shop options, the re-run sim against
+the 35-50% win-rate band with a bot policy that actually spends) hasn't
+started. **Next run:** continue the INK ticket, run 2 -- design and implement
+at least two ink SPEND decisions (ticket's own candidates: an overcharge
+toggle on a played word, consumable-style activated abilities, ink-priced
+shop/event options), each with clear cost UI before commit, baseline word
+play staying free. Read the ticket's full BALANCE GATE paragraph in GOALS.md
+first -- it wants the bot taught a simple spend policy and the sim re-run in
+band before this can be checked off. Do NOT start the next queued ticket
+(branching floor map) until this one's box is checked, per GOALS.md's
+top-to-bottom queue rule (and note the LAST item in this same batch, the
+ink-era item content ticket, is separately gated on this one by name --
+"do not start it until the INK ticket above is checked").

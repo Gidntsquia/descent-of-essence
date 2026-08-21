@@ -126,7 +126,7 @@ async function main() {
     const Tiles = window.Wordbound.Tiles;
     const Items = window.Wordbound.Items;
     const rack = ['C', 'A', 'T', 'D', 'G', 'L', 'N'].map((l) => Tiles.createTile(l, null));
-    const player = { rack: rack, items: ['foreword'], hp: 20, maxHp: 20 };
+    const player = { rack: rack, items: ['foreword'], ink: 20, maxInk: 20 };
     const monster = { hp: 100, maxHp: 100, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
     const result = Combat.playWord(player, monster, 'CAT');
     check('Foreword test setup: "CAT" is playable from the synthetic 7-tile rack', !!result);
@@ -154,7 +154,7 @@ async function main() {
     // 1. Illuminated Initial: word starts with the same letter as the
     // previous word -> +40%.
     {
-      const player = { rack: freshRack(), items: ['illuminated_initial'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['illuminated_initial'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'CRAG', wordsPlayedThisFight: 2, messages: [] };
@@ -164,7 +164,7 @@ async function main() {
     }
     {
       // Negative case: different first letter -> no bonus, no message.
-      const player = { rack: freshRack(), items: ['illuminated_initial'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['illuminated_initial'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'DOG', wordsPlayedThisFight: 2, messages: [] };
@@ -174,7 +174,7 @@ async function main() {
 
     // 2. Errant Footnote: every 3rd word played this fight deals x2 (+100%).
     {
-      const player = { rack: freshRack(), items: ['errant_footnote'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['errant_footnote'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 3, messages: [] };
@@ -183,7 +183,7 @@ async function main() {
       check('Errant Footnote: logs a proc message', ctx.messages.indexOf('Errant Footnote: x2!') !== -1);
     }
     {
-      const player = { rack: freshRack(), items: ['errant_footnote'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['errant_footnote'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 2, messages: [] };
@@ -194,7 +194,7 @@ async function main() {
     // 3. Vowel Reliquary: vowels score triple their letter value (+2x
     // their base value, since base is already counted once).
     {
-      const player = { rack: freshRack(), items: ['vowel_reliquary'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['vowel_reliquary'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
@@ -205,7 +205,7 @@ async function main() {
 
     // 4. Consonant Cluster: +2 damage per consonant in the word.
     {
-      const player = { rack: freshRack(), items: ['consonant_cluster'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['consonant_cluster'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
@@ -214,10 +214,10 @@ async function main() {
       check('Consonant Cluster: +4 bonus for CAT\'s two consonants', result.damage === before + 4);
     }
 
-    // 5. Long-S Ligature: 6+ letter words deal +25% and heal 1 HP.
+    // 5. Long-S Ligature: 6+ letter words deal +25% and heal 1 ink.
     {
       const rack = ['G', 'A', 'R', 'D', 'E', 'N', 'X'].map((l) => Tiles.createTile(l, null));
-      const player = { rack, items: ['long_s_ligature'], hp: 15, maxHp: 20 };
+      const player = { rack, items: ['long_s_ligature'], ink: 15, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'GARDEN');
       check('Long-S Ligature test setup: "GARDEN" (6 letters) is playable', !!result);
       if (result) {
@@ -225,42 +225,42 @@ async function main() {
         const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
         Items.runHook('onWordPlayed', ctx, player);
         check('Long-S Ligature: +25% on a 6+ letter word', result.damage === before + Math.round(before * 0.25));
-        check('Long-S Ligature: heals 1 HP on a 6+ letter word', player.hp === 16);
+        check('Long-S Ligature: heals 1 ink on a 6+ letter word', player.ink === 16);
       }
     }
     {
       // Negative case: under 6 letters -> no bonus, no heal.
-      const player = { rack: freshRack(), items: ['long_s_ligature'], hp: 15, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['long_s_ligature'], ink: 15, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
       Items.runHook('onWordPlayed', ctx, player);
-      check('Long-S Ligature: no bonus/heal under 6 letters', result.damage === before && player.hp === 15);
+      check('Long-S Ligature: no bonus/heal under 6 letters', result.damage === before && player.ink === 15);
     }
 
     // 6. Cursed Quill: +10 flat damage, 2 self-damage per word (can drop to
     // 0, deliberately no floor-at-1 guard -- "that's the deal").
     {
-      const player = { rack: freshRack(), items: ['cursed_quill'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['cursed_quill'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
       Items.runHook('onWordPlayed', ctx, player);
       check('Cursed Quill: +10 flat damage', result.damage === before + 10);
-      check('Cursed Quill: 2 self-damage applied', player.hp === 18);
+      check('Cursed Quill: 2 self-damage applied', player.ink === 18);
     }
     {
       // Edge case: can actually kill the player (no floor).
-      const player = { rack: freshRack(), items: ['cursed_quill'], hp: 1, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['cursed_quill'], ink: 1, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
       Items.runHook('onWordPlayed', ctx, player);
-      check('Cursed Quill: can drop the player to 0 HP (no floor)', player.hp === 0);
+      check('Cursed Quill: can drop the player to 0 ink (no floor)', player.ink === 0);
     }
 
     // 7. Gilded Bookmark: the fight's first word deals x2.
     {
-      const player = { rack: freshRack(), items: ['gilded_bookmark'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['gilded_bookmark'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
@@ -268,7 +268,7 @@ async function main() {
       check('Gilded Bookmark: doubles damage on the fight\'s first word', result.damage === before * 2);
     }
     {
-      const player = { rack: freshRack(), items: ['gilded_bookmark'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['gilded_bookmark'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'DOG', wordsPlayedThisFight: 2, messages: [] };
@@ -279,7 +279,7 @@ async function main() {
     // 8. Palimpsest: word shares 3+ distinct letters with the previous word
     // -> +30%.
     {
-      const player = { rack: freshRack(), items: ['palimpsest'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['palimpsest'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       // 'TACO' shares C, A, T with 'CAT' -- 3 distinct letters.
@@ -288,7 +288,7 @@ async function main() {
       check('Palimpsest: +30% when sharing 3+ distinct letters with the previous word', result.damage === before + Math.round(before * 0.3));
     }
     {
-      const player = { rack: freshRack(), items: ['palimpsest'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['palimpsest'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       // 'DOG' shares zero letters with 'CAT'.
@@ -361,7 +361,7 @@ async function main() {
 
     // 5. Interlibrary Loan: +3 flat damage while holding 2+ consumables.
     {
-      const player = { rack: freshRack(), items: ['interlibrary_loan'], hp: 20, maxHp: 20, consumables: ['errata_slip', 'page_turn'] };
+      const player = { rack: freshRack(), items: ['interlibrary_loan'], ink: 20, maxInk: 20, consumables: ['errata_slip', 'page_turn'] };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
@@ -370,7 +370,7 @@ async function main() {
       check('Interlibrary Loan: logs a proc message', ctx.messages.indexOf('Interlibrary Loan: +3!') !== -1);
     }
     {
-      const player = { rack: freshRack(), items: ['interlibrary_loan'], hp: 20, maxHp: 20, consumables: ['errata_slip'] };
+      const player = { rack: freshRack(), items: ['interlibrary_loan'], ink: 20, maxInk: 20, consumables: ['errata_slip'] };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
@@ -381,7 +381,7 @@ async function main() {
     // 6. Withdrawal Slip: +6 flat damage while holding ZERO consumables
     // (the mirror-image build to Interlibrary Loan above).
     {
-      const player = { rack: freshRack(), items: ['withdrawal_slip'], hp: 20, maxHp: 20, consumables: [] };
+      const player = { rack: freshRack(), items: ['withdrawal_slip'], ink: 20, maxInk: 20, consumables: [] };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
@@ -389,7 +389,7 @@ async function main() {
       check('Withdrawal Slip: +6 while holding zero consumables', result.damage === before + 6);
     }
     {
-      const player = { rack: freshRack(), items: ['withdrawal_slip'], hp: 20, maxHp: 20, consumables: ['errata_slip'] };
+      const player = { rack: freshRack(), items: ['withdrawal_slip'], ink: 20, maxInk: 20, consumables: ['errata_slip'] };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
@@ -400,7 +400,7 @@ async function main() {
     // 7. Colophon: +2 damage per DISTINCT letter in the word (not per
     // length -- a rack with duplicate tiles proves the distinction).
     {
-      const player = { rack: freshRack(), items: ['colophon'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['colophon'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: null, wordsPlayedThisFight: 1, messages: [] };
@@ -409,7 +409,7 @@ async function main() {
     }
     {
       const rack = ['L', 'E', 'T', 'T', 'E', 'R', 'X'].map((l) => Tiles.createTile(l, null));
-      const player = { rack, items: ['colophon'], hp: 20, maxHp: 20 };
+      const player = { rack, items: ['colophon'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'LETTER');
       check('Colophon test setup: "LETTER" is playable from a rack with duplicate E/T tiles', !!result);
       if (result) {
@@ -424,7 +424,7 @@ async function main() {
     // 8. Bound Volume: +25% when the word's length matches the previous
     // word's length this fight.
     {
-      const player = { rack: freshRack(), items: ['bound_volume'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['bound_volume'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'DOG', wordsPlayedThisFight: 2, messages: [] };
@@ -432,7 +432,7 @@ async function main() {
       check('Bound Volume: +25% matching the previous word\'s length (CAT/DOG both 3)', result.damage === before + Math.round(before * 0.25));
     }
     {
-      const player = { rack: freshRack(), items: ['bound_volume'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['bound_volume'], ink: 20, maxInk: 20 };
       const result = Combat.playWord(player, monster, 'CAT');
       const before = result.damage;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result, previousWord: 'GARDEN', wordsPlayedThisFight: 2, messages: [] };
@@ -441,22 +441,22 @@ async function main() {
     }
 
     // 9. Acquisitions Budget: flagship floor-transition item. Every 10 gold
-    // held becomes +2 max HP (and heals the same amount) when a floor
+    // held becomes +2 max ink (and heals the same amount) when a floor
     // advances; the new onFloorAdvance hook itself (see items.js/game.js).
     {
-      const player = { items: ['acquisitions_budget'], gold: 25, maxHp: 20, hp: 15 };
+      const player = { items: ['acquisitions_budget'], gold: 25, maxInk: 20, ink: 15 };
       const ctx = { player, floorNumber: 2, messages: [] };
       Items.runHook('onFloorAdvance', ctx, player);
-      // 25 gold -> 2 chunks of 10 spent (20), +4 max HP, +4 heal, 5 gold left.
-      check('Acquisitions Budget: spends 10-gold chunks for +2 max HP each (25 -> 20 spent, +4 maxHp)', player.gold === 5 && player.maxHp === 24);
-      check('Acquisitions Budget: heals by the same amount as the max HP gain', player.hp === 19);
+      // 25 gold -> 2 chunks of 10 spent (20), +4 max ink, +4 heal, 5 gold left.
+      check('Acquisitions Budget: spends 10-gold chunks for +2 max ink each (25 -> 20 spent, +4 maxInk)', player.gold === 5 && player.maxInk === 24);
+      check('Acquisitions Budget: heals by the same amount as the max ink gain', player.ink === 19);
       check('Acquisitions Budget: logs exactly one proc message', ctx.messages.length === 1);
     }
     {
-      const player = { items: ['acquisitions_budget'], gold: 7, maxHp: 20, hp: 15 };
+      const player = { items: ['acquisitions_budget'], gold: 7, maxInk: 20, ink: 15 };
       const ctx = { player, floorNumber: 2, messages: [] };
       Items.runHook('onFloorAdvance', ctx, player);
-      check('Acquisitions Budget: no-op under 10 gold (nothing to convert)', player.gold === 7 && player.maxHp === 20 && ctx.messages.length === 0);
+      check('Acquisitions Budget: no-op under 10 gold (nothing to convert)', player.gold === 7 && player.maxInk === 20 && ctx.messages.length === 0);
     }
   }
 
@@ -545,7 +545,7 @@ async function main() {
     const Tiles = window.Wordbound.Tiles;
     // Enough tiles for CAT, DOG, PIG, then CAT again (a repeat).
     const rack = ['C', 'A', 'T', 'D', 'O', 'G', 'P', 'I', 'G', 'C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
-    const player = { rack: rack, items: [], hp: 20, maxHp: 20 };
+    const player = { rack: rack, items: [], ink: 20, maxInk: 20 };
     const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
     const comboState = { combo: 0, usedWords: new Set() };
 
@@ -592,7 +592,7 @@ async function main() {
     // hooks, on a throwaway setup, and read result.damage. previewWord must
     // equal this for the SAME inputs.
     const actualDamage = (items, word, prevWord, wordsPlayed, comboState) => {
-      const player = { rack: freshRack(), items: items, hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: items, ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
       const result = Combat.playWord(player, monster, word, comboState);
       if (!result) return null;
@@ -604,7 +604,7 @@ async function main() {
 
     // (a) plain word, no items -> preview matches actual.
     {
-      const player = { rack: freshRack(), items: [], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: [], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
       const p = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, {});
       const actual = actualDamage([], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
@@ -617,7 +617,7 @@ async function main() {
     // (b) combo-active state (comboAtPlay 2 -> +24%) -> preview matches actual,
     // and previewing does NOT advance the real combo (still 2 after).
     {
-      const player = { rack: freshRack(), items: [], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: [], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
       const combo = { combo: 2, usedWords: new Set(['DOG', 'PIG']) };
       const p = Combat.previewWord(player, monster, 'CAT', combo, {});
@@ -629,7 +629,7 @@ async function main() {
     // (c) a repeat word -> preview reports isRepeat and the x0.4 penalty, and
     // matches the actual repeat damage.
     {
-      const player = { rack: freshRack(), items: [], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: [], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
       const combo = { combo: 3, usedWords: new Set(['CAT']) };
       const p = Combat.previewWord(player, monster, 'CAT', combo, {});
@@ -640,7 +640,7 @@ async function main() {
     // (d) an item-modified word (Consonant Cluster, +2/consonant) -> preview
     // includes the item bonus (must run the hooks, not just base playWord).
     {
-      const player = { rack: freshRack(), items: ['consonant_cluster'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['consonant_cluster'], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
       const p = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, {});
       const actual = actualDamage(['consonant_cluster'], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
@@ -651,7 +651,7 @@ async function main() {
     // (e) a sequence-sensitive item (Gilded Bookmark: first word x2) reads the
     // wordsPlayedThisFight option (previewWord adds 1, matching submit).
     {
-      const player = { rack: freshRack(), items: ['gilded_bookmark'], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: ['gilded_bookmark'], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
       // wordsPlayedThisFight 0 -> previewWord treats this as the 1st word -> x2.
       const p1 = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, { wordsPlayedThisFight: 0 });
@@ -664,7 +664,7 @@ async function main() {
 
     // (f) invalid / unformable words -> neutral (valid:false), no throw.
     {
-      const player = { rack: freshRack(), items: [], hp: 20, maxHp: 20 };
+      const player = { rack: freshRack(), items: [], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
       check('preview: a non-word returns valid:false', Combat.previewWord(player, monster, 'ZZZZ', null, {}).valid === false);
       check('preview: an unformable word (not enough tiles) returns valid:false', Combat.previewWord(player, monster, 'CATTT', null, {}).valid === false);
@@ -675,7 +675,7 @@ async function main() {
     // submitWord does -- a word needing only the locked tile can't be previewed.
     {
       const rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
-      const player = { rack, items: [], hp: 20, maxHp: 20 };
+      const player = { rack, items: [], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
       const tId = rack[0].id; // the 'C'
       check('preview: without a hex, CAT is previewable from a C/A/T rack', Combat.previewWord(player, monster, 'CAT', null, {}).valid === true);
@@ -951,8 +951,8 @@ async function main() {
     const savedRunStats = Object.assign({}, state.runStats);
     const savedItems = state.player.items;
     const savedGold = state.player.gold;
-    const savedMaxHp = state.player.maxHp;
-    const savedHp = state.player.hp;
+    const savedMaxInk = state.player.maxInk;
+    const savedInk = state.player.ink;
     const savedMessagesLength = state.messages.length;
 
     state.player.items = ['acquisitions_budget'];
@@ -960,7 +960,7 @@ async function main() {
     window.Wordbound.Game._advanceFloor();
 
     check('onFloorAdvance wiring: advanceFloor spent 10-gold chunks via Acquisitions Budget (15 -> 5)', state.player.gold === 5);
-    check('onFloorAdvance wiring: advanceFloor granted +2 max HP for the one chunk spent', state.player.maxHp === savedMaxHp + 2);
+    check('onFloorAdvance wiring: advanceFloor granted +2 max ink for the one chunk spent', state.player.maxInk === savedMaxInk + 2);
     check('onFloorAdvance wiring: the proc message was logged to state.messages', state.messages.slice(savedMessagesLength).some((m) => /Acquisitions Budget/.test(m)));
 
     state.floorNumber = savedFloorNumber;
@@ -969,8 +969,8 @@ async function main() {
     state.runStats = savedRunStats;
     state.player.items = savedItems;
     state.player.gold = savedGold;
-    state.player.maxHp = savedMaxHp;
-    state.player.hp = savedHp;
+    state.player.maxInk = savedMaxInk;
+    state.player.ink = savedInk;
   }
 
   // Find a playable word that will actually deal damage > 0 -- not just any
@@ -1705,7 +1705,7 @@ async function main() {
   // proven here, not in the isolated Lexicon.scoreWord checks above. Forces
   // variants onto the specific rack tiles a known-playable word will consume
   // (rather than hoping a variant rolls naturally), plays that word for
-  // real, and reads the resulting gold/HP/pile state back.
+  // real, and reads the resulting gold/ink/pile state back.
   //
   // Volatile's crack is a 25% roll, so state.rng.chance is temporarily
   // wrapped to force TRUE for exactly p === 0.25 and delegate every other
@@ -1753,11 +1753,11 @@ async function main() {
       variantTiles[1].variant = V.VAMPIRIC;
       variantTiles[2].variant = V.VOLATILE;
       volatileTileRef = variantTiles[2];
-      // Give the heal somewhere to land -- at full HP, Vampiric's +1 clamps
+      // Give the heal somewhere to land -- at full ink, Vampiric's +1 clamps
       // to a no-op and the check would pass vacuously.
-      state.player.hp = Math.max(1, state.player.maxHp - 5);
+      state.player.ink = Math.max(1, state.player.maxInk - 5);
       const goldBefore = state.player.gold;
-      const hpBefore = state.player.hp;
+      const inkBefore = state.player.ink;
 
       window.Wordbound.Game.openDeckViewer(); // forces a real re-render (existing test convention)
       window.Wordbound.Game.closeDeckViewer();
@@ -1786,12 +1786,12 @@ async function main() {
 
       check('Gilded tile (live): playing it granted exactly +2 gold', state.player.gold === goldBefore + 2);
       check('Gilded tile (live): the gold gain is logged', state.messages.some((m) => m.indexOf('Gilded tile') !== -1 && m.indexOf('+2 gold') !== -1));
-      // The monster's counterattack lands in the same turn, so HP can't be
-      // compared to hpBefore directly -- assert on the logged heal instead,
-      // plus that HP never exceeded max (the clamp).
-      check('Vampiric tile (live): the 1 HP heal is logged', state.messages.some((m) => m.indexOf('Vampiric tile') !== -1 && m.indexOf('healed 1 HP') !== -1));
-      check('Vampiric tile (live): heal stayed clamped at max HP', state.player.hp <= state.player.maxHp);
-      check('Vampiric tile (live): test setup left real headroom to heal into', hpBefore < state.player.maxHp);
+      // The monster's counterattack lands in the same turn, so ink can't be
+      // compared to inkBefore directly -- assert on the logged heal instead,
+      // plus that ink never exceeded max (the clamp).
+      check('Vampiric tile (live): the 1 ink heal is logged', state.messages.some((m) => m.indexOf('Vampiric tile') !== -1 && m.indexOf('healed 1 ink') !== -1));
+      check('Vampiric tile (live): heal stayed clamped at max ink', state.player.ink <= state.player.maxInk);
+      check('Vampiric tile (live): test setup left real headroom to heal into', inkBefore < state.player.maxInk);
 
       check('Volatile tile (live): the forced 25% roll cracked the tile', volatileTileRef.crackedThisFight === true);
       check('Volatile tile (live): the crack is logged', state.messages.some((m) => m.indexOf('Volatile tile cracks') !== -1));
@@ -1845,7 +1845,7 @@ async function main() {
     // Skip the damage-specific checks rather than falsely failing them.
     console.log('SKIP damage checks -- no damage-dealing word possible against ' + state.monster.name + ' from this starting rack (likely a legitimate trait immunity, not a bug -- rerun if you want to double check)');
   } else {
-    const before = { monsterHp: state.monster.hp, playerHp: state.player.hp, rackIds: state.player.rack.map((t) => t.id) };
+    const before = { monsterHp: state.monster.hp, playerInk: state.player.ink, rackIds: state.player.rack.map((t) => t.id) };
 
     // Staged-word damage preview (GOALS.md FEATURE), live end-to-end check:
     // type the word into the real input, fire the same 'input' event the
@@ -1879,7 +1879,7 @@ async function main() {
     check('playing a damage-dealing word produces zero errors', errors.length === 0);
     if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
 
-    const after = { monsterHp: state.monster.hp, playerHp: state.player.hp, rackIds: state.player.rack.map((t) => t.id) };
+    const after = { monsterHp: state.monster.hp, playerInk: state.player.ink, rackIds: state.player.rack.map((t) => t.id) };
     check('monster HP decreased', after.monsterHp < before.monsterHp);
     // The previewed number must equal the damage actually dealt. Only assert
     // when the monster SURVIVED -- a killing blow clamps the HP drop at the
@@ -2237,24 +2237,24 @@ async function main() {
     }
 
     // -- Forbidden Tome --------------------------------------------------
-    // Full-HP case: grants an unowned rule-changer, deals exactly 20% max HP.
+    // Full-ink case: grants an unowned rule-changer, deals exactly 20% max ink.
     state.player.items = state.player.items.filter((id) => Items.RULE_CHANGER_IDS.indexOf(id) === -1);
-    state.player.maxHp = 40;
-    state.player.hp = 40;
+    state.player.maxInk = 40;
+    state.player.ink = 40;
     const itemsBeforeTome = state.player.items.length;
     primeEvent('forbidden_tome');
     check('gamble/tome: entering routes to the EVENT screen', state.screen === 'EVENT' && state.currentEvent && state.currentEvent.id === 'forbidden_tome');
     window.Wordbound.Game.chooseEventOption(0);
     check('gamble/tome: granted exactly one unowned rule-changer', state.player.items.length === itemsBeforeTome + 1 && Items.RULE_CHANGER_IDS.indexOf(state.player.items[state.player.items.length - 1]) !== -1);
-    check('gamble/tome: dealt exactly 20% of max HP (40 -> 32)', state.player.hp === 32);
+    check('gamble/tome: dealt exactly 20% of max ink (40 -> 32)', state.player.ink === 32);
     check('gamble/tome: node cleared, back on RUN', state.screen === 'RUN' && state.currentEvent === null);
 
-    // Cannot-kill floor: at 3 HP with a 40 maxHp (8 damage), it floors at 1.
+    // Cannot-kill floor: at 3 ink with a 40 maxInk (8 damage), it floors at 1.
     state.player.items = state.player.items.filter((id) => Items.RULE_CHANGER_IDS.indexOf(id) === -1);
-    state.player.hp = 3;
+    state.player.ink = 3;
     primeEvent('forbidden_tome');
     window.Wordbound.Game.chooseEventOption(0);
-    check('gamble/tome: cannot kill -- HP floors at 1, never 0 or below', state.player.hp === 1);
+    check('gamble/tome: cannot kill -- ink floors at 1, never 0 or below', state.player.ink === 1);
 
     // Disabled when every rule-changer is already owned.
     Items.RULE_CHANGER_IDS.forEach((id) => { if (state.player.items.indexOf(id) === -1) state.player.items.push(id); });
@@ -2342,7 +2342,7 @@ async function main() {
       state.monster.maxHp = 1;
       state.monster.intent = { type: 'attack', value: 0 };
       state.hexedTileId = null;
-      state.player.hp = state.player.maxHp;
+      state.player.ink = state.player.maxInk;
       state.player.rack = word.split('').map((l) => Tiles.createTile(l, null));
       if (setup) setup();
       window.Wordbound.Game.submitWord(word);
@@ -2586,7 +2586,7 @@ async function main() {
     state.monster.maxHp = 1;
     state.monster.intent = { type: 'attack', value: 0 };
     state.hexedTileId = null;
-    state.player.hp = state.player.maxHp;
+    state.player.ink = state.player.maxInk;
     state.player.items = state.player.items.filter((id) => Items.RULE_CHANGER_IDS.indexOf(id) === -1);
     const itemsBefore = state.player.items.length;
     const goldBefore = state.player.gold;
@@ -2708,7 +2708,7 @@ async function main() {
     state.monster.maxHp = 1;
     state.monster.intent = { type: 'attack', value: 0 };
     state.hexedTileId = null;
-    state.player.hp = state.player.maxHp;
+    state.player.ink = state.player.maxInk;
     state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
     Game._clearSfxCallLog();
     Game.submitWord('CAT');
@@ -2755,7 +2755,7 @@ async function main() {
     // -- rest-node heal --
     state.screen = 'RUN';
     state.combatActive = false;
-    state.player.hp = Math.max(1, state.player.maxHp - 5);
+    state.player.ink = Math.max(1, state.player.maxInk - 5);
     const restNode = { id: 'audio-test-rest', type: 'rest', cleared: false };
     state.floor.nodes.push(restNode);
     state.currentNodeIndex = state.floor.nodes.length - 1;
@@ -2801,7 +2801,7 @@ async function main() {
     state.monster.maxHp = 999999;
     state.monster.intent = { type: 'attack', value: 9999 };
     state.hexedTileId = null;
-    state.player.hp = 1;
+    state.player.ink = 1;
     state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
     Game._clearSfxCallLog();
     Game.submitWord('CAT');
@@ -2916,7 +2916,7 @@ async function main() {
       state.monster.maxHp = 1;
       state.monster.intent = { type: 'attack', value: 0 };
       state.hexedTileId = null;
-      state.player.hp = state.player.maxHp;
+      state.player.ink = state.player.maxInk;
       state.player.rack = ['C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
       window.Wordbound.Game.submitWord('CAT');
       // Killing blow runs onMonsterDefeated after TILE_PLAY_ANIM_MS (220) +

@@ -62,7 +62,7 @@ npm test           # Runs test/dom-check.js in ~2 seconds
 What it checks:
 - Page loads without errors
 - Game initializes correctly
-- Combat mechanics work (damage, HP updates, rack cycling)
+- Combat mechanics work (damage, ink updates, rack cycling)
 - Animations and DOM mutations execute properly
 - Drag-and-drop state management is wired correctly
 

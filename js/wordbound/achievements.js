@@ -78,7 +78,7 @@
       isUnlockable: true,
       hooks: {
         onMonsterDefeated: function (ctx) {
-          ctx.player.hp = Math.min(ctx.player.hp + 1, ctx.player.maxHp);
+          ctx.player.ink = Math.min(ctx.player.ink + 1, ctx.player.maxInk);
         }
       }
     },

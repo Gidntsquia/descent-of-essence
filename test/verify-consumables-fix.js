@@ -34,34 +34,34 @@ async function main() {
 
   console.log('\n=== Consumable Verification ===\n');
 
-  // Test 1: Errata Slip healing caps at maxHp
-  console.log('Test 1: Errata Slip maxHp capping');
+  // Test 1: Errata Slip healing caps at maxInk
+  console.log('Test 1: Errata Slip maxInk capping');
   const state = window.Wordbound.Game._state;
   const Consumables = window.Wordbound.Consumables;
 
-  state.player = { hp: 15, maxHp: 20, consumables: [] };
+  state.player = { ink: 15, maxInk: 20, consumables: [] };
   const healResult = Consumables.useConsumable('errata_slip', { player: state.player });
-  if (state.player.hp === 20) {
-    console.log('PASS: HP healed correctly (15 -> 20)');
+  if (state.player.ink === 20) {
+    console.log('PASS: ink healed correctly (15 -> 20)');
   } else {
-    console.log('FAIL: HP not healed correctly (expected 20, got ' + state.player.hp + ')');
+    console.log('FAIL: ink not healed correctly (expected 20, got ' + state.player.ink + ')');
     process.exit(1);
   }
 
-  // Test 2: Errata Slip doesn't exceed maxHp
-  console.log('\nTest 2: Errata Slip does not exceed maxHp');
-  state.player = { hp: 18, maxHp: 20, consumables: [] };
+  // Test 2: Errata Slip doesn't exceed maxInk
+  console.log('\nTest 2: Errata Slip does not exceed maxInk');
+  state.player = { ink: 18, maxInk: 20, consumables: [] };
   Consumables.useConsumable('errata_slip', { player: state.player });
-  if (state.player.hp === 20) {
-    console.log('PASS: HP capped at maxHp (18 -> 20, not 26)');
+  if (state.player.ink === 20) {
+    console.log('PASS: ink capped at maxInk (18 -> 20, not 26)');
   } else {
-    console.log('FAIL: HP exceeded maxHp (got ' + state.player.hp + ')');
+    console.log('FAIL: ink exceeded maxInk (got ' + state.player.ink + ')');
     process.exit(1);
   }
 
   // Test 3: Index Card Shard sets bonus damage flag
   console.log('\nTest 3: Index Card Shard bonus damage flag');
-  state.player = { hp: 20, maxHp: 20, bonusDamageUntilEndOfTurn: 0 };
+  state.player = { ink: 20, maxInk: 20, bonusDamageUntilEndOfTurn: 0 };
   Consumables.useConsumable('index_card_shard', { player: state.player });
   if (state.player.bonusDamageUntilEndOfTurn === 15) {
     console.log('PASS: Bonus damage flag set to 15');
@@ -72,7 +72,7 @@ async function main() {
 
   // Test 4: Page Turn sets flags correctly
   console.log('\nTest 4: Page Turn flag initialization');
-  state.player = { hp: 20, maxHp: 20, skipDiscardNextTurn: false, bonusTilesToDraw: 0 };
+  state.player = { ink: 20, maxInk: 20, skipDiscardNextTurn: false, bonusTilesToDraw: 0 };
   Consumables.useConsumable('page_turn', { player: state.player });
   if (state.player.skipDiscardNextTurn === true && state.player.bonusTilesToDraw === 3) {
     console.log('PASS: Page Turn flags set correctly (skip=true, bonus=3)');

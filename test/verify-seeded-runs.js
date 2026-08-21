@@ -123,10 +123,10 @@ async function main() {
   function runEventTrial(eventId, choiceIndex, seedStr) {
     const state = {
       rng: RNGModule.create(seedStr),
-      player: { hp: 10, maxHp: 20, gold: 0, items: [] }
+      player: { ink: 10, maxInk: 20, gold: 0, items: [] }
     };
     const msg = Events.EVENT_DEFS[eventId].choices[choiceIndex].effect(state);
-    return { hp: state.player.hp, gold: state.player.gold, items: state.player.items.join(','), msg };
+    return { ink: state.player.ink, gold: state.player.gold, items: state.player.items.join(','), msg };
   }
 
   let luckyScrollDeterministic = true;
@@ -136,15 +136,15 @@ async function main() {
     const seedStr = 'event-determinism-trial-' + i;
     const a = runEventTrial('lucky_scroll', 0, seedStr);
     const b = runEventTrial('lucky_scroll', 0, seedStr);
-    if (a.hp !== b.hp || a.gold !== b.gold || a.msg !== b.msg) luckyScrollDeterministic = false;
+    if (a.ink !== b.ink || a.gold !== b.gold || a.msg !== b.msg) luckyScrollDeterministic = false;
 
     const c = runEventTrial('empty_shelf', 1, seedStr);
     const d = runEventTrial('empty_shelf', 1, seedStr);
-    if (c.hp !== d.hp || c.items !== d.items || c.msg !== d.msg) emptyShelfDeterministic = false;
+    if (c.ink !== d.ink || c.items !== d.items || c.msg !== d.msg) emptyShelfDeterministic = false;
 
     const e = runEventTrial('cursed_tome', 0, seedStr);
     const f = runEventTrial('cursed_tome', 0, seedStr);
-    if (e.hp !== f.hp || e.items !== f.items || e.msg !== f.msg) cursedTomeDeterministic = false;
+    if (e.ink !== f.ink || e.items !== f.items || e.msg !== f.msg) cursedTomeDeterministic = false;
   }
   check('lucky_scroll: same seed -> identical outcome across 20 trials (uses state.rng, not Math.random)', luckyScrollDeterministic);
   check('empty_shelf item hunt: same seed -> identical outcome across 20 trials', emptyShelfDeterministic);

@@ -19,6 +19,17 @@ correct spelling, you descend into the Stacks to spell some sense back into thin
 Tone: pun-forward and silly, but never mean-spirited. Think library puns, not horror.
 The monsters are a nuisance, not a threat to be feared — they're just badly behaved words.
 
+## Ink
+
+You don't carry hit points — you carry **Ink**, drawn from the same well every Junior
+Lexicographer is issued on their first day. It's what keeps your handwriting legible
+(you, alive) and, eventually, what pays for the fancier tricks in your Rack. A Loose
+Word doesn't "deal damage" so much as it **spills your ink** across the page; nothing
+to write with means nothing left to fight with. Healing effects **refill the well**.
+If you ever bottom out, the Archive's official incident report reads: **the well ran
+dry** — dramatic, technically accurate, and exactly the kind of phrasing a library
+would file in triplicate.
+
 ## Floors (TOTAL_FLOORS = 3, see js/wordbound/floor.js)
 
 1. **The Overdue Aisles** — where the easy, common Loose Words hang around, overdue for
@@ -83,7 +94,7 @@ shops. Use them during combat for immediate, significant effects.
 
 | Name | Type | Effect | Flavor |
 |---|---|---|---|
-| **Errata Slip** | consumable | Heal 8 HP or restore to max (whichever is less) | A correction slip from the Archive. Stabilizes your condition. |
+| **Errata Slip** | consumable | Heal 8 ink or restore to max (whichever is less) | A correction slip from the Archive. Stabilizes your condition. |
 | **Index Card Shard** | consumable | Gain 15 temporary bonus damage to next word (1 turn) | A fragment of the master index. Knowledge is power. |
 | **Page Turn** | consumable | Draw 3 bonus tiles, keep them without discarding (1 turn) | Skip the discard cycle once. Read ahead. |
 
@@ -101,14 +112,14 @@ word patterns or tile types.
 | **Heavy Ink** | uncommon | Your word's single highest-value tile counts double. | Deep, bold marks leave impressions. |
 | **Rare Hunter** | uncommon | Deal +3 bonus damage when your word contains a 4+ point letter. | Seek the valuable letters. |
 | **Folio Mark** | uncommon | +2 bonus damage for each tile with a bonus that you play. | A bookmark marking passages of power. |
-| **Marginalia** | uncommon | Heal 2 HP when you play 5+ letter words. | Handwritten notes in the margins restore the spirit. |
+| **Marginalia** | uncommon | Heal 2 ink when you play 5+ letter words. | Handwritten notes in the margins restore the spirit. |
 | **Catalog Tab** | uncommon | +2 bonus damage when you play an alphabetical word. | Index tabs guide you to what matters. |
 | **Blank Slate** | uncommon | +2 bonus damage for each blank (?) tile in the word you play. | A fresh start makes all the difference. |
 | **Dust Jacket** | uncommon | Reduce incoming damage by 1 for each bonused tile in your rack (minimum 1). | A protective covering safeguards what matters. |
 | **Rare Tome** | uncommon | +2 bonus damage when you play a word containing X, Q, or Z. | Some books are precious precisely because they're rare. |
-| **Vowel Leech** | rare | Heal 1 HP per vowel in each word you play. | Every vowel is a sip of vitality. |
+| **Vowel Leech** | rare | Heal 1 ink per vowel in each word you play. | Every vowel is a sip of vitality. |
 | **Foreword** | rare | +1 bonus damage for each unused tile in your rack after playing a word. | Preparation carries weight; potential carries power. |
-| **Second Wind** | legendary | The first time you would drop to 0 HP, survive with 1 HP instead. Once per run. | A final word at the final hour. |
+| **Second Wind** | legendary | The first time you would drop to 0 ink, survive with 1 ink instead. Once per run. | A final word at the final hour. |
 
 ## Applying this
 

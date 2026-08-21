@@ -313,7 +313,7 @@ async function playRun(win, anagramMap, strategy, runIndex) {
           floor: state.floorNumber,
           gold: state.player.gold,
           items: state.player.items.length,
-          hp: state.player.hp,
+          ink: state.player.ink,
         });
       }
 
@@ -354,7 +354,7 @@ async function playRun(win, anagramMap, strategy, runIndex) {
           break;
         }
 
-        const hpBefore = state.player.hp;
+        const hpBefore = state.player.ink;
         Game.submitWord(word);
         encounter.words++;
         // submitWord defers rack cycling + counterattack by TILE_PLAY_ANIM_MS
@@ -371,7 +371,7 @@ async function playRun(win, anagramMap, strategy, runIndex) {
         if (state.combatActive && state.monster && state.monster.hp <= 0) {
           await sleep(560);
         }
-        encounter.damageTaken += Math.max(0, hpBefore - state.player.hp);
+        encounter.damageTaken += Math.max(0, hpBefore - state.player.ink);
 
         if (state.screen === 'GAME_OVER') {
           encounter.playerDied = true;
@@ -491,8 +491,8 @@ function report(allRuns) {
       if (!b.length) { say(`    floor ${f} boss: never reached`); continue; }
       const g = (b.reduce((s, x) => s + x.gold, 0) / b.length).toFixed(1);
       const i = (b.reduce((s, x) => s + x.items, 0) / b.length).toFixed(1);
-      const h = (b.reduce((s, x) => s + (x.hp || 0), 0) / b.length).toFixed(1);
-      say(`    floor ${f} boss: reached ${b.length}x, avg ${g} gold, ${i} items, ${h} HP`);
+      const h = (b.reduce((s, x) => s + (x.ink || 0), 0) / b.length).toFixed(1);
+      say(`    floor ${f} boss: reached ${b.length}x, avg ${g} gold, ${i} items, ${h} ink`);
     }
 
     // Overall words-per-fight, split regular vs. boss -- the balance

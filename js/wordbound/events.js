@@ -26,7 +26,7 @@
   var Events = (window.Wordbound.Events = {});
 
   // GOALS.md "FUN OVERHAUL 7/8" gamble-event tuning knobs.
-  Events.FORBIDDEN_TOME_HP_RATIO = 0.2;
+  Events.FORBIDDEN_TOME_INK_RATIO = 0.2;
   Events.FORBIDDEN_TOME_MIN_DAMAGE = 5;
   Events.SHREDDER_MAX_TILES = 2;
   // Never let the Shredder thin a deck below a full rack plus headroom: rack
@@ -42,16 +42,16 @@
       text: 'A tome whispers from the shelf: "Lend me some essence, and I\'ll pay you handsomely in coin."',
       choices: [
         {
-          text: 'Strike the deal: Lose 5 HP, gain 20 gold 🪙',
+          text: 'Strike the deal: Lose 5 ink, gain 20 gold 🪙',
           effect: function (state) {
-            state.player.hp = Math.max(0, state.player.hp - 5);
+            state.player.ink = Math.max(0, state.player.ink - 5);
             state.player.gold += 20;
             if (state.runStats) state.runStats.goldEarned += 20;
             return 'The tome glows warmly. A fair exchange, it seems.';
           }
         },
         {
-          text: 'Politely decline: Invest in health',
+          text: 'Politely decline: Keep your ink',
           effect: function (state) {
             return 'The tome shrugs (metaphorically) and returns to its shelf.';
           }
@@ -64,22 +64,22 @@
       text: 'A rare book sits on the Reserve shelf, cordoned off. "Help yourself," the Archive whispers.',
       choices: [
         {
-          text: 'Take a chance: Snag it despite the hazard (−3 HP for a random item)',
+          text: 'Take a chance: Snag it despite the hazard (−3 ink for a random item)',
           effect: function (state) {
             var Items = window.Wordbound && window.Wordbound.Items;
             if (!Items) {
-              state.player.hp = Math.max(0, state.player.hp - 3);
+              state.player.ink = Math.max(0, state.player.ink - 3);
               return 'The pages are sharp. Worth it? You\'re not sure yet.';
             }
             var owned = state.player.items;
             var available = Object.keys(Items.ITEM_DEFS).filter(function (id) { return owned.indexOf(id) === -1; });
             if (available.length === 0) {
-              state.player.hp = Math.max(0, state.player.hp - 3);
+              state.player.ink = Math.max(0, state.player.ink - 3);
               return 'The pages cut deep, but offer nothing you don\'t already own.';
             }
             var itemId = state.rng.choice(available);
             state.player.items.push(itemId);
-            state.player.hp = Math.max(0, state.player.hp - 3);
+            state.player.ink = Math.max(0, state.player.ink - 3);
             return 'You claim ' + Items.ITEM_DEFS[itemId].name + '. The pages settle, content.';
           }
         },
@@ -97,7 +97,7 @@
       text: 'A page flutters down from the chaos above. "Read me?" it whispers hopefully.',
       choices: [
         {
-          text: 'Take the risk: Read it (50% chance: +25 gold or −2 HP)',
+          text: 'Take the risk: Read it (50% chance: +25 gold or −2 ink)',
           effect: function (state) {
             var roll = state.rng.chance(0.5);
             if (roll) {
@@ -105,7 +105,7 @@
               if (state.runStats) state.runStats.goldEarned += 25;
               return 'A fascinating passage! You pocket the page—and somehow it becomes gold.';
             } else {
-              state.player.hp = Math.max(0, state.player.hp - 2);
+              state.player.ink = Math.max(0, state.player.ink - 2);
               return 'Ouch! Paper cut. The page apologizes profusely as it crumbles away.';
             }
           }
@@ -113,7 +113,7 @@
         {
           text: 'Play it safe: Leave it behind',
           effect: function (state) {
-            return 'You wisely keep both hands and health intact.';
+            return 'You wisely keep both hands and ink intact.';
           }
         }
       ]
@@ -124,9 +124,9 @@
       text: 'The shelves here gape empty, library dust thick and undisturbed. Something feels... restful.',
       choices: [
         {
-          text: 'Sit and breathe: Recover 3 HP, skip the next fight (bosses will not be avoided)',
+          text: 'Sit and breathe: Recover 3 ink, skip the next fight (bosses will not be avoided)',
           effect: function (state) {
-            state.player.hp = Math.min(state.player.maxHp, state.player.hp + 3);
+            state.player.ink = Math.min(state.player.maxInk, state.player.ink + 3);
             state.pendingEventSkipNextCombat = true;
             return 'Silence wraps around you like a bookmark. You feel renewed.';
           }
@@ -168,7 +168,7 @@
       text: 'A tome sits chained to a lectern, bristling with rules it plainly intends to break. The chain, on closer inspection, is decorative.',
       choices: [
         {
-          text: 'Read it anyway: gain a rule-changer, lose 20% of your max HP (it can\'t kill you)',
+          text: 'Read it anyway: gain a rule-changer, lose 20% of your max ink (it can\'t kill you)',
           disabledReason: function (state) {
             var Items = window.Wordbound && window.Wordbound.Items;
             if (!Items || !Items.RULE_CHANGER_IDS) return 'the tome is illegible today';
@@ -186,13 +186,13 @@
             state.player.items.push(granted);
             var damage = Math.max(
               Events.FORBIDDEN_TOME_MIN_DAMAGE,
-              Math.round(state.player.maxHp * Events.FORBIDDEN_TOME_HP_RATIO)
+              Math.round(state.player.maxInk * Events.FORBIDDEN_TOME_INK_RATIO)
             );
             // Floored at 1, not 0: the ticket is explicit that this gamble
             // costs you dearly but never ends the run outright.
-            state.player.hp = Math.max(1, state.player.hp - damage);
+            state.player.ink = Math.max(1, state.player.ink - damage);
             return 'The rules rearrange themselves painfully around you (−' + damage +
-              ' HP). You now own ' + Items.ITEM_DEFS[granted].name + '.';
+              ' ink). You now own ' + Items.ITEM_DEFS[granted].name + '.';
           }
         },
         {
@@ -259,9 +259,9 @@
       text: 'A glimmering coin sits on the floor—Library currency, by the looks of it. Stamped with the Archive\'s seal.',
       choices: [
         {
-          text: 'Spend it at the Archive\'s font: Fully restore HP',
+          text: 'Spend it at the Archive\'s font: Fully restore ink',
           effect: function (state) {
-            state.player.hp = state.player.maxHp;
+            state.player.ink = state.player.maxInk;
             return 'The coin glows and channels its warmth through you. You feel whole again.';
           }
         },

@@ -150,7 +150,7 @@ async function main() {
 
   // setup, not the recorded interaction: headroom so the clip doesn't end on
   // an unlucky player death mid-fight
-  await page.evaluate('(function(){var p=window.Wordbound.Game._state.player;p.maxHp=200;p.hp=200;})()');
+  await page.evaluate('(function(){var p=window.Wordbound.Game._state.player;p.maxInk=200;p.ink=200;})()');
 
   // ---- first combat, organic (floor.js always puts a combat node first) ----
   await page.click('.node-pill.node-current');
@@ -178,8 +178,8 @@ async function main() {
       s.floor.nodes[i].cleared = true;
     }
     s.screen = 'RUN';
-    s.player.maxHp = 200;
-    s.player.hp = 200;
+    s.player.maxInk = 200;
+    s.player.ink = 200;
   })()`);
   await page.evaluate('window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();'); // force a render of the new node map
   await page.waitForTimeout(500);

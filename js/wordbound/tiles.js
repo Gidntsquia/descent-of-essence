@@ -135,7 +135,7 @@
     if (!variant) return null;
     if (variant === Tiles.VARIANTS.GILDED) return 'Gilded: +2 gold when played';
     if (variant === Tiles.VARIANTS.CHARGED) return 'Charged: +4 damage when played';
-    if (variant === Tiles.VARIANTS.VAMPIRIC) return 'Vampiric: heal 1 HP when played';
+    if (variant === Tiles.VARIANTS.VAMPIRIC) return 'Vampiric: heal 1 ink when played';
     if (variant === Tiles.VARIANTS.VOLATILE) return 'Volatile: letter scores ×2; 25% chance to crack when played (gone until next fight)';
     return null;
   };

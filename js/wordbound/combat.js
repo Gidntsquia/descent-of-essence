@@ -30,7 +30,7 @@
 //     Does NOT refill/discard the rack or advance the turn -- caller's job.
 //
 //   monsterAttack(player, monster)
-//     -> { damage } and mutates player.hp (clamped at 0). Flat damage for
+//     -> { damage } and mutates player.ink (clamped at 0). Flat damage for
 //        now (no player defense stat in this redesign -- deliberately
 //        simpler than the old game).
 
@@ -130,7 +130,7 @@
   //     increments before building the hook ctx. hexedTileId hides a locked
   //     tile from rack-matching exactly as submitWord does, so the preview
   //     reflects a word the player can't actually complete this turn.
-  // Mutates nothing: player.rack, monster.hp, player.hp, and comboState are all
+  // Mutates nothing: player.rack, monster.hp, player.ink, and comboState are all
   // cloned first, so this is safe to call on every keystroke/stage/render.
   Combat.previewWord = function (player, monster, word, comboState, options) {
     var Lexicon = window.Wordbound.Lexicon;
@@ -177,7 +177,7 @@
 
   Combat.monsterAttack = function (player, monster) {
     var damage = monster.attack || 0;
-    player.hp = Math.max(0, player.hp - damage);
+    player.ink = Math.max(0, player.ink - damage);
     return { damage: damage };
   };
 })();
