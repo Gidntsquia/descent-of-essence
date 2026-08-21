@@ -201,14 +201,62 @@ async function main() {
       console.log(`  ${hasIssues ? '⚠️  ' : '✓ '}Layout OK\n`);
     }
 
-    // Test combat screen
-    console.log('Testing combat screen:\n');
+    // Test node map (branching map) screen (GOALS.md branching-map ticket,
+    // run 2/N): the new grid+SVG DAG view replacing the old flat pill list.
+    // The ticket's own bar is "tappable at 375px (44px+ targets)" -- check
+    // layout overflow same as every other screen, plus a dedicated tap-
+    // target size check on the clickable (.node-current) pills specifically,
+    // since checkLayout's generic button-size check only looks at <button>
+    // elements and node pills are plain clickable <div>s.
+    console.log('Testing node map (branching map) screen:\n');
 
-    // Navigate to combat
     await page.click('#btn-new-run');
     await page.waitForTimeout(300);
     await page.click('.character-option:first-child');
     await page.waitForTimeout(400);
+
+    for (const width of widths) {
+      console.log(`${width}px width:`);
+      const result = await checkLayout(page, width);
+      results.push(result);
+
+      const tapTargets = await page.evaluate(() => {
+        const pills = Array.from(document.querySelectorAll('.node-pill.node-current'));
+        const tooSmall = pills.filter((p) => {
+          const rect = p.getBoundingClientRect();
+          return rect.height < 44 || rect.width < 44;
+        });
+        return {
+          total: pills.length,
+          tooSmall: tooSmall.length,
+          examples: tooSmall.slice(0, 2).map((p) => ({
+            text: p.textContent.substring(0, 20),
+            height: Math.round(p.getBoundingClientRect().height),
+            width: Math.round(p.getBoundingClientRect().width),
+          })),
+        };
+      });
+      if (tapTargets.tooSmall > 0) {
+        console.log(`  ⚠️  ${tapTargets.tooSmall}/${tapTargets.total} clickable node pills are < 44px`);
+        tapTargets.examples.forEach((p) => console.log(`     "${p.text}": ${p.height}x${p.width}px`));
+        result.checks.buttonSizesOK = false;
+      } else if (tapTargets.total === 0) {
+        console.log('  ⚠️  no .node-current pills found to check (map may have failed to render)');
+        result.checks.buttonSizesOK = false;
+      }
+
+      const hasIssues = result.checks.overflowX ||
+                       result.checks.elementsClipped.length > 0 ||
+                       !result.checks.buttonSizesOK ||
+                       !result.checks.textReadable;
+
+      console.log(`  ${hasIssues ? '⚠️  ' : '✓ '}Layout OK\n`);
+    }
+
+    // Test combat screen
+    console.log('Testing combat screen:\n');
+
+    // Navigate to combat
     await page.click('.node-pill:first-child');
     await page.waitForTimeout(400);
 

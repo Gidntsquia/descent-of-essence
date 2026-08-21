@@ -205,12 +205,20 @@ async function main() {
   }
 
   // ---- Phase 2: boss kill -> tile reward -> boss item reward (pick path) ----
+  // BRANCHING MAP (GOALS.md, run 2/N): there's no flat index to jump to
+  // anymore -- what makes a node "current"/clickable is availableNodeIds(),
+  // which is graph-derived from state.mapPositionNodeId. Every node in the
+  // floor's last encounter row has exactly one outgoing edge, straight to
+  // the boss (see Floor.generateBranchingFloor), so standing on any one of
+  // them makes the boss the sole available next node -- the branching
+  // equivalent of "jump straight to the boss" for QA purposes.
   await page.evaluate(`(function () {
     var s = window.Wordbound.Game._state;
-    for (var i = 0; i < s.floor.nodes.length; i++) {
-      if (s.floor.nodes[i].type === 'boss') { s.currentNodeIndex = i; break; }
-      s.floor.nodes[i].cleared = true;
-    }
+    var floor = s.floor;
+    var lastRowNode = floor.nodes.find(function (n) { return n.row === floor.rows - 1; });
+    floor.nodes.forEach(function (n) { if (n.type !== 'boss') n.cleared = true; });
+    s.mapPositionNodeId = lastRowNode.id;
+    s.currentNodeId = null;
     s.screen = 'RUN';
     window.Wordbound.Game._state.deckViewerOpen = false;
     window.Wordbound.Game.returnToMainMenu; // no-op reference, keep render via enter below
@@ -267,10 +275,11 @@ async function main() {
   await page.setViewportSize({ width: 375, height: 720 });
   await page.evaluate(`(function () {
     var s = window.Wordbound.Game._state;
-    for (var i = 0; i < s.floor.nodes.length; i++) {
-      if (s.floor.nodes[i].type === 'boss') { s.currentNodeIndex = i; break; }
-      s.floor.nodes[i].cleared = true;
-    }
+    var floor = s.floor;
+    var lastRowNode = floor.nodes.find(function (n) { return n.row === floor.rows - 1; });
+    floor.nodes.forEach(function (n) { if (n.type !== 'boss') n.cleared = true; });
+    s.mapPositionNodeId = lastRowNode.id;
+    s.currentNodeId = null;
     s.player.ink = 200;
   })()`);
   await page.evaluate('window.Wordbound.Game.openDeckViewer(); window.Wordbound.Game.closeDeckViewer();');

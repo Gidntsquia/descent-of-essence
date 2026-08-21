@@ -373,6 +373,66 @@ h2 {
   justify-content: center;
 }
 
+/* BRANCHING MAP (GOALS.md, run 2/N): a small DAG on a CSS grid (rows =
+   encounter depth, columns = lane) with an SVG ink-line layer underneath.
+   Node centers are (lane+0.5)/lanes, (row+0.5)/rows fractions -- the same
+   math the grid's equal 1fr tracks land on -- so the lines meet the pills
+   at any viewport width without any JS measurement. Parchment/ink palette
+   reuses the existing node-* border colors below rather than introducing a
+   second one. */
+.branch-map {
+  position: relative;
+  padding: 4px 2px;
+}
+
+.branch-map-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.branch-edge {
+  stroke: #4a4130;
+  stroke-width: 0.6;
+  opacity: 0.55;
+}
+
+.branch-edge-walked {
+  stroke: #f0d789;
+  stroke-width: 1;
+  opacity: 0.9;
+}
+
+.branch-map-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px 8px;
+  align-items: center;
+  justify-items: center;
+}
+
+/* "You are here": the last node cleared, distinct from the (possibly
+   several) node-current pills the player can walk to next. */
+.node-position {
+  position: relative;
+}
+.node-position::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f0d789;
+  box-shadow: 0 0 4px rgba(240, 215, 137, 0.7);
+}
+
 .node-pill {
   padding: 10px 14px;
   border-radius: 6px;
@@ -382,6 +442,12 @@ h2 {
   font-size: 0.85rem;
   text-align: center;
   min-width: 64px;
+  /* Branching map ticket (GOALS.md, run 2/N): 44px+ tap targets at 375px,
+     see test/verify-mobile-layout.js's dedicated node-map check. */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition: all 0.2s ease;
 }

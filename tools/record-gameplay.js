@@ -171,12 +171,17 @@ async function main() {
   }
 
   // ---- setup: jump to this floor's boss node (not itself the recorded interaction) ----
+  // Branching map (GOALS.md, run 2/N): every node in the floor's last
+  // encounter row has exactly one outgoing edge, straight to the boss (see
+  // Floor.generateBranchingFloor) -- standing on any one of them makes the
+  // boss the sole available/clickable next node.
   await page.evaluate(`(function () {
     var s = window.Wordbound.Game._state;
-    for (var i = 0; i < s.floor.nodes.length; i++) {
-      if (s.floor.nodes[i].type === 'boss') { s.currentNodeIndex = i; break; }
-      s.floor.nodes[i].cleared = true;
-    }
+    var floor = s.floor;
+    var lastRowNode = floor.nodes.find(function (n) { return n.row === floor.rows - 1; });
+    floor.nodes.forEach(function (n) { if (n.type !== 'boss') n.cleared = true; });
+    s.mapPositionNodeId = lastRowNode.id;
+    s.currentNodeId = null;
     s.screen = 'RUN';
     s.player.maxInk = 200;
     s.player.ink = 200;

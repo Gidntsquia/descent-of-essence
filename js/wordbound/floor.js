@@ -154,9 +154,10 @@
   //   }
   // Guarantees (see test/verify-branching-map.js for the actual checks):
   //   - every startNodeIds node can reach bossNodeId
-  //   - exactly one 'shop' node and (floors >= 2) exactly one 'rest' node,
-  //     both reachable from some start node (seated on a guaranteed spine)
-  //   - exactly one 'treasure' node, same guarantee
+  //   - 'shop', 'treasure', and (floors >= 2) 'rest' each appear once per
+  //     GUARANTEED_LANES (min(2, lanes) -- see the balance-retune comment at
+  //     their seating code below), each instance reachable from its own
+  //     start lane. A 3-lane floor's third lane carries no such guarantee.
   //   - on elite floors, at most one 'elite' node, only ever placed in a
   //     row that has another node too, so a route to the boss that never
   //     visits it always exists (avoidable-at-a-cost, never mandatory)
@@ -169,7 +170,6 @@
     var nodeAt = {}; // 'row,lane' -> node object
     var edgeKeys = {}; // 'fromId>toId' -> true, dedupe
     var edges = [];
-    var spine = null; // the guaranteed path (row0's path), seats required specials
 
     function key(row, lane) { return row + ',' + lane; }
 
@@ -186,6 +186,7 @@
       if (!edgeKeys[ek]) { edgeKeys[ek] = true; edges.push([fromNode.id, toNode.id]); }
     }
 
+    var allPaths = [];
     for (var startLane = 0; startLane < LANES; startLane++) {
       var lane = startLane;
       var path = [{ row: 0, lane: lane }];
@@ -197,7 +198,7 @@
         path.push({ row: r, lane: nextLane });
         lane = nextLane;
       }
-      if (startLane === 0) spine = path;
+      allPaths.push(path);
     }
 
     // Boss: single terminal node every row-(ROWS-1) node connects into.
@@ -218,14 +219,50 @@
     // Row 0 is always 'combat' (ease-in, matches the old linear design).
     rowNodes[0].forEach(function (n) { n.type = 'combat'; n.defId = pickCombatDefId(floorNumber, rng); });
 
-    // Seat the required specials on the guaranteed spine (rows 1..ROWS-1),
-    // so "reachable on some path" always holds regardless of how the rest
-    // of the DAG rolls.
-    var spineSlots = spine.slice(1).map(function (p) { return nodeAt[key(p.row, p.lane)]; });
+    // Seat the required specials on GUARANTEED_LANES worth of paths (rows
+    // 1..ROWS-1), one full required set per guaranteed lane, independently
+    // seated -- not just the single lane-0 spine. RETUNE (GOALS.md
+    // branching-map ticket, run 2/N): a 20-run balance-sim replay with a bot
+    // choosing lanes uniformly at random (per the ticket's own "sanity-check
+    // the win-rate band still holds" instruction) dropped the "best"-strategy
+    // win rate from ~38% (pre-branching baseline, in the tuned 35-50% band)
+    // to 5% once only ONE lane carried shop/treasure/rest -- a bot wandering
+    // off that single lane, which most random walks do, permanently lost
+    // ink/gold/item access for the rest of the floor. Guaranteeing
+    // min(2, LANES) lanes (both lanes on a 2-lane floor, 2 of 3 on a 3-lane
+    // floor) keeps genuine routing risk alive -- a 3-lane floor still has one
+    // uncovered lane, and the elite-avoidance mechanic is untouched -- while
+    // making the common case survivable. See PROGRESS.md for the full
+    // before/after sim numbers.
+    var GUARANTEED_LANES = Math.min(2, LANES);
     var required = ['treasure', 'shop'];
     if (hasRest) required.push('rest');
-    var slotPicks = rng.shuffle(spineSlots.map(function (_, i) { return i; })).slice(0, required.length);
-    required.forEach(function (type, i) { spineSlots[slotPicks[i]].type = type; });
+    for (var g = 0; g < GUARANTEED_LANES; g++) {
+      // Two guaranteed lanes' walked paths can cross and merge into the same
+      // cell (both lanes shuffle by -1/0/+1 per row, over a shared 2-3 lane
+      // width) -- seating blindly by lane index without checking what's
+      // already reachable would let the second lane's pass silently
+      // OVERWRITE a type the first lane already seated at a shared node,
+      // undercounting it floor-wide. Check true reachability first and only
+      // seat what this lane doesn't already have.
+      var startNode = nodeAt[key(0, g)];
+      var reachableIds = Floor.reachableNodeIds({ edges: edges }, [startNode.id], null);
+      var reachableIdSet = {};
+      reachableIds.forEach(function (id) { reachableIdSet[id] = true; });
+      var haveTypes = {};
+      Object.keys(nodeAt).forEach(function (k) {
+        var n = nodeAt[k];
+        if (reachableIdSet[n.id] && n.type) haveTypes[n.type] = true;
+      });
+      var missing = required.filter(function (type) { return !haveTypes[type]; });
+      if (missing.length === 0) continue;
+      var candidateSlots = allPaths[g].slice(1)
+        .map(function (p) { return nodeAt[key(p.row, p.lane)]; })
+        .filter(function (n) { return !n.type; });
+      missing = missing.slice(0, candidateSlots.length);
+      var slotPicks = rng.shuffle(candidateSlots.map(function (_, i) { return i; })).slice(0, missing.length);
+      missing.forEach(function (type, i) { candidateSlots[slotPicks[i]].type = type; });
+    }
 
     // Elite: at most one, on a non-spine-required node whose row has
     // another node too (so a route that skips it always exists).
@@ -276,6 +313,18 @@
   // here rather than duplicated in tests because game.js's eventual map UI
   // will need the same "what's reachable from here" traversal to light up
   // choosable next nodes.
+  // Immediate (one-hop) successors of a single node -- what the map UI
+  // should actually offer as choosable next nodes. `reachableNodeIds` above
+  // is a full BFS (used to prove avoidability), not what a player should be
+  // able to jump to directly.
+  Floor.directNextNodeIds = function (branchingFloor, fromNodeId) {
+    var out = [];
+    branchingFloor.edges.forEach(function (e) {
+      if (e[0] === fromNodeId) out.push(e[1]);
+    });
+    return out;
+  };
+
   Floor.reachableNodeIds = function (branchingFloor, fromNodeIds, excludeNodeId) {
     var adjacency = {};
     branchingFloor.edges.forEach(function (e) {

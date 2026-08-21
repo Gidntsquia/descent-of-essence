@@ -11912,3 +11912,172 @@ on a ticket this size. Don't skip ahead to the art/menu/variety/item
 tickets below it in the queue while this one has active partial state
 sitting in the repo unless this ticket becomes genuinely blocked (it
 isn't currently -- it's just large).
+
+## 2026-08-21T07:07Z -- Branching floor map, run 2/N: game.js wired end to end, map UI built, balance regression found + retuned (not yet fully back in band)
+
+Picked up where the previous run (T06:19Z entry above) left off: the
+generator (`Floor.generateBranchingFloor`) was built and proven in
+isolation, but game.js still ran the old linear floor entirely. This run
+did the "harder half" that entry flagged -- wired the real game to it -- and
+built the map UI, rather than deferring to a harness.
+
+**game.js flow-control migration:** replaced the flat `state.currentNodeIndex`
++ `state.floor.nodes[index]` model with id-addressed state: `currentNodeId`
+(the node being resolved right now), `mapPositionNodeId` (the last-cleared
+node the player is standing at -- null at floor start), and `pathNodeIds`
+(ordered history, used to tell an actually-walked map edge from two cleared
+nodes that just happen to share a row gap after a lane merge). A new
+`availableNodeIds()` returns the floor's start lanes (nothing cleared yet)
+or `Floor.directNextNodeIds(floor, mapPositionNodeId)` (a new one-hop helper
+added to floor.js -- `reachableNodeIds` already there is a full BFS, wrong
+granularity for "what can the player click next"). `Game.enterCurrentNode`
+now takes an optional `nodeId` -- the real map UI always passes one
+explicitly (branching means there's no single "the" current node anymore);
+called with no argument it falls back to whatever `state.currentNodeId`
+already holds, which is what lets every existing test scenario that used to
+do `state.currentNodeIndex = X; Game.enterCurrentNode();` convert to the
+same pattern addressed by id instead of position, with minimal, mechanical
+diffs. `startRun`/`advanceFloor` now call `Floor.generateBranchingFloor`
+(the old `Floor.generateFloor` is untouched, kept alive only for its own
+regression check in verify-branching-map.js).
+
+**Map UI:** `renderNodeMap` rebuilt as a CSS grid (columns = lane, rows =
+encounter depth + one boss row) with an absolutely-positioned inline-SVG
+layer underneath drawing lines along the floor's real `edges` list, computed
+as simple (lane+0.5)/lanes, (row+0.5)/rows fractions in a 0-100 viewBox --
+lands on the same fractions the grid's equal 1fr tracks do, so lines meet
+pills at any viewport width with zero `getBoundingClientRect` measurement
+(which matters because jsdom, this project's fast test harness, never runs
+real layout). Node pills reuse the existing type/cleared CSS classes;
+`node-current` is now driven by `availableNodeIds()` membership instead of a
+flat index match, `node-position` is new (marks where the player is
+standing), and walked edges (both endpoints adjacent in `pathNodeIds`, not
+just both cleared) get a brighter gold stroke vs. a dim ink one for
+unwalked. `.node-pill` got `min-height: 44px` + flex centering -- the
+mobile-check below caught it landing at 40px without that.
+
+**Test-suite ripple (the API change touched a lot):** `state.currentNodeIndex`
+and `Game.enterCurrentNode()` (no-arg) were used as scenario-setup shortcuts
+in ~20 call sites across `test/dom-check.js` (the mandatory `npm test`
+gate), plus `test/verify-unplayable-rack-fix.js`, `test/file-url-gameplay-check.js`,
+`test/gold-system-check.js`, `test/verify-boss-item-reward.js`,
+`test/orchestrator-qa-boss-reward.js` (`npm run test:qa`), `test/balance-simulation.js`,
+and `tools/record-gameplay.js`. All converted to the id-addressed
+equivalent. One real bug caught along the way: `findNodeById` originally
+searched forward and returned the FIRST id match, which broke a
+`dom-check.js` scenario (`killWith`, used twice with the literal id
+`'node-wager-combat'`) that pushes a same-id synthetic node onto
+`state.floor.nodes` more than once in a run -- fixed by searching from the
+end (real generated ids are always unique via floor.js's own counter, so
+direction never matters there; only test-injected literal ids can collide,
+and the most-recently-pushed one is always the one meant to be "current").
+`test/verify-seeded-runs.js` got a new Part 7 proving the ticket's own
+determinism bar end to end through `Game.startRun`/`enterCurrentNode` (same
+seed -> identical lane-0 node content and a byte-identical replayed fight;
+a different lane choice -> a distinct node) -- the existing floor-fingerprint
+check already covered "same seed -> identical map" at the generator level,
+this adds the routing-choice layer on top. `test/orchestrator-qa-boss-reward.js`
+(a real headless-Chromium Playwright script) now stands on any node in the
+floor's last encounter row (every such node has exactly one outgoing edge,
+straight to the boss, by construction) instead of poking a flat index, so
+the boss pill becomes the sole real, clickable `.node-current` element --
+drives two full floors through actual DOM clicks, not synthetic dispatch.
+`tools/record-gameplay.js` (unrun this session -- slow, needs ffmpeg, not
+part of any verification gate) got the identical mechanical fix for
+consistency; NOT independently re-run, flagging that plainly rather than
+claiming it.
+Two other loose, unwired scripts (`test/verify-boss-skip-softlock-fix.js`,
+and the rest of `test/verify-boss-item-reward.js` beyond what got fixed)
+stayed broken -- confirmed via `git stash` that they were ALREADY failing
+identically on the pre-branching code, not a regression from this run, and
+their scenarios are already covered end-to-end by `dom-check.js`'s own
+"boss-skip" section (which passes in full). Not worth this run's budget
+chasing pre-existing bit-rot in scripts nothing gates on.
+
+**Balance finding (the ticket's own anticipated risk, and it was real):**
+`test/balance-simulation.js`'s bot now picks a lane uniformly at random at
+every map choice (per the ticket's explicit instruction: "bot picks
+randomly among paths"). First post-wiring run (n=20 "best"-strategy):
+5% win rate. For comparison, `git stash`-ing back to the pre-branching
+linear code and running the identical bot against the identical harness
+(interrupted partway by a tool timeout, but got 13/20 runs in) gave 5
+wins/13 completed = ~38%, squarely in the previously-established 35-50%
+band -- confirming this was a real regression from routing, not a
+pre-existing drift. Root cause: `generateBranchingFloor` seated
+shop/treasure/rest on only ONE lane's path (the "spine," always lane 0). A
+bot -- or a player -- that steps off that one lane at any point (which most
+random walks do within a few rows on a 2-3 lane floor) permanently loses
+ink/gold/item access for the rest of that floor. Retuned: specials are now
+seated once per `min(2, lanes)` guaranteed lanes (both lanes on a 2-lane
+floor, 2 of 3 on a 3-lane floor), with collision-safe seating (checks true
+BFS reachability from each guaranteed lane's start before seating, so two
+guaranteed lanes that merge into the same cell share one instance instead
+of silently overwriting each other -- caught this as an actual bug via a
+failing invariant sweep before it shipped: raw per-floor type counts came
+back at 331-334/360 expected instead of exactly 360). Re-verified against
+the full 180-seed `test/verify-branching-map.js` sweep with a NEW, stronger
+per-lane check (each guaranteed lane's own start node must actually BFS-
+reach a shop/treasure/(rest), not just "the floor has enough of them
+somewhere") -- all green.
+
+**Balance status: improved but NOT confirmed back in band.** Three small
+post-retune sim samples (n=20, n=10, n=10, all "best" strategy): 20%, 50%,
+10% win rate -- much higher variance than the old linear model gave, which
+makes sense now that routing is randomized per run (that variance is
+somewhat the point of the feature), but the ~25% aggregate across all three
+is still visibly under the 35-50% target, just a large improvement on the
+pre-retune 5%. Did not get to a larger, more decisive sample (n=30-40)
+before this run's window closed -- genuinely don't know yet whether 25% is
+small-sample noise near the band's lower edge or a real remaining gap.
+GOALS.md's ticket box is correctly left UNCHECKED for this reason -- the
+feature itself is fully built, wired, and verified working (see below), but
+the ticket's own balance-verification bar isn't cleared yet.
+
+**Verification actually done:** `npm test` (dom-check.js) clean, 2 consecutive
+runs after system load cleared (hit one transient timing flake mid-way
+through this session while a background balance-sim was eating CPU
+concurrently -- reran clean twice after, not a real regression, noted here
+rather than silently ignored). `npm run test:branching-map` clean (180
+seeds x all invariants, including the new per-lane reachability checks).
+`node test/verify-seeded-runs.js` clean (including new Part 7).
+`npm run test:qa` clean, real headless-Chromium, zero console errors across
+a full two-floor click-through including the new map. `npm run test:mobile`
+clean at 375/414px across main menu, the new node-map screen (new dedicated
+check added), combat, tile-reward, and game-over, plus the existing
+touch-mode check. **NOT independently verified:** audio (jsdom has no Web
+Audio API, unaffected by this change anyway since nothing here touches
+sound); a genuinely large-sample balance re-confirmation (see above);
+`tools/record-gameplay.js`'s actual video output (mechanically fixed, not
+re-run); the map's own visual polish against the ticket's "woodcut/
+manuscript" language -- it's functional (real ink-colored SVG lines, real
+grid layout, correct current-position/walked-path marking) but plain,
+reusing the existing pill styling rather than a new parchment-texture pass.
+That's a real, honest gap against the ticket's own UI bar, separate from
+the ART tickets below (those are about monster/boss portraits, not this
+map's own texture) -- worth a dedicated pass, either as part of closing this
+ticket or as a follow-up polish item once balance lands.
+
+Version bumped v0.41 -> v0.42 (`wordbound.html`) -- the shipped game's
+actual player-facing flow changed substantially (a real feature landing),
+even though the ticket box itself stays unchecked pending balance
+confirmation, matching how the INK ticket's own run 1 bumped version on a
+user-visible but still-open step.
+
+**State:** working tree clean, both games fully playable end to end on the
+new branching map (verified via the real-browser QA pass), every automated
+check green except the balance-verification question above, which is
+explicitly still open. **Next run:** run
+`node test/balance-simulation.js 30` (or larger -- more samples reduce the
+noise this run's small n=10/n=20 samples couldn't resolve), read the "best"
+strategy's win rate, and: if it's comfortably in the 35-50% band, check
+GOALS.md's box (writing the final numbers into its DONE note, following the
+INK ticket's own writeup style just above it in the file) and move to the
+next queued ticket (ART: monster/boss portraits). If it's still low, apply
+ONE small, targeted retune -- the ticket's own suggested lever is "event/rest
+frequency," so a slightly larger rest-node heal ratio or a small floor-1
+monster-attack trim are both reasonable, in-scope candidates; resist the
+urge to bump `GUARANTEED_LANES` to cover all 3 lanes on a 3-lane floor, since
+that would eliminate the routing-risk premise the whole feature exists for.
+Whichever direction, re-run the full verification list above (at minimum
+`npm test` + `npm run test:branching-map` + the sim) before touching the
+box.

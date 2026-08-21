@@ -58,10 +58,17 @@ async function main() {
 
   // ---- Part 1: boss kill shows tile reward, THEN a separate item-reward screen ----
 
-  const node = state.floor.nodes[state.currentNodeIndex];
+  // Branching map (GOALS.md, run 2/N): no floor node has been entered yet
+  // (the map is showing 2-3 lane choices, nothing selected) -- this test
+  // bypasses enterCurrentNode entirely and drives combat state directly, so
+  // it needs to both pick a node to mutate into a boss AND mark it as the
+  // "current" node itself (state.currentNodeId), same as every other
+  // synthetic-node test scenario in this repo.
+  const node = state.floor.nodes[0];
   node.type = 'boss';
   node.defId = 'boss_vowelmaw';
   node.cleared = false;
+  state.currentNodeId = node.id;
   state.combatActive = true;
   state.monster = Monsters.createBoss('boss_vowelmaw');
   state.monster.hp = 1; // one hit from defeat
@@ -106,10 +113,14 @@ async function main() {
 
   // ---- Part 2: a regular (non-boss) kill never shows the item-reward screen ----
 
-  const node2 = state.floor.nodes[state.currentNodeIndex];
+  // advanceFloor() (triggered by resolving the boss-item reward above)
+  // generated an entirely new state.floor for the next floor, with nothing
+  // entered yet -- same situation as the boss node above.
+  const node2 = state.floor.nodes[0];
   node2.type = 'combat';
   node2.defId = 'gremlin';
   node2.cleared = false;
+  state.currentNodeId = node2.id;
   state.combatActive = true;
   state.monster = Monsters.createMonster('gremlin');
   state.monster.hp = 1;
@@ -120,13 +131,13 @@ async function main() {
   check('regular kill produced zero errors', errors.length === 0);
   check('regular kill goes to TILE_REWARD, same as always', state.screen === 'TILE_REWARD');
 
-  const nodeIndexBefore = state.currentNodeIndex;
+  const enteredNodeId = state.currentNodeId;
   Game.skipTileReward();
   await new Promise((r) => setTimeout(r, 50));
 
   check('after a regular kill\'s tile reward, screen returns straight to RUN (no item-reward detour)', state.screen === 'RUN');
   check('boss-reward-panel stayed hidden the whole time for a non-boss kill', document.getElementById('boss-reward-panel').classList.contains('hidden'));
-  check('node index advanced normally for a regular kill', state.currentNodeIndex === nodeIndexBefore + 1);
+  check('map position advanced normally for a regular kill', state.mapPositionNodeId === enteredNodeId && state.currentNodeId === null);
 
   console.log('');
   if (failures === 0) {

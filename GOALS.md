@@ -4325,6 +4325,71 @@ Rules for the routine:
       runs extension, `npm run test:qa` (teach it to click through the map),
       `npm run test:mobile`, real-browser click-through of a full floor.
       Minor bump.
+      PROGRESS (run 2/N, 2026-08-21, v0.41 -> v0.42): game.js is now fully
+      wired to `Floor.generateBranchingFloor` -- the old linear
+      `currentNodeIndex` flow is gone from the live game (still intact,
+      untouched, as `Floor.generateFloor` itself, purely for the old
+      generator-regression check). Map UI built: a CSS-grid DAG (rows x
+      lanes) with an absolutely-positioned inline-SVG ink-line layer drawn
+      from the floor's real edges, current-position marker, and
+      walked-vs-unwalked edge styling; reuses the existing node-pill
+      type/cleared styling rather than a new art pass (the woodcut/parchment
+      TEXTURE the ticket asks for is not done -- flagged below). 44px+ tap
+      targets fixed and dedicated-checked in `test/verify-mobile-layout.js`.
+      Determinism extended in `test/verify-seeded-runs.js` (same seed ->
+      identical lane-0 node content and replayable fight; different lane ->
+      distinct node). `npm run test:qa` teaches the real-browser bot to jump
+      onto the map's guaranteed last-encounter-row and click the boss pill
+      via the real DOM (no more index poking) -- passes end to end across
+      two floors. `npm test` (dom-check.js) required updating ~20 call sites
+      across itself and 6 other test files/tools that used to jump around
+      via `state.currentNodeIndex` -- all converted to the id-addressed
+      equivalent, all green.
+      BALANCE FINDING + RETUNE (the ticket's own anticipated risk): the
+      first post-wiring sim run (bot chooses lanes uniformly at random, per
+      the ticket's own instruction) cratered the "best"-strategy win rate
+      from a ~38% pre-branching baseline (in the established 35-50% band,
+      confirmed via a same-code A/B run this session) to 5%/20 -- root
+      cause: required specials (shop/treasure/rest) were seated on only ONE
+      lane's path (the old single "spine"), so a bot wandering off that one
+      lane, which most random walks do, permanently lost ink/gold/item
+      access for the rest of the floor. Retuned `Floor.generateBranchingFloor`
+      to seat each required special once per `min(2, lanes)` guaranteed
+      lanes instead of one -- both lanes on a 2-lane floor, 2 of 3 on a
+      3-lane floor, still leaving one genuinely uncovered lane on 3-lane
+      floors so routing risk isn't eliminated. Re-verified against the full
+      180-seed `test/verify-branching-map.js` sweep, including a new
+      per-lane REACHABILITY check (not just a raw type count, which a
+      lane-merge could satisfy via a shared node instead of a literal
+      duplicate) -- all green.
+      **Balance NOT yet fully re-confirmed in band**: three small post-retune
+      sim samples (n=20, n=10, n=10 "best"-strategy runs) came back 20%,
+      50%, 10% -- high run-to-run variance (expected now that routing is
+      randomized per run, unlike the old deterministic linear floor) but an
+      aggregate ~25% across all three, still visibly under the 35-50% target
+      even though it's a large improvement on the pre-retune 5%. Ran out of
+      this run's window before a larger, more decisive sample (n=30-40
+      "best") could confirm whether 25% is just small-sample noise around
+      the lower edge of the band or a real remaining gap needing one more
+      small retune (e.g. a slightly larger rest-node heal, or trimming
+      floor-1 monster damage slightly). This is exactly the kind of
+      "small event/rest frequency retune... in-scope" the ticket itself
+      anticipates -- NOT a Jaxon-blocked judgment call, just unfinished
+      within this hour. Box correctly left UNCHECKED pending that
+      confirmation. **Next run:** run
+      `node test/balance-simulation.js 30` (or bigger), read the "best"
+      win rate, and either (a) it's comfortably in-band -- check this box,
+      or (b) it's still low -- apply one small, targeted retune (rest heal
+      ratio or floor-1 monster attack, NOT a second lane-count bump, which
+      would erode the routing-risk point of the whole feature) and re-run
+      until it lands, then check the box. `npm run test:mobile` (a real-
+      browser 375/414px pass covering main menu/node-map/combat/tile-reward/
+      game-over) is done and green -- no further mobile verification needed
+      unless the balance retune touches CSS (it won't). Other still-open
+      items from the ticket's own bar: a genuine woodcut/parchment visual
+      pass on the map itself (currently functional but plain -- the
+      separate ART tickets below are about monster/boss portraits, not this
+      map's own texture, so don't assume they cover it).
 
 - [ ] ART (Jaxon request; style DECIDED: inked woodcut): every monster and
       boss gets an inline-SVG portrait in the woodcut/engraving style --

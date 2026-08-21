@@ -50,8 +50,11 @@ window.addEventListener('load', function () {
         process.exit(1);
       }
 
-      // Enter the first node (which should be a combat)
-      Game.enterCurrentNode();
+      // Enter the first node (which should be a combat). Branching map
+      // (GOALS.md, run 2/N): floor start offers 2-3 lane choices instead of
+      // a single fixed node -- take the first lane, same as every other
+      // test in this repo that just needs *a* fight started.
+      Game.enterCurrentNode(state.floor.startNodeIds[0]);
 
       if (!state.player.rack || state.player.rack.length === 0) {
         console.log('ERROR: No rack created after entering combat node');

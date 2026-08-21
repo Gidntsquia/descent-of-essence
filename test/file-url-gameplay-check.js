@@ -30,8 +30,9 @@ dom.window.addEventListener('load', () => {
       throw new Error('game._state not initialized');
     }
     
-    // Enter first node (should be combat)
-    game.enterCurrentNode();
+    // Enter first node (should be combat). Branching map (GOALS.md, run
+    // 2/N): floor start offers 2-3 lane choices -- take the first.
+    game.enterCurrentNode(game._state.floor.startNodeIds[0]);
     
     // Verify combat started
     if (!game._state.monster) {

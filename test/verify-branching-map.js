@@ -66,10 +66,12 @@ async function main() {
   let allBossReachableFromEveryStart = true;
   let allLanesInRange = true;
   let allRowsInRange = true;
-  let allExactlyOneTreasure = true;
-  let allExactlyOneShop = true;
+  let allTreasureCountMatchesGuarantee = true;
+  let allShopCountMatchesGuarantee = true;
   let floor1EverHasRest = false;
-  let floor2PlusAlwaysHasRest = true;
+  let floor2PlusRestCountMatchesGuarantee = true;
+  let allGuaranteedLanesReachTreasureShop = true;
+  let allGuaranteedLanesReachRest = true;
   let floor1NeverHasElite = true;
   let eliteFloorsSometimesHaveElite = false;
   let eliteAlwaysAtMostOne = true;
@@ -102,11 +104,40 @@ async function main() {
       typeCounts.rest += byType.rest || 0;
       typeCounts.elite += byType.elite || 0;
 
-      if ((byType.treasure || 0) !== 1) allExactlyOneTreasure = false;
-      if ((byType.shop || 0) !== 1) allExactlyOneShop = false;
+      // RETUNE (GOALS.md branching-map ticket, run 2/N): required specials
+      // are now seated once per GUARANTEED_LANES (min(2, lanes)), not just a
+      // single spine -- see floor.js's own comment for the balance-sim
+      // numbers that drove this. Two guaranteed lanes can merge into the
+      // same cell, in which case the second lane deliberately reuses the
+      // first's already-reachable instance instead of seating a redundant
+      // duplicate -- so the true count is between 1 and guaranteedLanes, not
+      // pinned to exactly guaranteedLanes. The per-lane reachability check
+      // below is the real guarantee; this is just a sanity bound on count.
+      const guaranteedLanes = Math.min(2, bf.lanes);
+      const treasureCount = byType.treasure || 0;
+      const shopCount = byType.shop || 0;
+      const restCount = byType.rest || 0;
+      if (treasureCount < 1 || treasureCount > guaranteedLanes) allTreasureCountMatchesGuarantee = false;
+      if (shopCount < 1 || shopCount > guaranteedLanes) allShopCountMatchesGuarantee = false;
 
-      if (floorNumber === 1 && (byType.rest || 0) > 0) floor1EverHasRest = true;
-      if (floorNumber >= 2 && (byType.rest || 0) !== 1) floor2PlusAlwaysHasRest = false;
+      if (floorNumber === 1 && restCount > 0) floor1EverHasRest = true;
+      if (floorNumber >= 2 && (restCount < 1 || restCount > guaranteedLanes)) floor2PlusRestCountMatchesGuarantee = false;
+
+      // Stronger, per-lane check: each of the first guaranteedLanes start
+      // lanes must itself individually reach a shop and a treasure (and, on
+      // floors >= 2, a rest) -- not just "somewhere on the floor," which the
+      // raw counts above don't prove by themselves.
+      for (let laneIdx = 0; laneIdx < guaranteedLanes; laneIdx++) {
+        const startId = bf.startNodeIds[laneIdx];
+        const reachableFromLane = Floor.reachableNodeIds(bf, [startId], null);
+        const reachableTypes = reachableFromLane.map((id) => bf.nodes.filter((n) => n.id === id)[0].type);
+        if (reachableTypes.indexOf('shop') === -1 || reachableTypes.indexOf('treasure') === -1) {
+          allGuaranteedLanesReachTreasureShop = false;
+        }
+        if (floorNumber >= 2 && reachableTypes.indexOf('rest') === -1) {
+          allGuaranteedLanesReachRest = false;
+        }
+      }
 
       if (floorNumber === 1 && (byType.elite || 0) > 0) floor1NeverHasElite = false;
       if (floorNumber >= 2) {
@@ -139,10 +170,12 @@ async function main() {
   check('rows always in [6,8]', allRowsInRange);
   check('boss reachable from every individual start node, every seed/floor', allBossReachableFromEveryStart);
   check('every generated node is reachable from some start node (no orphans)', allNodesReachableFromSomeStart);
-  check('exactly one treasure node every seed/floor (' + typeCounts.treasure + ' total across ' + (N * 3) + ' floors)', allExactlyOneTreasure);
-  check('exactly one shop node every seed/floor (' + typeCounts.shop + ' total across ' + (N * 3) + ' floors)', allExactlyOneShop);
+  check('treasure node count within [1, min(2,lanes)] every seed/floor (' + typeCounts.treasure + ' total across ' + (N * 3) + ' floors)', allTreasureCountMatchesGuarantee);
+  check('shop node count within [1, min(2,lanes)] every seed/floor (' + typeCounts.shop + ' total across ' + (N * 3) + ' floors)', allShopCountMatchesGuarantee);
   check('floor 1 never generates a rest node', !floor1EverHasRest);
-  check('floors 2-3 always generate exactly one rest node', floor2PlusAlwaysHasRest);
+  check('floors 2-3 rest node count within [1, min(2,lanes)]', floor2PlusRestCountMatchesGuarantee);
+  check('each guaranteed lane individually reaches a shop and a treasure', allGuaranteedLanesReachTreasureShop);
+  check('each guaranteed lane individually reaches a rest node (floors 2-3)', allGuaranteedLanesReachRest);
   check('floor 1 never generates an elite node', floor1NeverHasElite);
   check('elite floors (2-3) generate an elite node at least sometimes (' + typeCounts.elite + '/' + (N * 2) + ')', eliteFloorsSometimesHaveElite);
   check('elite floors never generate more than one elite node', eliteAlwaysAtMostOne);

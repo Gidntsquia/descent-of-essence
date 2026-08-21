@@ -16,9 +16,10 @@ dom.window.addEventListener('load', () => {
   const game = dom.window.Wordbound.Game;
   
   try {
-    // Start a run and enter combat
+    // Start a run and enter combat. Branching map (GOALS.md, run 2/N):
+    // floor start offers 2-3 lane choices -- take the first.
     game.startRun();
-    game.enterCurrentNode();
+    game.enterCurrentNode(game._state.floor.startNodeIds[0]);
     
     // Verify player starts with 0 gold
     if (game._state.player.gold !== 0) {

@@ -973,7 +973,9 @@ async function main() {
   {
     const savedFloorNumber = state.floorNumber;
     const savedFloor = state.floor;
-    const savedNodeIndex = state.currentNodeIndex;
+    const savedCurrentNodeId = state.currentNodeId;
+    const savedMapPositionNodeId = state.mapPositionNodeId;
+    const savedPathNodeIds = state.pathNodeIds;
     const savedRunStats = Object.assign({}, state.runStats);
     const savedItems = state.player.items;
     const savedGold = state.player.gold;
@@ -991,7 +993,9 @@ async function main() {
 
     state.floorNumber = savedFloorNumber;
     state.floor = savedFloor;
-    state.currentNodeIndex = savedNodeIndex;
+    state.currentNodeId = savedCurrentNodeId;
+    state.mapPositionNodeId = savedMapPositionNodeId;
+    state.pathNodeIds = savedPathNodeIds;
     state.runStats = savedRunStats;
     state.player.items = savedItems;
     state.player.gold = savedGold;
@@ -2037,6 +2041,17 @@ async function main() {
     const savedMonsterHp = state.monster.hp;
     const savedScreen2 = state.screen;
     const savedConsumables = state.player.consumables.slice();
+    // BRANCHING MAP (GOALS.md, run 2/N): the previous combat's tile-reward
+    // pick already resolved the map back to state.currentNodeId === null
+    // (see advanceMapPosition in game.js) -- this block forces combatActive
+    // directly rather than going through a real enterCurrentNode, so it
+    // needs its own "current node" for onMonsterDefeated's currentNode()
+    // lookup to have something to mark cleared, same pattern every other
+    // synthetic-node block in this file uses.
+    const lethalStrikeNode = { id: '_test-lethal-strike-node', type: 'combat', defId: state.monster.defId, cleared: false };
+    state.floor.nodes.push(lethalStrikeNode);
+    const savedCurrentNodeId2 = state.currentNodeId;
+    state.currentNodeId = lethalStrikeNode.id;
 
     Consumables.CONSUMABLE_DEFS['_test_lethal_strike'] = {
       id: '_test_lethal_strike',
@@ -2064,6 +2079,7 @@ async function main() {
     state.monster.hp = savedMonsterHp;
     state.screen = savedScreen2;
     state.player.consumables = savedConsumables;
+    state.currentNodeId = savedCurrentNodeId2;
     window.Wordbound.Game.openDeckViewer();
     window.Wordbound.Game.closeDeckViewer();
   }
@@ -2218,11 +2234,11 @@ async function main() {
     // pendingEventSkipNextCombat, which would skip the fight instead of
     // starting it. Both make the reset silently not run.
     const nodes = (state.floor && state.floor.nodes) || [];
-    const nextCombatIndex = nodes.findIndex((n, i) => i >= state.currentNodeIndex && !n.cleared && (n.type === 'combat' || n.type === 'elite'));
+    const nextCombatIndex = nodes.findIndex((n) => !n.cleared && (n.type === 'combat' || n.type === 'elite'));
     if (nextCombatIndex === -1) {
       console.log('SKIP volatile next-fight-reset check -- no uncleared combat node left on this floor (layout-dependent, not a bug)');
     } else {
-      state.currentNodeIndex = nextCombatIndex;
+      state.currentNodeId = nodes[nextCombatIndex].id;
       state.screen = 'RUN';
       state.combatActive = false;
       state.pendingEventSkipNextCombat = false;
@@ -2258,7 +2274,7 @@ async function main() {
       state.pendingEventSkipNextCombat = false;
       const node = { id: 'node-event-test-' + defId, type: 'event', defId: defId, cleared: false };
       state.floor.nodes.push(node);
-      state.currentNodeIndex = state.floor.nodes.length - 1;
+      state.currentNodeId = node.id;
       window.Wordbound.Game.enterCurrentNode();
     }
 
@@ -2359,7 +2375,7 @@ async function main() {
       state.pendingEventSkipNextCombat = false;
       const node = { id: 'node-wager-combat', type: 'combat', defId: 'slime', cleared: false };
       state.floor.nodes.push(node);
-      state.currentNodeIndex = state.floor.nodes.length - 1;
+      state.currentNodeId = node.id;
       window.Wordbound.Game.enterCurrentNode();
       await new Promise((r) => setTimeout(r, 60));
       // Force a trivially-killable, plain monster and a known rack.
@@ -2500,13 +2516,13 @@ async function main() {
       // Prefer an uncleared combat node; if the run has cleared them all by
       // this point, un-clear one so a real fight (real startCombat path)
       // starts -- fidelity over convenience.
-      let idx = nodes.findIndex((n, i) => i >= state.currentNodeIndex && !n.cleared && (n.type === 'combat' || n.type === 'elite'));
+      let idx = nodes.findIndex((n) => !n.cleared && (n.type === 'combat' || n.type === 'elite'));
       if (idx === -1) {
         idx = nodes.findIndex((n) => n.type === 'combat' || n.type === 'elite');
         if (idx !== -1) nodes[idx].cleared = false;
       }
       if (idx !== -1) {
-        state.currentNodeIndex = idx;
+        state.currentNodeId = nodes[idx].id;
         state.screen = 'RUN';
         state.pendingEventSkipNextCombat = false;
         window.Wordbound.Game.enterCurrentNode();
@@ -2585,7 +2601,7 @@ async function main() {
     state.pendingEventSkipNextCombat = false;
     const eliteNode = { id: 'node-elite-test', type: 'elite', defId: 'sentinel', eliteTraitId: 'alphabetic', cleared: false };
     state.floor.nodes.push(eliteNode);
-    state.currentNodeIndex = state.floor.nodes.length - 1;
+    state.currentNodeId = eliteNode.id;
 
     // Pre-entry warning: while still on the map (BEFORE entering), the elite's
     // node pill shows its resistance trait hint. Force a RUN-screen render via
@@ -2649,7 +2665,7 @@ async function main() {
     const regDefId = Object.keys(Monsters.MONSTER_DEFS)[0];
     const audioNode = { id: 'audio-test-combat', type: 'combat', defId: regDefId, cleared: false };
     state.floor.nodes.push(audioNode);
-    state.currentNodeIndex = state.floor.nodes.length - 1;
+    state.currentNodeId = audioNode.id;
     Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 60));
     check('audio setup: fresh combat is active', state.combatActive === true);
@@ -2784,7 +2800,7 @@ async function main() {
     state.player.ink = Math.max(1, state.player.maxInk - 5);
     const restNode = { id: 'audio-test-rest', type: 'rest', cleared: false };
     state.floor.nodes.push(restNode);
-    state.currentNodeIndex = state.floor.nodes.length - 1;
+    state.currentNodeId = restNode.id;
     Game._clearSfxCallLog();
     Game.enterCurrentNode();
     check('audio: resting at a rest node logs a played heal call',
@@ -2795,7 +2811,9 @@ async function main() {
     {
       const savedFloorNumber = state.floorNumber;
       const savedFloor = state.floor;
-      const savedNodeIndex = state.currentNodeIndex;
+      const savedCurrentNodeId = state.currentNodeId;
+      const savedMapPositionNodeId = state.mapPositionNodeId;
+      const savedPathNodeIds = state.pathNodeIds;
       const savedRunStats = Object.assign({}, state.runStats);
       state.floorNumber = 1; // TOTAL_FLOORS is 3 -- 1 -> 2 is a real mid-run advance, not a victory
       Game._clearSfxCallLog();
@@ -2804,7 +2822,9 @@ async function main() {
         Game._sfxCallLog().some((e) => e.name === 'floorTransition' && e.played === true));
       state.floorNumber = savedFloorNumber;
       state.floor = savedFloor;
-      state.currentNodeIndex = savedNodeIndex;
+      state.currentNodeId = savedCurrentNodeId;
+      state.mapPositionNodeId = savedMapPositionNodeId;
+      state.pathNodeIds = savedPathNodeIds;
       state.runStats = savedRunStats;
     }
 
@@ -2814,7 +2834,7 @@ async function main() {
     const bossDefId = Object.keys(Monsters.BOSS_DEFS)[0];
     const audioBossNode = { id: 'audio-test-boss', type: 'boss', defId: bossDefId, cleared: false };
     state.floor.nodes.push(audioBossNode);
-    state.currentNodeIndex = state.floor.nodes.length - 1;
+    state.currentNodeId = audioBossNode.id;
     Game._clearSfxCallLog();
     Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 60));
@@ -2879,7 +2899,7 @@ async function main() {
     const inkDefId = Object.keys(Monsters.MONSTER_DEFS)[0];
     const inkNode = { id: 'ink-spend-test-combat', type: 'combat', defId: inkDefId, cleared: false };
     state.floor.nodes.push(inkNode);
-    state.currentNodeIndex = state.floor.nodes.length - 1;
+    state.currentNodeId = inkNode.id;
     Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 60));
     check('ink spend setup: fresh combat is active', state.combatActive === true);
@@ -3010,7 +3030,7 @@ async function main() {
     const stackDefId = Object.keys(Monsters.MONSTER_DEFS)[0];
     const stackNode = { id: 'panel-stack-test-combat', type: 'combat', defId: stackDefId, cleared: false };
     state.floor.nodes.push(stackNode);
-    state.currentNodeIndex = state.floor.nodes.length - 1;
+    state.currentNodeId = stackNode.id;
     Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 60));
     check('panel-stacking setup: fresh combat is active', state.combatActive === true);
@@ -3046,7 +3066,7 @@ async function main() {
     const regDefId = Object.keys(window.Wordbound.Monsters.MONSTER_DEFS)[0];
     const regNode = { id: 'skip-test-combat', type: 'combat', defId: regDefId, cleared: false };
     state.floor.nodes.push(regNode);
-    state.currentNodeIndex = state.floor.nodes.length - 1;
+    state.currentNodeId = regNode.id;
     window.Wordbound.Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 60));
     check('boss-skip: a regular combat with a pending skip does NOT start combat', state.combatActive === false);
@@ -3063,7 +3083,7 @@ async function main() {
       state.pendingEventSkipNextCombat = true;
       const bossNode = { id: 'skip-test-boss-' + floorNumber, type: 'boss', defId: bossDefId, cleared: false };
       state.floor.nodes.push(bossNode);
-      state.currentNodeIndex = state.floor.nodes.length - 1;
+      state.currentNodeId = bossNode.id;
       window.Wordbound.Game.enterCurrentNode();
       await new Promise((r) => setTimeout(r, 60));
       check(labelPrefix + ': a boss node with a pending skip STARTS combat (not skipped)', state.combatActive === true);
@@ -3105,7 +3125,7 @@ async function main() {
     const followDefId = Object.keys(window.Wordbound.Monsters.MONSTER_DEFS)[0];
     const followNode = { id: 'skip-test-follow-combat', type: 'combat', defId: followDefId, cleared: false };
     state.floor.nodes.push(followNode);
-    state.currentNodeIndex = state.floor.nodes.length - 1;
+    state.currentNodeId = followNode.id;
     window.Wordbound.Game.enterCurrentNode();
     await new Promise((r) => setTimeout(r, 60));
     check('boss-skip/floor1: the surviving flag skips the next regular combat', state.combatActive === false && followNode.cleared === true);

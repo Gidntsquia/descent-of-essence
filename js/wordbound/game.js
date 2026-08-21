@@ -78,7 +78,16 @@
     pile: null, // { drawPile, discardPile } -- reset at the start of every fight
     floorNumber: 1,
     floor: null,
-    currentNodeIndex: 0,
+    // BRANCHING MAP (GOALS.md, run 2/N): replaces the old flat currentNodeIndex.
+    // currentNodeId is the node currently being resolved (set on entry, cleared
+    // once resolved). mapPositionNodeId is the last-cleared node the player is
+    // standing at on the map (null at floor start, before any node is cleared).
+    // pathNodeIds is the ordered sequence of cleared node ids, used to tell
+    // which map edges were actually walked (vs. just both endpoints cleared,
+    // which can happen at a merge without that exact edge being taken).
+    currentNodeId: null,
+    mapPositionNodeId: null,
+    pathNodeIds: [],
     monster: null,
     combatActive: false,
     messages: [],
@@ -204,8 +213,10 @@
     state.rng = RNG.create(state.runSeed);
     state.deck = createCharacterDeck(characterDef);
     state.floorNumber = 1;
-    state.floor = Floor.generateFloor(state.floorNumber, state.rng);
-    state.currentNodeIndex = 0;
+    state.floor = Floor.generateBranchingFloor(state.floorNumber, state.rng);
+    state.currentNodeId = null;
+    state.mapPositionNodeId = null;
+    state.pathNodeIds = [];
     state.messages = [];
     state.screen = 'RUN';
     state.activeWager = null;
@@ -235,8 +246,10 @@
     var floorCtx = { player: state.player, floorNumber: state.floorNumber, messages: [] };
     Items.runHook('onFloorAdvance', floorCtx, state.player);
     floorCtx.messages.forEach(function (msg) { log(msg); });
-    state.floor = Floor.generateFloor(state.floorNumber, state.rng);
-    state.currentNodeIndex = 0;
+    state.floor = Floor.generateBranchingFloor(state.floorNumber, state.rng);
+    state.currentNodeId = null;
+    state.mapPositionNodeId = null;
+    state.pathNodeIds = [];
     render();
   }
 
@@ -260,11 +273,59 @@
 
   // ---- node entry ---------------------------------------------------------
 
-  function currentNode() {
-    return state.floor.nodes[state.currentNodeIndex];
+  function findNodeById(nodeId) {
+    if (!state.floor || !nodeId) return null;
+    var nodes = state.floor.nodes;
+    // Search from the end: real generated ids are always unique (a module-
+    // level counter in floor.js), so direction never matters there, but a
+    // few test scenarios splice a synthetic node onto state.floor.nodes with
+    // a fixed literal id and re-run the same scenario more than once -- the
+    // most recently pushed one is always the one meant to be "current".
+    for (var i = nodes.length - 1; i >= 0; i--) {
+      if (nodes[i].id === nodeId) return nodes[i];
+    }
+    return null;
   }
 
-  Game.enterCurrentNode = function () {
+  // The node ids the player can choose from right now: the floor's start
+  // lanes if nothing's been cleared yet, otherwise the direct (one-hop)
+  // successors of wherever they're standing. Shared by renderNodeMap (what's
+  // clickable) and nothing else -- there's deliberately no "skip ahead"
+  // affordance beyond one hop.
+  function availableNodeIds() {
+    if (!state.floor) return [];
+    if (state.mapPositionNodeId === null) return state.floor.startNodeIds.slice();
+    return Floor.directNextNodeIds(state.floor, state.mapPositionNodeId);
+  }
+
+  function currentNode() {
+    return findNodeById(state.currentNodeId);
+  }
+
+  // Records the just-resolved node as cleared/walked and drops the player
+  // back at the map (state.currentNodeId null, so the next render offers
+  // its direct successors via availableNodeIds()). Replaces the old flat
+  // `state.currentNodeIndex += 1`. Callers are expected to have already set
+  // `currentNode().cleared = true` before calling this.
+  function advanceMapPosition() {
+    if (state.pathNodeIds.indexOf(state.currentNodeId) === -1) {
+      state.pathNodeIds.push(state.currentNodeId);
+    }
+    state.mapPositionNodeId = state.currentNodeId;
+    state.currentNodeId = null;
+  }
+
+  // Enters a map node and resolves it (combat/treasure/shop/event/rest).
+  // `nodeId` is the real map UI's contract -- every node.js pill it renders
+  // as clickable is a member of availableNodeIds(), and the click handler
+  // always passes that node's id explicitly (branching means there's no
+  // longer a single "the" current node to default to). The zero-arg form is
+  // kept for internal re-entry (the boss-skip branch below re-dispatches to
+  // itself) and for tests, which set state.currentNodeId directly for
+  // scenario setup -- the same pattern the old flat-index tests used with
+  // state.currentNodeIndex, just addressed by id instead of by position.
+  Game.enterCurrentNode = function (nodeId) {
+    if (nodeId) state.currentNodeId = nodeId;
     var node = currentNode();
     if (!node || node.cleared) return;
 
@@ -285,7 +346,7 @@
         state.pendingEventSkipNextCombat = false;
         log('You skip the next encounter.');
         node.cleared = true;
-        state.currentNodeIndex += 1;
+        advanceMapPosition();
         render();
         return;
       }
@@ -307,7 +368,7 @@
       log('You rest and recover ' + healed + ' ink.');
       playSfx('heal', null, playHealSound);
       node.cleared = true;
-      state.currentNodeIndex += 1;
+      advanceMapPosition();
       render();
     }
   };
@@ -339,7 +400,7 @@
     state.player.items.push(itemId);
     log('You take ' + Items.ITEM_DEFS[itemId].name + '.');
     currentNode().cleared = true;
-    state.currentNodeIndex += 1;
+    advanceMapPosition();
     state.screen = 'RUN';
     render();
   };
@@ -432,7 +493,7 @@
 
   Game.leaveShop = function () {
     currentNode().cleared = true;
-    state.currentNodeIndex += 1;
+    advanceMapPosition();
     state.screen = 'RUN';
     state.shopOptions = null;
     state.shopTileOffer = null;
@@ -483,7 +544,7 @@
   // held sub-screen (the Shredder) can resolve the same node once it's done.
   function finishEvent() {
     currentNode().cleared = true;
-    state.currentNodeIndex += 1;
+    advanceMapPosition();
     state.currentEvent = null;
     state.screen = 'RUN';
     render();
@@ -1142,7 +1203,7 @@
       return;
     }
     state.screen = 'RUN';
-    state.currentNodeIndex += 1;
+    advanceMapPosition();
     render();
   }
 
@@ -2517,16 +2578,74 @@
     $('inspector-item-hint').textContent = def.hint;
   }
 
+  // BRANCHING MAP (GOALS.md, run 2/N): a small DAG laid out on a CSS grid
+  // (rows = encounter depth, columns = lane), with an absolutely-positioned
+  // SVG layer underneath drawing ink lines along the floor's actual edges.
+  // Node centers are computed as simple (lane+0.5)/lanes, (row+0.5)/rows
+  // fractions and used both for the SVG viewBox (0-100 percent space) and,
+  // implicitly, for the grid (equal 1fr columns/rows land on the same
+  // fractions), so the lines always meet the pills they connect regardless
+  // of viewport width -- no getBoundingClientRect measurement needed, which
+  // matters because jsdom (this project's fast test harness, see
+  // test/dom-check.js) never runs real layout.
   function renderNodeMap() {
     var el = $('node-map');
     el.innerHTML = '';
+    var floor = state.floor;
+    if (!floor) return;
     var labels = { combat: 'Foe', elite: 'Elite', treasure: 'Treasure', rest: 'Rest', shop: 'Shop', event: 'Event', boss: 'BOSS' };
-    state.floor.nodes.forEach(function (node, i) {
+    var totalRows = floor.rows + 1; // encounter rows (0..rows-1) + one boss row
+    var avail = availableNodeIds();
+    // The boss node's stored lane is always 0 (see Floor.generateBranchingFloor)
+    // but it should read visually as the single convergence point every lane
+    // feeds into -- center it across the lane count for both the grid
+    // placement and the edge math below.
+    var bossVisualLane = (floor.lanes - 1) / 2;
+    function laneOf(node) { return node.type === 'boss' ? bossVisualLane : node.lane; }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'branch-map';
+
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class', 'branch-map-edges');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('preserveAspectRatio', 'none');
+
+    floor.edges.forEach(function (edge) {
+      var fromNode = findNodeById(edge[0]);
+      var toNode = findNodeById(edge[1]);
+      if (!fromNode || !toNode) return;
+      var line = document.createElementNS(svgNS, 'line');
+      line.setAttribute('x1', ((laneOf(fromNode) + 0.5) / floor.lanes) * 100);
+      line.setAttribute('y1', ((fromNode.row + 0.5) / totalRows) * 100);
+      line.setAttribute('x2', ((laneOf(toNode) + 0.5) / floor.lanes) * 100);
+      line.setAttribute('y2', ((toNode.row + 0.5) / totalRows) * 100);
+      // "Walked" means this exact edge was the step taken, not just that
+      // both ends happen to be cleared (two cleared nodes can share a row
+      // gap without that edge ever being crossed, e.g. after a lane merge).
+      var fromIdx = state.pathNodeIds.indexOf(fromNode.id);
+      var toIdx = state.pathNodeIds.indexOf(toNode.id);
+      var walked = fromIdx !== -1 && toIdx !== -1 && toIdx === fromIdx + 1;
+      line.setAttribute('class', 'branch-edge' + (walked ? ' branch-edge-walked' : ''));
+      svg.appendChild(line);
+    });
+    wrap.appendChild(svg);
+
+    var grid = document.createElement('div');
+    grid.className = 'branch-map-grid';
+    grid.style.gridTemplateColumns = 'repeat(' + floor.lanes + ', 1fr)';
+    grid.style.gridTemplateRows = 'repeat(' + totalRows + ', auto)';
+
+    floor.nodes.forEach(function (node) {
       var pill = document.createElement('div');
       pill.className = 'node-pill node-' + node.type;
+      var isAvailable = !node.cleared && avail.indexOf(node.id) !== -1;
       if (node.cleared) pill.classList.add('node-cleared');
-      if (i === state.currentNodeIndex && !node.cleared) pill.classList.add('node-current');
-      if (i > state.currentNodeIndex) pill.classList.add('node-locked');
+      if (isAvailable) pill.classList.add('node-current');
+      else if (!node.cleared) pill.classList.add('node-locked');
+      if (node.id === state.mapPositionNodeId) pill.classList.add('node-position');
+
       var label = (node.cleared ? '✓ ' : '') + labels[node.type];
 
       // For boss nodes, append the trait hint
@@ -2554,11 +2673,21 @@
       }
 
       pill.textContent = label;
-      if (i === state.currentNodeIndex && !node.cleared) {
-        pill.addEventListener('click', Game.enterCurrentNode);
+      pill.style.gridRow = node.row + 1;
+      if (node.type === 'boss') {
+        pill.style.gridColumn = '1 / -1';
+        pill.style.justifySelf = 'center';
+      } else {
+        pill.style.gridColumn = node.lane + 1;
       }
-      el.appendChild(pill);
+      if (isAvailable) {
+        pill.addEventListener('click', function () { Game.enterCurrentNode(node.id); });
+      }
+      grid.appendChild(pill);
     });
+
+    wrap.appendChild(grid);
+    el.appendChild(wrap);
   }
 
   function renderTreasure() {

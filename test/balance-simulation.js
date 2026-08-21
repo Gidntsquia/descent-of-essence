@@ -293,8 +293,10 @@ async function playRun(win, anagramMap, strategy, runIndex) {
 
     if (state.combatActive) {
       const monster = state.monster;
-      const node = state.floor.nodes[state.currentNodeIndex];
-      const isBoss = node && node.type === 'boss';
+      // Branching map (GOALS.md, run 2/N): no flat currentNodeIndex to look
+      // the node up by anymore -- state.monster.isBoss is set at combat
+      // start from the node's own type and is simpler than re-deriving it.
+      const isBoss = !!monster.isBoss;
       const encounter = {
         defId: monster.defId,
         name: monster.name,
@@ -427,7 +429,25 @@ async function playRun(win, anagramMap, strategy, runIndex) {
     }
 
     if (state.screen === 'RUN') {
-      Game.enterCurrentNode();
+      // Branching map (GOALS.md, run 2/N): the map now offers 1-3 choosable
+      // next nodes instead of a single fixed one. Per the ticket's own
+      // balance note ("after landing, run the sim (bot picks randomly among
+      // paths) and sanity-check the win-rate band still holds"), pick
+      // uniformly at random among them -- this bot has no route-planning
+      // logic, so random is the honest "unskilled routing" baseline, same
+      // spirit as the "first playable word" strategy above.
+      const Floor = win.Wordbound.Floor;
+      const nextIds = state.mapPositionNodeId === null
+        ? state.floor.startNodeIds
+        : Floor.directNextNodeIds(state.floor, state.mapPositionNodeId);
+      if (!nextIds || nextIds.length === 0) {
+        // Dead end (shouldn't happen -- Floor.generateBranchingFloor
+        // guarantees every node reaches the boss -- but don't hang if it does).
+        run.stalled = true;
+        break;
+      }
+      const pickedId = nextIds[Math.floor(Math.random() * nextIds.length)];
+      Game.enterCurrentNode(pickedId);
       continue;
     }
 
