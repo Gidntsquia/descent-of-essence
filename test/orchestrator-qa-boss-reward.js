@@ -64,15 +64,15 @@ function check(label, cond) {
 // then find a playable word for the current rack by subset lookup. Returns
 // the word string or null. Blanks are skipped (they only add options).
 //
-// Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): prefers a word
-// NOT already played this fight (real per-fight state at
-// Game._state.comboState.usedWords, same Set combat.js checks) over the
-// otherwise-longest one, so this bot actually builds and exercises combo
-// streaks instead of happily eating the x0.4 repeat penalty every fight
-// (which it would, since "longest word for this rack shape" repeats often
-// once the deck cycles back to a similar draw). Falls back to the best word
-// overall (a repeat) only when every playable word this rack can form has
-// already been used this fight -- better than NO_WORD_FOUND.
+// Word novelty (GOALS.md "FUN OVERHAUL 1/8"; combo streak bonus removed
+// 2026-08-21, batch item 2/7): prefers a word NOT already played this fight
+// (real per-fight state at Game._state.wordHistory.usedWords, same Set
+// combat.js checks) over the otherwise-longest one, so this bot doesn't
+// happily eat the x0.4 repeat penalty every fight (which it would, since
+// "longest word for this rack shape" repeats often once the deck cycles back
+// to a similar draw). Falls back to the best word overall (a repeat) only
+// when every playable word this rack can form has already been used this
+// fight -- better than NO_WORD_FOUND.
 //
 // Monster intents (GOALS.md "FUN OVERHAUL 2/8"): also excludes a Hex'd tile
 // (Game._state.hexedTileId) from the candidate letter pool, matching the
@@ -102,7 +102,7 @@ const FIND_WORD_FN = `
   }
   var rack = W.Game._state.player.rack;
   var hexedTileId = W.Game._state.hexedTileId;
-  var usedWords = (W.Game._state.comboState && W.Game._state.comboState.usedWords) || new Set();
+  var usedWords = (W.Game._state.wordHistory && W.Game._state.wordHistory.usedWords) || new Set();
   var letters = [];
   for (var r = 0; r < rack.length; r++) {
     if (rack[r].letter !== '?' && rack[r].id !== hexedTileId) letters.push(rack[r].letter);

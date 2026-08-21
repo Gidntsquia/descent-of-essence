@@ -67,32 +67,27 @@ function buildAnagramMap(wordlist, maxLen) {
   return map;
 }
 
-// Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): mirrors
-// Combat.playWord's comboMultiplier/repeat-penalty math exactly, so
-// findPlayableWords below predicts what a word would ACTUALLY deal against
-// the live comboState, not the pre-combo score. Without this, the "best"
-// bot would keep re-picking its single highest-scoring word every turn (as
-// it did before this ticket) and eat the x0.4 repeat penalty for real every
-// time via Game.submitWord, silently making "best" play worse than the
-// script's own predictions claimed -- exactly the kind of skew this
-// simulation exists to avoid.
-const COMBO_BONUS_PER_STACK = 0.12;
-const COMBO_MAX_STACKS = 5;
+// Word novelty (GOALS.md "FUN OVERHAUL 1/8"; combo streak bonus removed
+// 2026-08-21, batch item 2/7): mirrors Combat.playWord's repeat-penalty math
+// exactly, so findPlayableWords below predicts what a word would ACTUALLY
+// deal against the live wordHistory, not the pre-penalty score. Without
+// this, the "best" bot would keep re-picking its single highest-scoring word
+// every turn and eat the x0.4 repeat penalty for real every time via
+// Game.submitWord, silently making "best" play worse than the script's own
+// predictions claimed -- exactly the kind of skew this simulation exists to
+// avoid.
 const REPEAT_WORD_PENALTY = 0.4;
-function predictComboDamage(rawDamage, word, comboState) {
-  const combo = comboState ? Math.min(comboState.combo || 0, COMBO_MAX_STACKS) : 0;
-  const comboMult = 1 + COMBO_BONUS_PER_STACK * combo;
-  const boosted = Math.round(rawDamage * comboMult);
-  const isRepeat = !!(comboState && comboState.usedWords && comboState.usedWords.has(word));
-  return isRepeat ? Math.round(boosted * REPEAT_WORD_PENALTY) : boosted;
+function predictNoveltyDamage(rawDamage, word, wordHistory) {
+  const isRepeat = !!(wordHistory && wordHistory.usedWords && wordHistory.usedWords.has(word));
+  return isRepeat ? Math.round(rawDamage * REPEAT_WORD_PENALTY) : rawDamage;
 }
 
 // Every word the current rack can spell, with the damage it would actually
 // deal -- predicted the same way Combat.playWord computes it (base score x
-// hold/trait multipliers x the live combo/repeat state), so the bot picks on
+// hold/trait multipliers x the live repeat-word state), so the bot picks on
 // real damage rather than raw score (traits can zero a high-scoring word,
 // and a repeat can turn today's "best" word into today's worst choice).
-function findPlayableWords(win, anagramMap, rack, monster, opts, comboState) {
+function findPlayableWords(win, anagramMap, rack, monster, opts, wordHistory) {
   const { Lexicon, Traits, Tiles } = win.Wordbound;
   const usable = rack.filter((t) => t.letter !== '?');
   // Real blank count, but the fallback below only ever substitutes ONE of
@@ -126,7 +121,7 @@ function findPlayableWords(win, anagramMap, rack, monster, opts, comboState) {
     }
     const traitMult = trait ? trait.multiplier(word, formed.tilesUsed) : 1;
     const rawDamage = Math.round(score.total * holdMult * traitMult);
-    const damage = predictComboDamage(rawDamage, word, comboState);
+    const damage = predictNoveltyDamage(rawDamage, word, wordHistory);
 
     results.push({ word, damage });
     if (stopAtFirst && damage > 0) return true;
@@ -340,7 +335,7 @@ async function playRun(win, anagramMap, strategy, runIndex) {
         const candidates = findPlayableWords(win, anagramMap, effectiveRack, state.monster, {
           stopAtFirstDamaging: strategy === 'first',
           rackCapacity: win.Wordbound.Items.getRackCapacity(state.player),
-        }, state.comboState);
+        }, state.wordHistory);
         const word = chooseWord(candidates, strategy);
         if (!word) {
           // The rack can spell NO valid word at all. ensureRackIsPlayable

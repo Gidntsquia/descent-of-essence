@@ -129,12 +129,11 @@
     touchMode: false, // MOBILE INPUT 1/3: true on coarse-pointer devices. Set from matchMedia('(pointer: coarse)') at init; word-building is click/tap-tiles-only on every device now (UX ticket, GOALS.md 2026-08-21 batch item 1/7) -- touchMode remains for any future touch-specific tuning but no longer gates the typing-vs-tapping split, since typing doesn't exist
     blankPickerOpen: false, // MOBILE INPUT 1/3: true while the touch-mode A-Z blank-letter picker overlay is showing
     blankPickerTileId: null, // MOBILE INPUT 1/3: which blank tile the open picker is choosing a letter for
-    comboState: { combo: 0, usedWords: new Set() }, // word novelty + combo streaks, reset in startCombat
+    wordHistory: { usedWords: new Set() }, // word novelty (repeat-word penalty), reset in startCombat -- combo streak bonus removed 2026-08-21 (GOALS.md batch item 2/7)
     previousWordThisFight: null, // GOALS.md "FUN OVERHAUL 4/8": word played immediately before the current one this fight, reset in startCombat, fed to item hooks via ctx.previousWord
     wordsPlayedThisFightCount: 0, // 1-based once incremented; ===1 on the fight's first word, includes repeats -- reset in startCombat, fed to item hooks via ctx.wordsPlayedThisFight
     hexedTileId: null, // set by a Hex monster intent, cleared when the rack that held it cycles away (see monster-intents ticket)
     proccedItemIds: [], // FUN OVERHAUL 8/8: item ids whose onWordPlayed hook fired on the just-played word; consumed + cleared in renderItemsOwned to flash those chips for one render only
-    comboBumped: false, // FUN OVERHAUL 8/8: true for one render when the just-played word advanced the combo streak; consumed in renderCombat to re-pop the (already visible) combo chip
     runStats: null, // { wordsPlayed, bestWord, bestWordDamage, totalDamage, monstersDefeated, floorsCleared, goldEarned } -- reset in startRun, shown on the game-over/victory screens (review N6)
     justUnlockedOverchargeRewrite: false // DESIGN/BALANCE ticket (GOALS.md, 2026-08-21): true for exactly one game-over/victory screen visit, the run that first unlocks Overcharge/Rewrite -- drives a one-time callout, set in endRun, consumed in renderGameOver/renderVictory
   };
@@ -643,14 +642,13 @@
     state.deck.forEach(function (t) { t.crackedThisFight = false; });
     state.pile = { drawPile: Tiles.shuffleIntoDrawPile(state.deck, state.rng), discardPile: [] };
     state.player.rack = [];
-    state.comboState = { combo: 0, usedWords: new Set() };
+    state.wordHistory = { usedWords: new Set() };
     state.previousWordThisFight = null;
     state.wordsPlayedThisFightCount = 0;
     state.overchargeArmed = false; // INK SPEND: Overcharge toggle, per-fight reset
     state.repeatedWordThisFight = false;
     state.hexedTileId = null;
     state.proccedItemIds = [];
-    state.comboBumped = false;
     state.selectedTileIds = [];
     state.blankAssignments = {};
     state.settleTileIds = [];
@@ -813,7 +811,7 @@
     // charged for, so the check belongs here regardless).
     var overchargeCost = Items.getOverchargeCost(state.player);
     var overcharging = !!state.overchargeArmed && state.player.ink >= overchargeCost;
-    var result = Combat.playWord(state.player, state.monster, word, state.comboState, { overcharge: overcharging });
+    var result = Combat.playWord(state.player, state.monster, word, state.wordHistory, { overcharge: overcharging });
 
     if (hexedTile) {
       state.player.rack.splice(Math.min(hexedTileIndex, state.player.rack.length), 0, hexedTile);
@@ -850,7 +848,7 @@
     // know word sequence within the fight -- previousWord (for
     // Illuminated Initial/Palimpsest) and a 1-based play count (for Errant
     // Footnote/Gilded Bookmark). Both track this call's word for the NEXT
-    // one, same "before this word" convention combo.js already uses.
+    // one, same "before this word" convention combat.js's wordHistory uses.
     state.wordsPlayedThisFightCount += 1;
     var ctx = {
       player: state.player, monster: state.monster, word: result.word, tilesUsed: result.tilesUsed, result: result,
@@ -907,24 +905,17 @@
       if (state.runStats) state.runStats.goldEarned += MAGNIFICENT_BONUS_GOLD;
       log('MAGNIFICENT! A ' + result.word.length + '-letter word -- +' + MAGNIFICENT_BONUS_GOLD + ' gold.');
     }
-    // The combo streak advanced this word (a distinct, non-repeat play) -- flag
-    // it so renderCombat gives the combo chip an extra bump, not just its
-    // baseline per-render pop.
-    state.comboBumped = !result.isRepeat && (state.comboState && state.comboState.combo || 0) > 0;
-
     if (result.isRepeat) {
       // Word novelty (GOALS.md "FUN OVERHAUL 1/8"): repeating a word already
       // played this fight is weak (x0.4, already folded into result.damage
-      // above) and resets the combo -- flag it in the log so the damage dip
-      // reads as a choice's consequence, not a bug.
+      // above) -- flag it in the log so the damage dip reads as a choice's
+      // consequence, not a bug.
       log('The Archive has heard that one before.');
       // A repeat also loses a live Wager with the Stacks (FUN OVERHAUL 7/8).
       // Recorded here rather than resolved: the wager only pays out (or
       // doesn't) once the fight is actually won.
       state.repeatedWordThisFight = true;
       if (state.activeWager) log('The Stacks heard that. The wager is lost.');
-    } else if (result.comboAtPlay > 0) {
-      log('Combo x' + result.comboAtPlay + '! +' + Math.round(result.comboAtPlay * 12) + '% damage.');
     }
 
     // A rule-changer item's own self-damage (Cursed Quill) lands on the
@@ -957,7 +948,7 @@
     // End-of-run stats (review N6): every successful word play counts,
     // repeats included -- this tracks what the player actually did, same as
     // the log line above, not just their best-strategy plays. result.damage
-    // is final by this point (trait/combo/repeat multipliers and any bonus
+    // is final by this point (trait/repeat multipliers and any bonus
     // damage above already folded in).
     if (state.runStats) {
       state.runStats.wordsPlayed += 1;
@@ -984,7 +975,7 @@
         render();
         animateDamage(result.damage);
         celebrateHit(result.damage, magnificent);
-        if (result.damage > 0) playCombatSound(result.damage, result.comboAtPlay);
+        if (result.damage > 0) playCombatSound(result.damage);
         var monsterInfo = $('monster-info');
         if (monsterInfo) monsterInfo.classList.add('monster-defeated');
         setTimeout(function () {
@@ -1038,7 +1029,7 @@
       // until their own timeouts clean them up.
       animateDamage(result.damage);
       celebrateHit(result.damage, magnificent);
-      if (result.damage > 0) playCombatSound(result.damage, result.comboAtPlay);
+      if (result.damage > 0) playCombatSound(result.damage);
       if (dmgCtx.damage > 0) {
         animatePlayerDamage();
         playCounterattackSound(dmgCtx.damage, state.monster.isBoss);
@@ -1473,7 +1464,7 @@
     } catch (e) { /* Audio element unsupported -- nothing to do */ }
   }
 
-  function playCombatSound(damage, comboLevel) {
+  function playCombatSound(damage) {
     // AUDIO ticket (GOALS.md, 2026-08-21): this function predates the shared
     // mute/volume plumbing below and connects straight to ctx.destination at a
     // fixed gain (unlike the new sounds, which route through sfxGainNode) --
@@ -1487,10 +1478,6 @@
       var now = ctx.currentTime;
       var intensity = Math.min(damage / 40, 1); // normalize damage to 0-1
       var duration = 0.15 + (intensity * 0.1);
-      // Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): pitch
-      // rises with the combo stack that boosted this hit (0-5 stacks -> up to
-      // +40% pitch), reusing this same synth rather than a separate sound.
-      var pitchMult = 1 + 0.08 * Math.max(0, Math.min(comboLevel || 0, 5));
 
       if (damage > 30) {
         // critical hit: high-pitched punchy tone
@@ -1498,8 +1485,8 @@
         var gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(600 * pitchMult, now);
-        osc.frequency.exponentialRampToValueAtTime(200 * pitchMult, now + duration);
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + duration);
         gain.gain.setValueAtTime(0.3 * intensity, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
         osc.start(now);
@@ -1510,8 +1497,8 @@
         var gain2 = ctx.createGain();
         osc2.connect(gain2);
         gain2.connect(ctx.destination);
-        osc2.frequency.setValueAtTime(150 * pitchMult, now);
-        osc2.frequency.linearRampToValueAtTime(100 * pitchMult, now + duration);
+        osc2.frequency.setValueAtTime(150, now);
+        osc2.frequency.linearRampToValueAtTime(100, now + duration);
         gain2.gain.setValueAtTime(0.1, now);
         gain2.gain.linearRampToValueAtTime(0, now + duration);
         osc2.start(now);
@@ -1522,8 +1509,8 @@
         var gain3 = ctx.createGain();
         osc3.connect(gain3);
         gain3.connect(ctx.destination);
-        osc3.frequency.setValueAtTime(400 * pitchMult, now);
-        osc3.frequency.exponentialRampToValueAtTime(250 * pitchMult, now + duration);
+        osc3.frequency.setValueAtTime(400, now);
+        osc3.frequency.exponentialRampToValueAtTime(250, now + duration);
         gain3.gain.setValueAtTime(0.2 * intensity, now);
         gain3.gain.exponentialRampToValueAtTime(0.01, now + duration);
         osc3.start(now);
@@ -3035,17 +3022,6 @@
     info.classList.remove('monster-defeated');
     var tierClass = m.isBoss ? 'boss-tier' : (m.tier ? 'tier-' + m.tier : '');
     var tierGlyph = getTierGlyph(m.isBoss, m.tier);
-    // Combo chip (GOALS.md "FUN OVERHAUL 1/8"): shows the streak of
-    // consecutive distinct words played this fight and the damage bonus it
-    // grants the NEXT word. Hidden at combo 0 so a reset (repeat word) is
-    // visually obvious -- the chip just disappears.
-    var combo = (state.comboState && state.comboState.combo) || 0;
-    // FUN OVERHAUL 8/8: one-shot extra pop on the render where the streak grew.
-    var comboBumpClass = state.comboBumped ? ' combo-chip-bump' : '';
-    state.comboBumped = false;
-    var comboChip = combo > 0
-      ? '<div class="combo-chip' + comboBumpClass + '">Combo x' + combo + ' &middot; +' + Math.min(combo, 5) * 12 + '%</div>'
-      : '';
     // ART ticket (GOALS.md): woodcut-plate portrait when this def has one
     // (see js/wordbound/portraits.js COVERAGE note -- floor-1 defs only, so
     // far); falls back to the pre-existing tier emoji in the name line for
@@ -3070,8 +3046,7 @@
       '<div class="monster-hp-bar"><div id="monster-hp-fill" class="monster-hp-fill" style="width:' + Math.max(0, hpRatio * 100) + '%"></div></div>' +
       '<div class="monster-hp-text">' + m.hp + ' / ' + m.maxHp + ' HP</div>' +
       '<div class="monster-weakness">Weakness: ' + escapeHtml(trait.hint) + '</div>' +
-      intentLine +
-      comboChip;
+      intentLine;
 
     var rack = $('rack-display');
     rack.innerHTML = '';
@@ -3233,7 +3208,7 @@
     if (!state.combatActive || !state.monster) { neutral(); return; }
     var word = (stagedWord() || '').trim();
     if (!word) { neutral(); return; }
-    var preview = Combat.previewWord(state.player, state.monster, word, state.comboState, {
+    var preview = Combat.previewWord(state.player, state.monster, word, state.wordHistory, {
       previousWord: state.previousWordThisFight,
       wordsPlayedThisFight: state.wordsPlayedThisFightCount,
       hexedTileId: state.hexedTileId,

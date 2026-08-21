@@ -681,45 +681,43 @@ async function main() {
     check('rollVariantTile: always carries a variant (premium offer never whiffs)', shopTiles.every((t) => !!t.variant && !t.bonus));
   }
 
-  // Word novelty + combo streaks (GOALS.md "FUN OVERHAUL 1/8"): three
-  // distinct words should each get a bigger damage multiplier than the last
-  // (+12%/stack off the streak BEFORE that word), and replaying an
-  // already-used word this fight should both apply the x0.4 repeat penalty
-  // and reset the combo for whatever comes next. Isolated synthetic setup
-  // like the Foreword check above -- doesn't need a run in progress. High
-  // monster HP and the 'plain' trait (multiplier always 1) keep the math
-  // predictable (no kill, no weakness multiplier to account for).
+  // Word novelty (GOALS.md "FUN OVERHAUL 1/8"; combo streak bonus removed
+  // 2026-08-21, batch item 2/7): distinct words deal plain score damage with
+  // no streak bonus, and replaying an already-used word this fight applies
+  // the x0.4 repeat penalty. Isolated synthetic setup like the Foreword
+  // check above -- doesn't need a run in progress. High monster HP and the
+  // 'plain' trait (multiplier always 1) keep the math predictable (no kill,
+  // no weakness multiplier to account for).
   {
     const Combat = window.Wordbound.Combat;
     const Tiles = window.Wordbound.Tiles;
     // Enough tiles for CAT, DOG, PIG, then CAT again (a repeat).
+    // Word novelty (GOALS.md "FUN OVERHAUL 1/8"; combo streak bonus removed
+    // 2026-08-21, batch item 2/7 -- see combat.js header). This block proves
+    // the repeat-word penalty math in isolation: distinct words deal plain
+    // score*multiplier damage with no streak bonus, and only a REPEATED word
+    // eats the x0.4 penalty.
     const rack = ['C', 'A', 'T', 'D', 'O', 'G', 'P', 'I', 'G', 'C', 'A', 'T'].map((l) => Tiles.createTile(l, null));
     const player = { rack: rack, items: [], ink: 20, maxInk: 20 };
     const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
-    const comboState = { combo: 0, usedWords: new Set() };
+    const wordHistory = { usedWords: new Set() };
 
-    const r1 = Combat.playWord(player, monster, 'CAT', comboState);
-    check('combo test setup: "CAT" is playable', !!r1);
-    const r2 = r1 && Combat.playWord(player, monster, 'DOG', comboState);
-    const r3 = r2 && Combat.playWord(player, monster, 'PIG', comboState);
-    const r4 = r3 && Combat.playWord(player, monster, 'CAT', comboState); // repeat
+    const r1 = Combat.playWord(player, monster, 'CAT', wordHistory);
+    check('word novelty test setup: "CAT" is playable', !!r1);
+    const r2 = r1 && Combat.playWord(player, monster, 'DOG', wordHistory);
+    const r3 = r2 && Combat.playWord(player, monster, 'PIG', wordHistory);
+    const r4 = r3 && Combat.playWord(player, monster, 'CAT', wordHistory); // repeat
 
     if (r1 && r2 && r3 && r4) {
-      check('combo: 1st distinct word has no bonus yet (comboAtPlay 0, x1.00)', r1.comboAtPlay === 0 && r1.comboMultiplier === 1 && !r1.isRepeat);
-      check('combo: 2nd distinct word gets +12% (comboAtPlay 1, x1.12)', r2.comboAtPlay === 1 && r2.comboMultiplier === 1.12 && !r2.isRepeat);
-      check('combo: 3rd distinct word gets +24% (comboAtPlay 2, x1.24)', r3.comboAtPlay === 2 && r3.comboMultiplier === 1.24 && !r3.isRepeat);
-      check('combo: multiplier strictly grows across 3 distinct words', r1.comboMultiplier < r2.comboMultiplier && r2.comboMultiplier < r3.comboMultiplier);
-      check('combo: damage for each distinct word matches score * comboMultiplier', r1.damage === Math.round(r1.score.total * r1.comboMultiplier) && r2.damage === Math.round(r2.score.total * r2.comboMultiplier) && r3.damage === Math.round(r3.score.total * r3.comboMultiplier));
+      check('novelty: distinct words carry no combo field and no streak bonus (damage == score.total)', r1.comboAtPlay === undefined && r1.comboMultiplier === undefined && !r1.isRepeat && r1.damage === Math.round(r1.score.total));
+      check('novelty: a second distinct word also deals plain score damage (no streak bonus)', !r2.isRepeat && r2.damage === Math.round(r2.score.total));
+      check('novelty: a third distinct word also deals plain score damage (no streak bonus)', !r3.isRepeat && r3.damage === Math.round(r3.score.total));
 
-      check('combo: repeating "CAT" is flagged isRepeat', r4.isRepeat === true);
-      // r4 still earns comboAtPlay 3's bonus (the streak going INTO this word)
-      // before the x0.4 repeat penalty is applied on top.
-      const r4Boosted = Math.round(r4.score.total * r4.comboMultiplier);
-      check('combo: repeat damage is the combo-boosted damage x0.4, rounded', r4.damage === Math.round(r4Boosted * 0.4));
-      check('combo: repeat penalty actually reduced the damage below the combo-boosted (pre-penalty) amount', r4Boosted > 0 && r4.damage < r4Boosted);
-      check('combo: repeating a word resets the combo streak to 0', comboState.combo === 0);
+      check('novelty: repeating "CAT" is flagged isRepeat', r4.isRepeat === true);
+      check('novelty: repeat damage is score.total x0.4, rounded (no combo boost to apply first)', r4.damage === Math.round(r4.score.total * 0.4));
+      check('novelty: repeat penalty actually reduced the damage below the un-penalized amount', r4.score.total > 0 && r4.damage < Math.round(r4.score.total));
     } else {
-      console.log('SKIP combo checks -- synthetic rack could not form CAT/DOG/PIG (unexpected, check LETTER tiles)');
+      console.log('SKIP word novelty checks -- synthetic rack could not form CAT/DOG/PIG (unexpected, check LETTER tiles)');
     }
   }
 
@@ -729,7 +727,7 @@ async function main() {
   // strongest anti-drift proof is to compare its number against an actual
   // playWord + item-hook run on an identical fresh setup -- if they ever
   // diverge, the preview is lying to the player. Isolated synthetic setup,
-  // same style as the combo/Foreword blocks; the live-DOM end-to-end check
+  // same style as the novelty/Foreword blocks; the live-DOM end-to-end check
   // (preview == damage actually dealt on submit) is further down.
   {
     const Combat = window.Wordbound.Combat;
@@ -740,10 +738,10 @@ async function main() {
     // Mirror the exact math submitWord does: playWord, then item onWordPlayed
     // hooks, on a throwaway setup, and read result.damage. previewWord must
     // equal this for the SAME inputs.
-    const actualDamage = (items, word, prevWord, wordsPlayed, comboState) => {
+    const actualDamage = (items, word, prevWord, wordsPlayed, wordHistory) => {
       const player = { rack: freshRack(), items: items, ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
-      const result = Combat.playWord(player, monster, word, comboState);
+      const result = Combat.playWord(player, monster, word, wordHistory);
       if (!result) return null;
       const ctx = { player, monster, word: result.word, tilesUsed: result.tilesUsed, result,
         previousWord: prevWord || null, wordsPlayedThisFight: (wordsPlayed || 0) + 1, messages: [] };
@@ -755,24 +753,25 @@ async function main() {
     {
       const player = { rack: freshRack(), items: [], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
-      const p = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, {});
-      const actual = actualDamage([], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
+      const p = Combat.previewWord(player, monster, 'CAT', { usedWords: new Set() }, {});
+      const actual = actualDamage([], 'CAT', null, 0, { usedWords: new Set() });
       check('preview: plain word is valid and matches actual submit damage', p.valid && p.damage === actual);
-      // Non-mutation: the caller's player/monster/comboState are untouched.
+      // Non-mutation: the caller's player/monster/wordHistory are untouched.
       check('preview: does not remove tiles from the real rack', player.rack.length === 7);
       check('preview: does not mutate the real monster hp', monster.hp === 1000);
     }
 
-    // (b) combo-active state (comboAtPlay 2 -> +24%) -> preview matches actual,
-    // and previewing does NOT advance the real combo (still 2 after).
+    // (b) pre-existing word history (2 words already played) -> preview
+    // matches actual, and previewing does NOT add the previewed word to the
+    // real history (no repeat penalty ever gets applied just from previewing).
     {
       const player = { rack: freshRack(), items: [], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
-      const combo = { combo: 2, usedWords: new Set(['DOG', 'PIG']) };
-      const p = Combat.previewWord(player, monster, 'CAT', combo, {});
-      const actual = actualDamage([], 'CAT', null, 0, { combo: 2, usedWords: new Set(['DOG', 'PIG']) });
-      check('preview: combo-active word matches actual submit damage', p.valid && p.damage === actual && p.comboAtPlay === 2);
-      check('preview: previewing does not advance the real combo streak', combo.combo === 2 && !combo.usedWords.has('CAT'));
+      const history = { usedWords: new Set(['DOG', 'PIG']) };
+      const p = Combat.previewWord(player, monster, 'CAT', history, {});
+      const actual = actualDamage([], 'CAT', null, 0, { usedWords: new Set(['DOG', 'PIG']) });
+      check('preview: word not yet in history matches actual submit damage', p.valid && p.damage === actual && !p.isRepeat);
+      check('preview: previewing does not add the previewed word to the real history', !history.usedWords.has('CAT'));
     }
 
     // (c) a repeat word -> preview reports isRepeat and the x0.4 penalty, and
@@ -780,9 +779,9 @@ async function main() {
     {
       const player = { rack: freshRack(), items: [], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
-      const combo = { combo: 3, usedWords: new Set(['CAT']) };
-      const p = Combat.previewWord(player, monster, 'CAT', combo, {});
-      const actual = actualDamage([], 'CAT', null, 0, { combo: 3, usedWords: new Set(['CAT']) });
+      const history = { usedWords: new Set(['CAT']) };
+      const p = Combat.previewWord(player, monster, 'CAT', history, {});
+      const actual = actualDamage([], 'CAT', null, 0, { usedWords: new Set(['CAT']) });
       check('preview: repeat word flagged isRepeat and matches actual (penalized) damage', p.valid && p.isRepeat === true && p.damage === actual);
     }
 
@@ -791,9 +790,9 @@ async function main() {
     {
       const player = { rack: freshRack(), items: ['consonant_cluster'], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
-      const p = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, {});
-      const actual = actualDamage(['consonant_cluster'], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
-      const base = actualDamage([], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
+      const p = Combat.previewWord(player, monster, 'CAT', { usedWords: new Set() }, {});
+      const actual = actualDamage(['consonant_cluster'], 'CAT', null, 0, { usedWords: new Set() });
+      const base = actualDamage([], 'CAT', null, 0, { usedWords: new Set() });
       check('preview: reflects item damage modifiers (Consonant Cluster +4 for CAT)', p.valid && p.damage === actual && p.damage === base + 4);
     }
 
@@ -803,11 +802,11 @@ async function main() {
       const player = { rack: freshRack(), items: ['gilded_bookmark'], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
       // wordsPlayedThisFight 0 -> previewWord treats this as the 1st word -> x2.
-      const p1 = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, { wordsPlayedThisFight: 0 });
-      const base = actualDamage([], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
+      const p1 = Combat.previewWord(player, monster, 'CAT', { usedWords: new Set() }, { wordsPlayedThisFight: 0 });
+      const base = actualDamage([], 'CAT', null, 0, { usedWords: new Set() });
       check('preview: Gilded Bookmark doubles the previewed first word (wordsPlayed 0 -> word #1)', p1.valid && p1.damage === base * 2);
       // wordsPlayedThisFight 1 -> this is the 2nd word -> no doubling.
-      const p2 = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, { wordsPlayedThisFight: 1 });
+      const p2 = Combat.previewWord(player, monster, 'CAT', { usedWords: new Set() }, { wordsPlayedThisFight: 1 });
       check('preview: Gilded Bookmark does not double a later previewed word (wordsPlayed 1 -> word #2)', p2.valid && p2.damage === base);
     }
 
@@ -838,22 +837,22 @@ async function main() {
     {
       const player = { rack: freshRack(), items: [], ink: 20, maxInk: 20 };
       const monster = { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] };
-      const base = actualDamage([], 'CAT', null, 0, { combo: 0, usedWords: new Set() });
+      const base = actualDamage([], 'CAT', null, 0, { usedWords: new Set() });
       const overchargedResult = Combat.playWord(
         { rack: freshRack(), items: [], ink: 20, maxInk: 20 }, { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] },
-        'CAT', { combo: 0, usedWords: new Set() }, { overcharge: true }
+        'CAT', { usedWords: new Set() }, { overcharge: true }
       );
       check('overcharge: playWord applies OVERCHARGE_DAMAGE_MULTIPLIER', overchargedResult.damage === Math.round(base * Combat.OVERCHARGE_DAMAGE_MULTIPLIER));
       check('overcharge: playWord flags result.overcharged', overchargedResult.overcharged === true);
       const plainResult = Combat.playWord(
         { rack: freshRack(), items: [], ink: 20, maxInk: 20 }, { hp: 1000, maxHp: 1000, traitPhases: [{ hpThreshold: 1, traitId: 'plain' }] },
-        'CAT', { combo: 0, usedWords: new Set() }
+        'CAT', { usedWords: new Set() }
       );
       check('overcharge: omitting options entirely leaves damage/overcharged unaffected (baseline play stays free)', plainResult.damage === base && plainResult.overcharged === false);
 
-      const p = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, { overcharge: true });
+      const p = Combat.previewWord(player, monster, 'CAT', { usedWords: new Set() }, { overcharge: true });
       check('overcharge: previewWord with overcharge:true matches the actual overcharged submit damage', p.valid && p.damage === overchargedResult.damage && p.overcharged === true);
-      const pOff = Combat.previewWord(player, monster, 'CAT', { combo: 0, usedWords: new Set() }, {});
+      const pOff = Combat.previewWord(player, monster, 'CAT', { usedWords: new Set() }, {});
       check('overcharge: previewWord without the flag matches plain (non-amplified) damage', pOff.valid && pOff.damage === base && pOff.overcharged === false);
     }
   }
@@ -956,7 +955,7 @@ async function main() {
 
   // Monster intents (GOALS.md "FUN OVERHAUL 2/8"): isolated, deterministic
   // checks of the Intents module's own logic -- same synthetic-setup style
-  // as the Foreword/combo blocks above, independent of any run in progress.
+  // as the Foreword/novelty blocks above, independent of any run in progress.
   {
     const Intents = window.Wordbound.Intents;
     const Monsters = window.Wordbound.Monsters;
@@ -2095,9 +2094,9 @@ async function main() {
       // fresh reward tiles, and bump runStats.monstersDefeated, breaking both
       // these reads and the later stats checks. Predicting the damage closely
       // enough to guarantee that is unreliable (the forced Volatile tile
-      // doubles its own letter after the estimate is taken, and the combo
-      // multiplier compounds it), so the monster's HP is temporarily raised
-      // out of reach and restored right after instead of guessed at.
+      // doubles its own letter after the estimate is taken), so the monster's
+      // HP is temporarily raised out of reach and restored right after
+      // instead of guessed at.
       const survivalHp = state.monster.hp;
       const survivalMaxHp = state.monster.maxHp;
       state.monster.maxHp = 100000;
@@ -2875,10 +2874,10 @@ async function main() {
       state.player.items = savedItems;
     }
 
-    // (5) MAGNIFICENT bonus gold (state logic) + combo-chip bump (DOM), driven
-    // through the REAL Game.submitWord so it proves the wiring, not just the
-    // constants. Enters a real uncleared combat node so a fight is live; SKIPs
-    // (never falsely fails) if the floor layout has none left at this point.
+    // (5) MAGNIFICENT bonus gold (state logic), driven through the REAL
+    // Game.submitWord so it proves the wiring, not just the constants.
+    // Enters a real uncleared combat node so a fight is live; SKIPs (never
+    // falsely fails) if the floor layout has none left at this point.
     if (!state.combatActive) {
       const nodes = (state.floor && state.floor.nodes) || [];
       // Prefer an uncleared combat node; if the run has cleared them all by
@@ -2925,10 +2924,9 @@ async function main() {
         if (errors.length) errors.forEach((e) => console.log('  ERR:', e));
         check('8/8 magnificent-gold: a 7-letter word granted exactly +5 bonus gold', state.player.gold === goldBefore + 5);
         check('8/8 magnificent-gold: the bonus is announced with "MAGNIFICENT!"', state.messages.some((m) => m.indexOf('MAGNIFICENT!') !== -1));
-        check('8/8 combo-bump: the (advanced) combo chip rendered with .combo-chip-bump', !!document.querySelector('.combo-chip.combo-chip-bump'));
       }
     } else {
-      console.log('SKIP 8/8 magnificent-gold + combo-bump checks -- no live fight active at this point (layout-dependent, not a bug)');
+      console.log('SKIP 8/8 magnificent-gold check -- no live fight active at this point (layout-dependent, not a bug)');
     }
   }
 
@@ -3301,7 +3299,7 @@ async function main() {
     const previewEl = document.getElementById('damage-preview');
     check('ink spend: the live preview flags "(overcharged)" while armed', previewEl.textContent.indexOf('(overcharged)') !== -1);
 
-    const predicted = Combat.previewWord(state.player, state.monster, 'CAT', state.comboState, {
+    const predicted = Combat.previewWord(state.player, state.monster, 'CAT', state.wordHistory, {
       previousWord: state.previousWordThisFight, wordsPlayedThisFight: state.wordsPlayedThisFightCount,
       hexedTileId: state.hexedTileId, overcharge: true
     });
