@@ -12184,3 +12184,139 @@ portrait) -- a large, multi-run content task; start with the shared SVG
 helper/template the ticket calls for before generating individual
 portraits, and budget it across several runs rather than trying to rush
 partial coverage in one.
+
+---
+
+**2026-08-21T08:25Z -- ART ticket run 1/N: woodcut portrait vocabulary + floor-1 batch (10/15 defs), NOT yet checked off (multi-run, roster incomplete).**
+
+Housekeeping: container's local `main` ref was stale again (pointed at a
+3-commit-old snapshot from before all the branching-map/INK/balance/sound
+work) while `origin/main` was correctly at the real tip -- same appearance
+as the last run flagged, still just container-init staleness, not a real
+divergence. Fixed with `git fetch origin main && git checkout -B main
+origin/main` before touching anything, confirmed via `git log` that no
+work was at risk.
+
+Picked up the next queued item: the monster/boss woodcut-portrait ART
+ticket (GOALS.md, explicitly MULTI-RUN, "batch by floor"). Built the shared
+SVG vocabulary the ticket calls for first, then a first content batch.
+
+**New module `js/wordbound/portraits.js`:** a parchment plate-frame (ink
+border + hairline inset + vignette ground, grander corner-flourish variant
+for bosses), two shared crosshatch `<pattern>` defs (bold + fine wash), and
+a 3-tone ink palette + one accent red -- all colors pulled straight from
+the existing `css/wordbound.css` palette (`.panel` border #4a4130,
+boss-tier red family) rather than inventing new ones, so the portraits sit
+inside the game's existing look rather than importing a separate one.
+`Portraits.svgFor(defId)` returns a full `<svg>` (viewBox 0 0 120 120, so it
+scales responsively via CSS `width:100%`) with `role="img"` +
+`aria-label="<monster name>"`, or `null` for any defId without a builder
+yet -- callers fall back to the pre-existing tier-emoji glyph in that case,
+so uncovered monsters keep rendering correctly. Each portrait's internal
+`<defs>` ids are scoped by a per-call counter (not per-defId), so two
+simultaneous instances of the same portrait (not currently possible, but
+the upcoming character-portrait ticket might show several defs' art at
+once on one screen) won't collide.
+
+**Batch 1 (floor 1 -- every def a player can actually meet there, tiers
+weak+normal per floor.js `getAllowedTiers`, plus the floor-1 boss):**
+slime (Vowel Slurper), gremlin (Fidget), wisp (Filler Word), glossary,
+serpent (Consonant Constrictor), golempup (Echo Pup), raven (Quoth),
+bindingstrap, appendix, boss_vowelmaw -- 10 of 15 total defs. Each
+portrait's shape expresses its actual CODE trait (not just its THEME.md
+flavor text, where the two ever seemed to differ) via the shared
+vocabulary: vowelHungry defs show vowel letters swirling toward an open
+mouth (slime, and a grander devouring version for the boss, matching its
+own phase-0 trait); the three 'doubled' defs (gremlin, golempup,
+bindingstrap) all share one new "echo" primitive -- the same shape drawn
+twice, a fainter offset copy behind a bold one -- so the mechanic and the
+art use the same visual language across all three; the two silentE defs
+(raven, appendix) share a faded, struck-through "e" glyph; glossary
+(vowelHungry but book-flavored) got alphabetical index tabs instead of a
+literal mouth, since its name/flavor is about the book object, not a
+creature; wisp (plain trait, "doesn't really do anything") is deliberately
+the most understated -- thin dashed scratch lines only, no bold fill,
+faint "um"/"er" text.
+
+Left for a follow-up run (floor 2/3 batch, noted in the module's own
+COVERAGE comment so a fresh run doesn't have to rediscover this): sentinel,
+warden, spinesplinter (all 'strong' tier, floor 2+), boss_unabridged,
+boss_sovereign -- 5 remaining defs.
+
+**Wiring:** `wordbound.html` gained one new `<script>` tag
+(js/wordbound/portraits.js, before game.js); `game.js` `renderCombat()` now
+tries `Portraits.svgFor(m.defId)` and, when it returns real markup, renders
+it in a new `.monster-portrait` div above the name (dropping the leading
+tier-glyph text for that monster specifically, since the portrait now
+carries that signal visually) -- an uncovered defId still gets the old
+glyph-in-name-line behavior exactly as before, unchanged code path.
+`css/wordbound.css` got one new small block sizing `.monster-portrait`
+(`width: min(120px, 32vw)`, `aspect-ratio: 1/1`, boss variant `min(148px,
+40vw)`) -- relative units so it can't force the panel wider than its
+parent at any viewport.
+
+**Verification actually done:** `npm test` (dom-check.js) clean, including
+~20 new assertions added to test/dom-check.js in two blocks -- an isolated
+block confirming every COVERED_IDS entry's `svgFor()` output carries
+`role="img"` and the correct `aria-label`, that an unknown defId and a
+real-but-uncovered defId (sentinel) both return `null` without throwing,
+and that repeated calls for the same defId get distinct internal `<defs>`
+ids (no collision); a live-DOM block (reusing the existing
+openDeckViewer/closeDeckViewer re-render trick other tests in this file
+already use) that swaps the in-progress fight's `state.monster` to a
+covered def and confirms a real `.monster-portrait .portrait-svg` element
+appears with the right aria-label and the name line drops its emoji glyph,
+then swaps to an uncovered def and confirms the OPPOSITE (no portrait
+element, glyph fallback still shows), then restores the original monster.
+`npm run test:mobile` clean at 375/414px across all 5 screens (ran because
+this touched panel CSS, per the mandatory gate). `npm run test:qa` clean,
+real headless Chromium, zero console errors, run twice (once before and
+once after a mid-session revision to the raven portrait, see below).
+
+**Visually confirmed, not just test-passed:** wrote a one-off Playwright
+script (deleted after use, not part of the repo), forced each of the 10
+covered defs onto the live fight in turn, and screenshotted `#monster-info`
+in real headless Chromium for all 10. Nine read clearly on first look
+(amoeba-with-vowel-mouth, jittery echo imp, faint ghost wisp, indexed book,
+coiled consonant serpent, echo pup, strapped buckle, dog-eared silent-E
+booklet, and a grand red-accented vowel-devouring boss maw with corner
+flourishes). The tenth (raven/Quoth) did NOT read as a bird on the first
+screenshot -- the single blob-outline path I'd written collapsed into
+something closer to a leaf/mitten shape at this size, beak illegible.
+Rebuilt it from separate primitives (a rotated hatched-ellipse body, a
+distinct round head, a real projecting beak triangle, a feather-fan tail
+made of three lines, a wing crease) instead of one complex path -- re-
+screenshotted and it now reads clearly as a bird. Re-ran `npm test` and
+`npm run test:qa` clean after that revision (both listed above already
+reflect the post-fix state). Screenshot files themselves were scratch
+output, not committed.
+
+**NOT independently verified:** audio (untouched by this change). A real
+physical device/browser beyond the Chromium screenshots taken this run --
+still Jaxon's own to do per ROADMAP.md's long-standing note. Aesthetic
+judgment on the art itself is explicitly Jaxon's call per the ticket's own
+wording ("aesthetic judgment stays Jaxon's -- flag for his playtest") --
+these 10 are a good-faith first pass at the ticket's woodcut/crosshatch
+brief, not a claim that they're the final word on quality; flagging for
+his playtest same as the ticket asks.
+
+**Why the box stays unchecked and no version bump:** the ticket covers "every
+monster and boss" (~15-20 defs) and explicitly says "minor bump when the
+full roster is covered" -- this run covers 10/15 (floor 1's full roster),
+a real, substantial, working chunk, but not the whole ticket. Checking it
+off now would repeat exactly the kind of premature-completion mistake this
+routine's own rules exist to prevent.
+
+**State:** working tree clean, `wordbound.html` still v0.43 (no player-facing
+version bump this run, per the ticket's own convention above). Both games
+fully playable; floor-1 fights now show real woodcut portraits, floor-2/3-
+only defs still show their prior tier-emoji glyph (no regression, just not
+upgraded yet). **Next run:** either continue this same ticket (batch 2:
+sentinel, warden, spinesplinter, boss_unabridged, boss_sovereign -- reuse
+`js/wordbound/portraits.js`'s existing shared vocabulary functions, e.g.
+`echoPair`/`glyph`/`hatch-<uid>` pattern, don't rebuild them; sentinel/
+warden share `rareSeeker`, spinesplinter is `doubled` so can reuse the echo
+motif, bosses get the grander frame automatically via `isBoss`), then check
+GOALS.md's box and bump the version once all 15 are covered. Or, if a
+different queued item is judged more urgent, that's a legitimate call too
+-- this ticket's own multi-run note explicitly allows it.

@@ -14,7 +14,7 @@
   window.Wordbound = window.Wordbound || {};
   var Game = (window.Wordbound.Game = {});
 
-  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents;
+  var Lexicon, Traits, Monsters, Combat, Items, Floor, Tiles, RNG, Characters, Achievements, Intents, Portraits;
 
   var audioContext = null;
   var musicOscillators = [];
@@ -2957,6 +2957,15 @@
     var comboChip = combo > 0
       ? '<div class="combo-chip' + comboBumpClass + '">Combo x' + combo + ' &middot; +' + Math.min(combo, 5) * 12 + '%</div>'
       : '';
+    // ART ticket (GOALS.md): woodcut-plate portrait when this def has one
+    // (see js/wordbound/portraits.js COVERAGE note -- floor-1 defs only, so
+    // far); falls back to the pre-existing tier emoji in the name line for
+    // anything not yet illustrated, so uncovered monsters still render fine.
+    var portraitSvg = Portraits ? Portraits.svgFor(m.defId) : null;
+    var portraitHtml = portraitSvg
+      ? '<div class="monster-portrait' + (m.isBoss ? ' boss-portrait' : '') + '">' + portraitSvg + '</div>'
+      : '';
+    var nameGlyph = portraitSvg ? '' : (tierGlyph + ' ');
     // Monster intent (GOALS.md "FUN OVERHAUL 2/8"): what the monster does on
     // ITS next turn, telegraphed before the player picks a word so they can
     // answer it. Signature moves (hex/devour/mend/enrage) get a distinct
@@ -2967,7 +2976,8 @@
       intentLine = '<div id="monster-intent" class="monster-intent' + intentClass + '">' + escapeHtml(Intents.describeIntent(m.intent)) + '</div>';
     }
     info.innerHTML =
-      '<div class="monster-name ' + tierClass + '">' + tierGlyph + ' ' + escapeHtml(m.name) + '</div>' +
+      portraitHtml +
+      '<div class="monster-name ' + tierClass + '">' + nameGlyph + escapeHtml(m.name) + '</div>' +
       '<div class="monster-hp-bar"><div id="monster-hp-fill" class="monster-hp-fill" style="width:' + Math.max(0, hpRatio * 100) + '%"></div></div>' +
       '<div class="monster-hp-text">' + m.hp + ' / ' + m.maxHp + ' HP</div>' +
       '<div class="monster-weakness">Weakness: ' + escapeHtml(trait.hint) + '</div>' +
@@ -3255,6 +3265,7 @@
     RNG = window.Game.RNG;
     Characters = window.Wordbound.Characters;
     Achievements = window.Wordbound.Achievements;
+    Portraits = window.Wordbound.Portraits;
 
     $('btn-new-run').addEventListener('click', Game.showCharacterSelect);
     $('btn-gameover-continue').addEventListener('click', Game.returnToMainMenu);

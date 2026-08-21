@@ -741,6 +741,41 @@ async function main() {
     });
   }
 
+  // ART ticket (GOALS.md), portrait module: isolated checks against
+  // Portraits.svgFor directly (js/wordbound/portraits.js), same synthetic
+  // style as the boss-phase block above -- live-DOM confirmation that a
+  // covered monster's portrait actually renders in .monster-info is further
+  // down, once a real fight is in progress.
+  {
+    const Portraits = window.Wordbound.Portraits;
+    const Monsters = window.Wordbound.Monsters;
+    check('portraits: module loaded', !!Portraits && typeof Portraits.svgFor === 'function');
+    check('portraits: covers at least the floor-1 batch (>=10 defs)', Portraits.COVERED_IDS.length >= 10);
+
+    Portraits.COVERED_IDS.forEach((defId) => {
+      const def = Monsters.MONSTER_DEFS[defId] || Monsters.BOSS_DEFS[defId];
+      check('portraits: ' + defId + ' has a def', !!def);
+      if (!def) return;
+      const svg = Portraits.svgFor(defId);
+      check('portraits: ' + defId + ' svgFor returns markup', typeof svg === 'string' && svg.indexOf('<svg') === 0);
+      check('portraits: ' + defId + ' carries role="img"', svg.indexOf('role="img"') !== -1);
+      check('portraits: ' + defId + ' aria-label matches the monster name', svg.indexOf('aria-label="' + def.name + '"') !== -1);
+    });
+
+    check('portraits: unknown defId returns null (no throw)', Portraits.svgFor('not-a-real-monster') === null);
+    check('portraits: a real but not-yet-illustrated defId (sentinel) returns null, falls back cleanly', Portraits.svgFor('sentinel') === null);
+
+    // Two calls for the same defId must not collide on internal SVG def ids
+    // (patterns/gradients) -- each portrait scopes its own <defs> by a
+    // unique per-call uid specifically so simultaneous instances (e.g. a
+    // future character-portrait screen) don't clobber each other's fills.
+    const svgA = Portraits.svgFor('slime');
+    const svgB = Portraits.svgFor('slime');
+    const hatchIdA = svgA.match(/id="(hatch-[^"]+)"/)[1];
+    const hatchIdB = svgB.match(/id="(hatch-[^"]+)"/)[1];
+    check('portraits: repeated calls for the same defId get distinct internal ids (no defs collision)', hatchIdA !== hatchIdB);
+  }
+
   // Monster intents (GOALS.md "FUN OVERHAUL 2/8"): isolated, deterministic
   // checks of the Intents module's own logic -- same synthetic-setup style
   // as the Foreword/combo blocks above, independent of any run in progress.
@@ -1724,6 +1759,40 @@ async function main() {
     state.monster.traitPhases = originalTraitPhases;
     state.monster.hp = originalHp;
     state.monster.maxHp = originalMaxHp;
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+  }
+
+  // ART ticket (GOALS.md), live-DOM check: renderCombat actually swaps in a
+  // real <svg class="portrait-svg"> for a covered defId (not just that
+  // Portraits.svgFor works in isolation, checked above), AND that an
+  // uncovered defId falls back to the pre-existing tier-emoji glyph rather
+  // than showing a blank/broken portrait slot. Swaps the whole state.monster
+  // object (simpler than field-by-field here since nothing downstream of
+  // this block depends on THIS fight's specific monster) and restores it
+  // afterward so the checks below aren't affected.
+  {
+    const Monsters = window.Wordbound.Monsters;
+    const originalMonster = state.monster;
+
+    state.monster = Monsters.createMonster('slime'); // covered by portraits.js this run
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    let portraitEl = document.querySelector('.monster-portrait .portrait-svg');
+    check('portraits (live): a covered monster (slime) renders a real portrait svg', !!portraitEl);
+    check('portraits (live): the portrait svg carries the monster\'s aria-label', !!portraitEl && portraitEl.getAttribute('aria-label') === 'The Vowel Slurper');
+    let nameEl = document.querySelector('.monster-name');
+    check('portraits (live): the name line has no leading tier-emoji glyph once a portrait is shown', !!nameEl && nameEl.textContent.trim() === 'The Vowel Slurper');
+
+    state.monster = Monsters.createMonster('sentinel'); // NOT covered yet (floor 2/3 batch)
+    window.Wordbound.Game.openDeckViewer();
+    window.Wordbound.Game.closeDeckViewer();
+    portraitEl = document.querySelector('.monster-portrait');
+    check('portraits (live): an uncovered monster (sentinel) shows no portrait element', !portraitEl);
+    nameEl = document.querySelector('.monster-name');
+    check('portraits (live): an uncovered monster still shows its tier-emoji glyph fallback', !!nameEl && /^\S+ The Card Catalog$/.test(nameEl.textContent.trim()));
+
+    state.monster = originalMonster;
     window.Wordbound.Game.openDeckViewer();
     window.Wordbound.Game.closeDeckViewer();
   }
