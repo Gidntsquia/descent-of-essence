@@ -4444,7 +4444,7 @@ Rules for the routine:
       met and verified. **Box checked -- ticket closed.** Next queued item
       is the monster/boss woodcut-portrait ART ticket below.
 
-- [ ] ART (Jaxon request; style DECIDED: inked woodcut): every monster and
+- [x] ART (Jaxon request; style DECIDED: inked woodcut): every monster and
       boss gets an inline-SVG portrait in the woodcut/engraving style --
       bold ink strokes, crosshatch shading, parchment ground, a thin plate
       border; think 1700s bestiary plates. Build a tiny shared SVG
@@ -4464,6 +4464,11 @@ Rules for the routine:
       real-browser screenshot pass described in PROGRESS.md (what renders,
       any visual glitches); aesthetic judgment stays Jaxon's -- flag for
       his playtest. Minor bump when the full roster is covered.
+      **DONE 2026-08-21 (v0.43 -> v0.44):** batch 2 (this run) covers the
+      remaining 5 floor-2/3 defs (sentinel, warden, spinesplinter,
+      boss_unabridged, boss_sovereign), completing all 15/15. See
+      PROGRESS.md for verification detail and the screenshot pass; flagged
+      for Jaxon's aesthetic playtest per the ticket's own wording.
 
 - [ ] ART (Jaxon request; same woodcut style): character portraits, visible
       somewhere meaningful. Each playable character gets a woodcut portrait

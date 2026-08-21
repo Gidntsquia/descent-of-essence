@@ -21,16 +21,15 @@
 // hand-traced illustration -- appropriate for a procedurally generated
 // "bestiary plate" rather than fine art.
 //
-// COVERAGE: this ticket is explicitly MULTI-RUN, batched by floor. This run
-// covers every def a player can meet on floor 1 (tiers 'weak' + 'normal',
-// see floor.js getAllowedTiers) plus the floor-1 boss: slime, gremlin, wisp,
-// glossary, serpent, golempup, raven, bindingstrap, appendix, boss_vowelmaw
-// (10 of the 15 total defs). The floor-2/3-only defs (sentinel, warden,
-// spinesplinter, boss_unabridged, boss_sovereign) are left for a follow-up
-// run -- see PROGRESS.md. svgFor() returns null for anything not yet in
-// PORTRAIT_BUILDERS below, and callers (game.js renderCombat) fall back to
-// the pre-existing tier-emoji glyph in that case, so uncovered monsters
-// still render correctly, just without custom art yet.
+// COVERAGE: this ticket was explicitly MULTI-RUN, batched by floor. Batch 1
+// covered every def a player can meet on floor 1: slime, gremlin, wisp,
+// glossary, serpent, golempup, raven, bindingstrap, appendix, boss_vowelmaw.
+// Batch 2 (this run) adds the floor-2/3-only defs: sentinel, warden,
+// spinesplinter, boss_unabridged, boss_sovereign -- all 15 defs in the
+// roster now have a builder, so the ticket's "every monster and boss" is
+// met. svgFor() still returns null for any unknown/future defId, and
+// callers (game.js renderCombat) still fall back to the tier-emoji glyph
+// in that case, so adding a new def later degrades gracefully again.
 //
 // PUBLIC API (window.Wordbound.Portraits):
 //   svgFor(defId) -> full <svg>...</svg> markup string (role="img",
@@ -269,6 +268,104 @@
       '<path d="M 24 -16 Q 8 -4 4 6" fill="none" stroke="' + INK_2 + '" stroke-width="1.2" stroke-dasharray="2 2"/>';
   }
 
+  function sentinelInner(uid) {
+    // rareSeeker, "Everything has its proper place. EVERYTHING." (THEME.md)
+    // -- an obsessively ordered card-catalog cabinet: six alphabet-tabbed
+    // drawers, one pulled open sideways with a rare-letter card mid-file.
+    var cab = '<rect x="-32" y="-34" width="64" height="68" fill="url(#hatch-' + uid + ')" stroke="' + INK_1 + '" stroke-width="2.5"/>';
+    var dividers = '' +
+      '<line x1="0" y1="-34" x2="0" y2="34" stroke="' + INK_1 + '" stroke-width="1.6"/>' +
+      '<line x1="-32" y1="-11" x2="32" y2="-11" stroke="' + INK_1 + '" stroke-width="1.4"/>' +
+      '<line x1="-32" y1="12" x2="32" y2="12" stroke="' + INK_1 + '" stroke-width="1.4"/>';
+    var knobs = [[-16, -23], [16, -23], [-16, 0], [16, 0], [-16, 23]].map(function (p) {
+      return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="1.8" fill="' + INK_1 + '"/>';
+    }).join('');
+    var tabs = glyph(-16, -27, 'A', { size: 6, fill: INK_2 }) + glyph(16, -27, 'D', { size: 6, fill: INK_2 }) +
+      glyph(-16, -4, 'G', { size: 6, fill: INK_2 }) + glyph(16, -4, 'M', { size: 6, fill: INK_2 }) +
+      glyph(-16, 19, 'S', { size: 6, fill: INK_2 });
+    var pulled = '<path d="M32 12 L44 10 L44 32 L32 34 Z" fill="' + PLATE_BG + '" stroke="' + INK_1 + '" stroke-width="1.8"/>' +
+      '<line x1="35" y1="15" x2="41" y2="14" stroke="' + INK_2 + '" stroke-width="1"/>' +
+      '<rect x="35" y="-2" width="9" height="12" fill="' + PLATE_BG_DEEP + '" stroke="' + INK_1 + '" stroke-width="1.4"/>' +
+      glyph(39.5, 7, 'Q', { size: 7, fill: INK_1 });
+    return cab + dividers + knobs + tabs + pulled;
+  }
+
+  function wardenInner(uid) {
+    // rareSeeker, "Collects Qs, Xs, and Zs. Very proud of the collection."
+    // (THEME.md) -- a hunched hoarder curled protectively around a stash of
+    // rare-letter tiles, devour/mend intents read as a creature that eats
+    // and heals off its own hoard.
+    return '' +
+      '<ellipse cx="0" cy="14" rx="26" ry="20" fill="url(#hatch-' + uid + ')" stroke="' + INK_1 + '" stroke-width="2.5"/>' +
+      '<circle cx="-4" cy="-14" r="13" fill="none" stroke="' + INK_1 + '" stroke-width="2.2"/>' +
+      '<path d="M -14 -18 Q -22 -8 -16 4" fill="none" stroke="' + INK_1 + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<path d="M 6 -22 Q 18 -12 12 2" fill="none" stroke="' + INK_1 + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<circle cx="-9" cy="-15" r="1.6" fill="' + INK_1 + '"/><circle cx="1" cy="-16" r="1.6" fill="' + INK_1 + '"/>' +
+      '<rect x="-13" y="2" width="10" height="10" fill="' + PLATE_BG + '" stroke="' + INK_1 + '" stroke-width="1.4"/>' +
+      glyph(-8, 10, 'Q', { size: 8 }) +
+      '<rect x="-2" y="6" width="10" height="10" fill="' + PLATE_BG + '" stroke="' + INK_1 + '" stroke-width="1.4"/>' +
+      glyph(3, 14, 'X', { size: 8 }) +
+      '<rect x="9" y="-1" width="10" height="10" fill="' + PLATE_BG + '" stroke="' + INK_1 + '" stroke-width="1.4"/>' +
+      glyph(14, 7, 'Z', { size: 8 });
+  }
+
+  function shardBody(dx, dy, stroke, op) {
+    return '<g transform="translate(' + dx + ',' + dy + ')" opacity="' + op + '">' +
+      '<path d="M -6 -34 L 10 -20 L 2 -8 L 18 6 L 4 12 L 14 30 L -6 14 L -16 20 L -10 2 L -22 -6 L -8 -12 Z" ' +
+      'fill="none" stroke="' + stroke + '" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<circle cx="0" cy="-2" r="2" fill="' + stroke + '"/>' +
+      '</g>';
+  }
+  function spinesplinterInner() {
+    // doubled: "A fragment of The Unabridged's shattered spine, sharp and
+    // determined" (THEME.md) -- a jagged shard, echo-doubled like the other
+    // 'doubled' defs (gremlin/golempup/bindingstrap), one glaring eye.
+    return echoPair(4, -4, shardBody);
+  }
+
+  function unabridgedInner(uid) {
+    // floor-2 boss, "a fragment of the real thing" (THEME.md) -- a torn
+    // wedge of The Unabridged, straight along its bound spine edge (right)
+    // and jagged where it broke off (left). traitPhases lengthy->rareSeeker:
+    // a long-word suffix glyph and a cluster of rare letters both shown at
+    // once, so the plate reads correctly across both phases of the fight.
+    var torn = 'M 14 -34 L 14 34 L -10 30 L -20 18 L -8 10 L -26 0 L -10 -8 L -24 -18 L -6 -24 L -18 -34 Z';
+    return '' +
+      '<path d="' + torn + '" fill="url(#hatch-' + uid + ')" stroke="' + BOSS_ACCENT + '" stroke-width="3" stroke-linejoin="round"/>' +
+      '<line x1="-6" y1="-24" x2="10" y2="-24" stroke="' + INK_2 + '" stroke-width="1" opacity="0.6"/>' +
+      '<line x1="-8" y1="-8" x2="10" y2="-8" stroke="' + INK_2 + '" stroke-width="1" opacity="0.6"/>' +
+      '<line x1="-10" y1="10" x2="10" y2="10" stroke="' + INK_2 + '" stroke-width="1" opacity="0.6"/>' +
+      '<line x1="-10" y1="24" x2="10" y2="24" stroke="' + INK_2 + '" stroke-width="1" opacity="0.6"/>' +
+      glyph(3, -16, '-TION', { size: 7, fill: INK_1, opacity: 0.85 }) +
+      glyph(2, 2, 'Q', { size: 11, fill: BOSS_ACCENT }) +
+      glyph(2, 20, 'Z', { size: 10, fill: BOSS_ACCENT, opacity: 0.85 });
+  }
+
+  function sovereignInner(uid) {
+    // final boss: "the real, whole, busted dictionary -- free of its binding
+    // and very unhappy about it" (THEME.md) -- an open book with its spine
+    // snapped clean through and pages flying loose. traitPhases silentE->
+    // lengthy echo the raven/appendix silent-e motif and the Unabridged's
+    // long-word motif together, since this is both floors' predecessor
+    // rolled into one, grandest plate in the roster.
+    var pageL = 'M -2 -30 L -38 -22 L -38 26 L -2 30 Z';
+    var pageR = 'M 2 -30 L 38 -22 L 38 26 L 2 30 Z';
+    var loose = [[-30, -38, -18], [26, -40, 10], [-34, 34, -30], [30, 36, 22]];
+    var looseSvg = loose.map(function (p) {
+      return '<g transform="translate(' + p[0] + ',' + p[1] + ') rotate(' + p[2] + ')">' +
+        '<rect x="-6" y="-4" width="12" height="8" fill="' + PLATE_BG + '" stroke="' + INK_2 + '" stroke-width="1" opacity="0.85"/>' +
+        '</g>';
+    }).join('');
+    return '' +
+      '<path d="' + pageL + '" fill="url(#hatch-' + uid + ')" stroke="' + BOSS_ACCENT + '" stroke-width="3"/>' +
+      '<path d="' + pageR + '" fill="url(#hatch-' + uid + ')" stroke="' + BOSS_ACCENT + '" stroke-width="3"/>' +
+      '<path d="M -2 -30 L 4 -20 L -4 -10 L 4 0 L -4 10 L 4 20 L 2 30" fill="none" stroke="' + INK_1 + '" stroke-width="2.4" stroke-linejoin="round"/>' +
+      looseSvg +
+      glyph(-18, 2, 'e', { size: 13, fill: INK_2, opacity: 0.6 }) +
+      '<line x1="-24" y1="-2" x2="-12" y2="6" stroke="' + INK_2 + '" stroke-width="1" opacity="0.6"/>' +
+      glyph(16, 4, '-OUS', { size: 8, fill: INK_1, opacity: 0.85 });
+  }
+
   var PORTRAIT_BUILDERS = {
     slime: slimeInner,
     gremlin: gremlinInner,
@@ -279,7 +376,12 @@
     raven: ravenInner,
     bindingstrap: bindingstrapInner,
     appendix: appendixInner,
-    boss_vowelmaw: vowelmawInner
+    boss_vowelmaw: vowelmawInner,
+    sentinel: sentinelInner,
+    warden: wardenInner,
+    spinesplinter: spinesplinterInner,
+    boss_unabridged: unabridgedInner,
+    boss_sovereign: sovereignInner
   };
   Portraits.COVERED_IDS = Object.keys(PORTRAIT_BUILDERS);
 

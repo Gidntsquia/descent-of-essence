@@ -750,7 +750,7 @@ async function main() {
     const Portraits = window.Wordbound.Portraits;
     const Monsters = window.Wordbound.Monsters;
     check('portraits: module loaded', !!Portraits && typeof Portraits.svgFor === 'function');
-    check('portraits: covers at least the floor-1 batch (>=10 defs)', Portraits.COVERED_IDS.length >= 10);
+    check('portraits: covers the full 15-def roster', Portraits.COVERED_IDS.length === 15);
 
     Portraits.COVERED_IDS.forEach((defId) => {
       const def = Monsters.MONSTER_DEFS[defId] || Monsters.BOSS_DEFS[defId];
@@ -763,7 +763,6 @@ async function main() {
     });
 
     check('portraits: unknown defId returns null (no throw)', Portraits.svgFor('not-a-real-monster') === null);
-    check('portraits: a real but not-yet-illustrated defId (sentinel) returns null, falls back cleanly', Portraits.svgFor('sentinel') === null);
 
     // Two calls for the same defId must not collide on internal SVG def ids
     // (patterns/gradients) -- each portrait scopes its own <defs> by a
@@ -1784,13 +1783,18 @@ async function main() {
     let nameEl = document.querySelector('.monster-name');
     check('portraits (live): the name line has no leading tier-emoji glyph once a portrait is shown', !!nameEl && nameEl.textContent.trim() === 'The Vowel Slurper');
 
-    state.monster = Monsters.createMonster('sentinel'); // NOT covered yet (floor 2/3 batch)
+    // All 15 real defs are covered as of this run, so there's no real
+    // uncovered defId left to fight; simulate the "future def with no
+    // builder yet" case (the fallback path Portraits.svgFor/game.js still
+    // needs to handle) with a fabricated unknown defId on an otherwise-real
+    // monster instance.
+    state.monster = Object.assign({}, Monsters.createMonster('slime'), { defId: 'not-a-real-monster', name: 'Mystery Def' });
     window.Wordbound.Game.openDeckViewer();
     window.Wordbound.Game.closeDeckViewer();
     portraitEl = document.querySelector('.monster-portrait');
-    check('portraits (live): an uncovered monster (sentinel) shows no portrait element', !portraitEl);
+    check('portraits (live): an uncovered/unknown defId shows no portrait element', !portraitEl);
     nameEl = document.querySelector('.monster-name');
-    check('portraits (live): an uncovered monster still shows its tier-emoji glyph fallback', !!nameEl && /^\S+ The Card Catalog$/.test(nameEl.textContent.trim()));
+    check('portraits (live): an uncovered/unknown defId still shows its tier-emoji glyph fallback', !!nameEl && /^\S+ Mystery Def$/.test(nameEl.textContent.trim()));
 
     state.monster = originalMonster;
     window.Wordbound.Game.openDeckViewer();

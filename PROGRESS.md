@@ -12320,3 +12320,148 @@ motif, bosses get the grander frame automatically via `isBoss`), then check
 GOALS.md's box and bump the version once all 15 are covered. Or, if a
 different queued item is judged more urgent, that's a legitimate call too
 -- this ticket's own multi-run note explicitly allows it.
+
+---
+
+## 2026-08-21T09:22Z -- ART ticket run 2/2: woodcut portrait batch 2 (floor 2/3 defs), ticket closed (v0.43 -> v0.44)
+
+**What:** picked up exactly where the previous run's PROGRESS.md note left
+off -- GOALS.md's first unchecked item was still the woodcut-portrait ART
+ticket, batch 2. Added the remaining 5 `js/wordbound/portraits.js` builders
+per that run's own handoff plan, reusing the existing shared vocabulary
+(`frame`/`defs`/`glyph`/`echoPair`/hatch patterns), no changes to the
+shared-vocabulary functions themselves:
+
+- **sentinel ("The Card Catalog")** -- rareSeeker, THEME.md flavor
+  "Everything has its proper place. EVERYTHING." A 2x3 grid card-catalog
+  cabinet, alphabet-tabbed drawers, one drawer pulled open sideways with a
+  rare-letter card ("Q") mid-file.
+- **warden ("The Hoarder")** -- rareSeeker, THEME.md flavor "Collects Qs,
+  Xs, and Zs." A hunched creature curled protectively around three hugged
+  letter tiles (Q/X/Z); devour/mend intents read naturally as a creature
+  that eats and heals off its own hoard.
+- **spinesplinter ("Spine Splinter")** -- doubled, THEME.md flavor "A
+  fragment of The Unabridged's shattered spine, sharp and determined." A
+  jagged angular shard with one glaring eye, drawn via the existing
+  `echoPair()` helper (same doubled/echo motif as gremlin/golempup/
+  bindingstrap) -- no new echo logic needed, just a new shape fed through it.
+- **boss_unabridged ("The Unabridged Terror")**, floor-2 boss -- THEME.md:
+  "a fragment of the real thing." A torn book wedge, straight along its
+  bound spine edge and jagged where it broke off; traitPhases
+  lengthy->rareSeeker shown together (a long-word suffix glyph "-TION" plus
+  a Q/Z rare-letter cluster) so the plate reads correctly across both fight
+  phases at once, same approach the floor-1 boss (vowelmaw) already used
+  for its own single-phase design.
+- **boss_sovereign ("The Unabridged, Unbound")**, floor-3 final boss --
+  THEME.md: "the real, whole, busted dictionary -- free of its binding and
+  very unhappy about it." An open book with its spine snapped clean through
+  down the middle and four loose page/tile fragments flying off the
+  corners; traitPhases silentE->lengthy shown together (a faded struck
+  "e" plus a "-OUS" long-word glyph), grandest plate in the roster as the
+  final boss, using the full boss corner-flourish frame + BOSS_ACCENT red
+  like every other boss.
+
+All 5 reuse `frame(uid, isBoss)` for the plate border (bosses get the
+existing corner-flourish + red-accent treatment automatically, no per-def
+frame code needed) and the existing `hatch-<uid>`/`hatchfine-<uid>`
+patterns for crosshatch fill, so they read as the same hand as batch 1's
+10. Updated the module's own header COVERAGE comment to reflect both
+batches are now done (all 15/15 defs have a builder).
+
+**Why this pairing/read for each (judgment calls, flagged per the routine's
+own rules):** sentinel's code traitId is `rareSeeker` even though an older
+THEME.md table column still says `alphabetic` for it (monsters.js is the
+source of truth per the ticket's own instruction, and it's what actually
+drives combat) -- read the visual as satisfying BOTH the "proper place"
+order-obsession flavor line (alphabetized drawer tabs) AND the rareSeeker
+mechanic (rare letter card in the open drawer), rather than picking one.
+boss_unabridged/boss_sovereign's dual traitPhases (each boss has 2, unlike
+regular monsters' 1) don't get separate before/after art -- following
+batch 1's boss_vowelmaw precedent, showing both phases' motifs at once on
+a single static plate rather than trying to swap art mid-fight (no infra
+for that exists and the ticket doesn't ask for it).
+
+**Test changes required:** two existing `test/dom-check.js` checks assumed
+`sentinel` would always return null from `Portraits.svgFor()` (written
+during batch 1 when it genuinely wasn't covered yet) -- these broke as soon
+as sentinel got a real builder, exactly as they should have. Fixed rather
+than deleted-and-ignored:
+- The isolated-block check `'a real but not-yet-illustrated defId
+  (sentinel) returns null'` was removed outright -- with all 15 real defs
+  now covered, there's no real defId left to demonstrate that path with;
+  the adjacent `'unknown defId returns null (no throw)'` check (using a
+  fabricated id) already covers the same code path and stays.
+- The live-DOM block previously swapped `state.monster` to
+  `Monsters.createMonster('sentinel')` to prove the fallback path (no
+  portrait element, tier-glyph shown). Since `createMonster()` throws on an
+  unknown defId, swapped to `Object.assign({}, Monsters.createMonster('slime'),
+  { defId: 'not-a-real-monster', name: 'Mystery Def' })` instead -- same
+  fallback path (game.js's `Portraits.svgFor(m.defId)` call only reads
+  `m.defId`, doesn't require the object to come from a real def), still a
+  live-DOM proof the fallback renders correctly, just with a defId that
+  will stay fake regardless of how many more monsters get portraits later.
+- The `'covers at least the floor-1 batch (>=10 defs)'` count check was
+  tightened to `'covers the full 15-def roster'` (`=== 15`), matching the
+  ticket now being complete rather than in-progress.
+- The generic `Portraits.COVERED_IDS.forEach(...)` block (role="img" +
+  aria-label + no-svg-collision checks) already iterated ALL covered defs
+  generically -- no per-def additions needed there, the 5 new ones are
+  automatically exercised by the existing loop.
+
+**Verification actually done:** `npm test` (dom-check.js) clean, all
+previously-passing checks still pass plus the corrected portrait checks
+above (`ALL CHECKS PASSED`). `npm run test:mobile` clean at 375/414px
+across all 5 screens (ran because this touched panel-adjacent rendering,
+per the mandatory gate, even though no CSS itself changed this run -- the
+sizing rule from batch 1 already covers these new portraits with no
+changes needed). `npm run test:qa` clean, real headless Chromium, zero
+console/page errors, full boss-reward flow including a real floor-2 boss
+fight (which now renders the new `boss_unabridged` portrait along the way).
+
+**Visually confirmed, not just test-passed:** wrote a one-off Playwright
+script (`_scratch-screenshot.js` in the repo root, deleted after use, never
+committed -- confirmed via `git status` before commit) that started a real
+run via real clicks, dismissed the first-combat how-to overlay (the same
+`#howto-overlay`/`#btn-close-howto` dance `test/orchestrator-qa-boss-reward.js`
+already does -- my first attempt at this screenshot forgot that step and
+screenshotted the how-to overlay by mistake instead of the monster panel;
+caught it immediately since the images obviously weren't portraits, fixed,
+reran), then forced each of the 5 new defs onto the live fight in turn
+(reusing the existing openDeckViewer/closeDeckViewer re-render trick) and
+screenshotted `#monster-info` in real headless Chromium. All 5 read clearly
+on the first real screenshot at actual in-panel render size (no repeat of
+batch 1's raven-illegibility problem): the card-catalog cabinet with its
+pulled-open drawer, the hunched hoarder hugging its Q/X/Z tiles, the jagged
+doubled splinter shard, the torn-book Unabridged Terror with its visible
+letters, and the snapped-spine Unabridged-Unbound with pages flying loose
+all read as intended shapes at a glance. Screenshot PNGs themselves were
+scratch output under the session scratchpad, not committed.
+
+**NOT independently verified:** audio (untouched by this change). A real
+physical device/browser beyond the Chromium screenshots taken this run --
+still Jaxon's own to do per ROADMAP.md's long-standing note. Aesthetic
+judgment on the art itself is explicitly Jaxon's call per the ticket's own
+wording ("aesthetic judgment stays Jaxon's -- flag for his playtest") --
+these 5 (and the 10 from batch 1) are a good-faith reading of the woodcut/
+crosshatch brief and each def's flavor text, not a claim of being the final
+word on quality; flagging the full 15-portrait roster for his playtest.
+
+**Why the box is now checked and the version bumped:** the ticket covers
+"every monster and boss" and explicitly says "minor bump when the full
+roster is covered" -- this run's batch 2 (5 defs) plus batch 1's already-
+committed 10 defs together cover all 15/15 real defs in the game
+(`Portraits.COVERED_IDS.length === 15`, now asserted by `npm test` itself).
+Checked GOALS.md's box and bumped `wordbound.html`'s version-info from
+v0.43 to v0.44 per the ticket's own convention.
+
+**State:** working tree clean (scratch screenshot script removed before
+commit), `wordbound.html` now v0.44. Both games fully playable; every
+monster and boss in Wordbound now shows a real woodcut-style portrait in
+the monster-info panel instead of a tier-emoji glyph. **Next run:** GOALS.md's
+next unchecked item is the character-portrait ART ticket (same woodcut
+vocabulary, character-select cards + in-run header) -- it explicitly says
+it can reuse this same shared-vocabulary code and can share a version bump
+with this ticket's completion if they land together, but that didn't
+happen this run since this ticket's own completion was already a full
+run's worth of work. After that: opening-screen glow-up, run-variety
+levers, and the ink-era item batch, in that GOALS.md order.
