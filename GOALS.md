@@ -4686,57 +4686,6 @@ Rules for the routine:
       Version bumped v0.48 -> v0.49 in wordbound.html (user-facing dictionary
       fix, per GOALS.md's own version-bump rule).
 
-- [ ] BUG follow-up (filed 2026-08-21, this run, splitting off part 2 of the
-      ZEX/TAZE dictionary ticket above rather than half-doing it in the same
-      run): the dictionary's two source lists (Webster's Second via macOS
-      system dictionary, baked 2026-08-20; ENABLE1, merged 2026-08-20) both
-      predate current Scrabble-legal word additions, and the hand-curated
-      `SUPPLEMENT` array in `js/wordbound/wordlist.js` is a per-report patch,
-      not a systemic fix -- expect more individual "word X is missing"
-      reports from Jaxon's playtesting until a broader, newer, still-clean
-      source is merged.
-      CANDIDATE SOURCE (partially vetted this run, not fully): YAWL ("Yet
-      Another Word List"), a long-standing public-domain Scrabble word list
-      built from other PD sources (Moby, etc.) with a documented history of
-      being treated as safe for Scrabble-adjacent open-source projects
-      (several other open word-game repos vendor it). A raw file fetch from
-      `raw.githubusercontent.com/elasticdog/yawl/master/yawl-0.3.2.03/word.list`
-      returned HTTP 200 from this sandbox 2026-08-21, so the file itself is
-      reachable. NOT yet confirmed this run: the exact license text at the
-      repo root (a GitHub API contents fetch for it errored through this
-      sandbox's proxy rather than returning 404 -- worth retrying, may be a
-      transient/path issue, not necessarily a hard block) and a manual spot
-      check that the fetched file's content is actually what it claims to be
-      (skim the first/last ~20 lines for plausible words, check it's plain
-      newline-separated text, not HTML/an error page saved with a 200).
-      SCOPE, if picked up: (1) re-verify the license (README/LICENSE file at
-      the repo root, or an equivalent well-documented mirror) states public
-      domain or a clearly permissive license -- do NOT proceed without
-      reading the actual license text, a plausible-sounding name is not
-      enough, and do NOT ingest Collins/NWL/TWL/SOWPODS as this ticket's
-      parent already ruled out; (2) download, filter to purely A-Z, length
-      2-15, uppercase (same filter ENABLE1 got); (3) dedupe against the
-      existing ~548705-word `WORD_SET` (expect heavy overlap with ENABLE1 --
-      log the actual net-new count, don't assume it'll be anywhere near
-      YAWL's raw size); (4) merge net-new words into `WORDS_BASE` using the
-      same never-load-the-giant-line splice discipline as every prior
-      wordlist.js edit (see this ticket's parent, or the plurals ticket at
-      ~line 2445, for the exact recipe); (5) add a new dated header comment
-      documenting source + license + word count added, matching the
-      existing three header entries' format exactly; (6) if the source
-      turns out NOT to be cleanly PD/permissive on closer inspection, or the
-      repo/license can't be independently confirmed, STOP and leave this
-      ticket open with what was found -- do not proceed on a "probably
-      fine" license for a file that ships in the repo.
-      VERIFICATION: `node -c` after the splice; `WORD_SET.size` growth
-      logged in PROGRESS.md; a handful of spot-check words known to be
-      missing from the current dictionary (if any are known at the time)
-      confirmed present; page-load timing sanity check (a `page.evaluate`
-      timing check is enough, no dedicated perf harness needed) since this
-      would be the largest single dictionary file this project has shipped;
-      `npm test` still green. Minor version bump (user-facing dictionary
-      expansion).
-
 - [ ] BUG, HIGH PRIORITY — audio (Jaxon report, 2026-08-21, iPhone, v0.48 live
       site): "I also am not hearing any sound." This is the total-silence
       symptom AGAIN, after the v0.39 fix (AudioContext.resume() on first
@@ -4807,3 +4756,54 @@ Rules for the routine:
       harness check as ZEX/TAZE; `node -c js/wordbound/wordlist.js` clean;
       `npm test` green. No version bump needed if it rides the ZEX/TAZE
       commit; otherwise patch bump.
+
+- [ ] BUG follow-up (filed 2026-08-21, this run, splitting off part 2 of the
+      ZEX/TAZE dictionary ticket above rather than half-doing it in the same
+      run): the dictionary's two source lists (Webster's Second via macOS
+      system dictionary, baked 2026-08-20; ENABLE1, merged 2026-08-20) both
+      predate current Scrabble-legal word additions, and the hand-curated
+      `SUPPLEMENT` array in `js/wordbound/wordlist.js` is a per-report patch,
+      not a systemic fix -- expect more individual "word X is missing"
+      reports from Jaxon's playtesting until a broader, newer, still-clean
+      source is merged.
+      CANDIDATE SOURCE (partially vetted this run, not fully): YAWL ("Yet
+      Another Word List"), a long-standing public-domain Scrabble word list
+      built from other PD sources (Moby, etc.) with a documented history of
+      being treated as safe for Scrabble-adjacent open-source projects
+      (several other open word-game repos vendor it). A raw file fetch from
+      `raw.githubusercontent.com/elasticdog/yawl/master/yawl-0.3.2.03/word.list`
+      returned HTTP 200 from this sandbox 2026-08-21, so the file itself is
+      reachable. NOT yet confirmed this run: the exact license text at the
+      repo root (a GitHub API contents fetch for it errored through this
+      sandbox's proxy rather than returning 404 -- worth retrying, may be a
+      transient/path issue, not necessarily a hard block) and a manual spot
+      check that the fetched file's content is actually what it claims to be
+      (skim the first/last ~20 lines for plausible words, check it's plain
+      newline-separated text, not HTML/an error page saved with a 200).
+      SCOPE, if picked up: (1) re-verify the license (README/LICENSE file at
+      the repo root, or an equivalent well-documented mirror) states public
+      domain or a clearly permissive license -- do NOT proceed without
+      reading the actual license text, a plausible-sounding name is not
+      enough, and do NOT ingest Collins/NWL/TWL/SOWPODS as this ticket's
+      parent already ruled out; (2) download, filter to purely A-Z, length
+      2-15, uppercase (same filter ENABLE1 got); (3) dedupe against the
+      existing ~548705-word `WORD_SET` (expect heavy overlap with ENABLE1 --
+      log the actual net-new count, don't assume it'll be anywhere near
+      YAWL's raw size); (4) merge net-new words into `WORDS_BASE` using the
+      same never-load-the-giant-line splice discipline as every prior
+      wordlist.js edit (see this ticket's parent, or the plurals ticket at
+      ~line 2445, for the exact recipe); (5) add a new dated header comment
+      documenting source + license + word count added, matching the
+      existing three header entries' format exactly; (6) if the source
+      turns out NOT to be cleanly PD/permissive on closer inspection, or the
+      repo/license can't be independently confirmed, STOP and leave this
+      ticket open with what was found -- do not proceed on a "probably
+      fine" license for a file that ships in the repo.
+      VERIFICATION: `node -c` after the splice; `WORD_SET.size` growth
+      logged in PROGRESS.md; a handful of spot-check words known to be
+      missing from the current dictionary (if any are known at the time)
+      confirmed present; page-load timing sanity check (a `page.evaluate`
+      timing check is enough, no dedicated perf harness needed) since this
+      would be the largest single dictionary file this project has shipped;
+      `npm test` still green. Minor version bump (user-facing dictionary
+      expansion).
