@@ -4807,3 +4807,75 @@ Rules for the routine:
       would be the largest single dictionary file this project has shipped;
       `npm test` still green. Minor version bump (user-facing dictionary
       expansion).
+
+- [ ] UX (Jaxon batch, 2026-08-21, desktop playtest — item 1/7): REMOVE the
+      typing interface on computer. The `#word-input` text field (and its
+      keyboard letter-entry path) goes away entirely — word-building happens
+      by clicking/tapping tiles only, exact parity with mobile. Sweep for
+      dependents: the blank-tile how-to tip at wordbound.html:193 ("just type
+      any word") must be rewritten for tile-clicking, and any tests/QA
+      scripts that drive `#word-input` need updating to stage tiles instead.
+      Keep Enter-to-submit/other non-letter shortcuts only if they exist
+      independently of the text field; document what you kept. VERIFY:
+      `npm test` green (update harness first if it typed words); a
+      Playwright pass playing a word tiles-only on desktop viewport.
+      Minor bump.
+
+- [ ] DESIGN (Jaxon batch, item 2/7): REMOVE the combo mechanic entirely —
+      state, damage math, UI display, everything. It's referenced ~31x in
+      combat.js, ~27x in game.js, and at least ONE item in items.js keys off
+      combos — retire or convert that item (judgment call, document it).
+      Also sweep traits/achievements/events and test/simulate.js for combo
+      references. After removal, run the balance sim (n=50) — removing combo
+      damage shifts the economy; report the number in PROGRESS.md and flag
+      (do NOT retune) if the 25-50% band breaks. VERIFY: `npm test` green;
+      grep for 'combo' returns only comments/history. Minor bump.
+
+- [ ] UX (Jaxon batch, item 3/7): HIDE the mid-screen message log
+      (`#message-log`) unless in debug mode — Jaxon offered remove-or-hide;
+      hide is the right call because dom-check/QA scripts assert on log
+      text. Gate visibility behind a `?debug=1` URL param (display:none
+      otherwise, but keep the element in the DOM being written to, so the
+      harness keeps working with zero test churn — verify that assumption
+      and update tests if any assert on visibility). Critical hit/damage
+      feedback must still be conveyed by the existing animations, not lost
+      with the log. VERIFY: `npm test` green; Playwright confirms hidden by
+      default, visible with ?debug=1. Minor bump (can share ticket 4's).
+
+- [ ] UX (Jaxon batch, item 4/7): REMOVE the sound/music volume slider
+      (`#music-volume` and any sibling SFX slider). Audio plays at a fixed
+      sensible default; keep the mute/speaker toggle if one exists (it does
+      appear in the mobile header) — that becomes the only audio control.
+      Make sure nothing reads the removed slider's value (gain code paths,
+      persistence). VERIFY: `npm test` + `npm run test:audio` green.
+
+- [ ] CONTENT (Jaxon batch, item 5/7): CUT every item AND consumable
+      description to a few words (~6 max), mechanically precise, flavor
+      dropped (names keep the lore, descriptions state the effect:
+      "Overcharge costs 1 less Ink", "+2 damage per unused tile"). Applies
+      to items.js and consumables.js. Keep any UI that shows them intact.
+      VERIFY: `npm test` green; longest description under ~40 chars
+      (assert it in a quick script and say the max you shipped). Minor bump
+      (can share the batch's).
+
+- [ ] BALANCE (Jaxon batch, item 6/7): START the player with enough gold to
+      buy something at an early shop. Find the cheapest floor-1 shop price
+      bracket and set starting gold to comfortably cover the cheapest tier
+      (judgment call on exact number — document it and the price it
+      enables). Update the balance sim if it models gold, and report the
+      n=50 win rate as with ticket 2. VERIFY: `npm test` green; a fresh run
+      starts with the chosen gold amount.
+
+- [ ] LAYOUT (Jaxon batch, item 7/7 — DO THIS LAST, it depends on tickets
+      1-5 shrinking the UI): everything fits in ONE screen on computer, no
+      scrolling, on every core screen (menu, character select, map, combat,
+      shop/rewards, event, game-over/victory). Acceptance: at 1366×768 AND
+      1920×1080 viewports, document.documentElement has no vertical
+      overflow (scrollHeight <= clientHeight, small tolerance) on each of
+      those screens. Add this as a real check — a
+      `test/verify-desktop-fit.js` Playwright script wired as
+      `npm run test:desktop`, and add it to the header rules' gate list for
+      CSS/layout changes alongside test:mobile. Do NOT break the 375/414px
+      mobile layouts — `npm run test:mobile` must stay zero-warning.
+      VERIFY: new test:desktop green at both viewports; test:mobile green;
+      `npm test` green. Minor bump for the batch.
