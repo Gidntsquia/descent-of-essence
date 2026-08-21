@@ -134,7 +134,19 @@
   // HP left alone (already cut twice in the 2026-08-20 pass); attack-only
   // per that same surgical precedent.
   mdef({ id: 'sentinel', name: 'The Card Catalog', maxHp: 54, attack: 4, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['hex', 'enrage'] });
-  mdef({ id: 'warden', name: 'The Hoarder', maxHp: 63, attack: 5, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
+  // attack 5 -> 4 (2026-08-21 BALANCE re-confirm, retune ROUND 3): this was
+  // the one floor-2 strong def round 2 deliberately left untouched (8% kill
+  // rate in that round's own confirmation sample, not an outlier then). Two
+  // independent post-round-2 n=50 samples now both flag it as floor 2's
+  // single biggest outlier instead -- 43% (n=7, round-2 confirm sample) then
+  // 50% (6/12, next sample) -- while sentinel/spinesplinter (both already
+  // cut in round 2) dropped to 8%/0% in that same second sample, consistent
+  // with those cuts working and this def now being the real remaining
+  // problem rather than sample noise. Attack-only per the same surgical
+  // precedent as every other cut in this trail; brings it to the same
+  // attack value as sentinel (already cut once) rather than leaving it the
+  // only uncut floor-2 strong def.
+  mdef({ id: 'warden', name: 'The Hoarder', maxHp: 63, attack: 4, tier: 'strong', goldDrop: [6, 10], traitPhases: [{ hpThreshold: 1.0, traitId: 'rareSeeker' }], intents: ['devour', 'mend'] });
   mdef({ id: 'glossary', name: 'The Glossary', maxHp: 21, attack: 2, tier: 'weak', goldDrop: [1, 3], traitPhases: [{ hpThreshold: 1.0, traitId: 'vowelHungry' }] });
   // attack 4 -> 3 on JUST these two (2026-08-20 rebalance ROUND 5): round
   // 4's n=40 sim (the largest, most trustworthy sample this ticket has
