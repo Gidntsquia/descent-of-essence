@@ -122,6 +122,66 @@ body.floor-1 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50%
 body.floor-2 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(90, 110, 130, 0.11), transparent 65%); }
 body.floor-3 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(140, 60, 50, 0.13), transparent 65%); }
 
+/* VISUAL (Jaxon request, 2026-08-21): opening-screen glow-up -- a deepened
+   backdrop just for the main menu (towering stacks + candlelight glow),
+   layered on top of the always-on #wb-ambient-bg above. Lives INSIDE
+   #screen-main-menu so it's automatically scoped to that screen (the
+   screen's own .hidden class hides it along with everything else, no JS
+   needed) and stacks above #wb-ambient-bg without any z-index bookkeeping
+   since #wb-root already sits at z-index:1. position:fixed so it covers
+   the viewport regardless of scroll; pointer-events:none + aria-hidden so
+   it never intercepts input or announces to screen readers. */
+.main-menu-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* A second, denser row of "shelf spines" further from center than the
+   always-on ambient shelves, reading as stacks receding into the
+   distance behind the menu panel. */
+.main-menu-stacks-deep {
+  position: absolute;
+  inset: 0;
+  opacity: 0.34;
+  background-image: repeating-linear-gradient(90deg,
+    rgba(100, 76, 40, 0.9) 0px, rgba(100, 76, 40, 0.9) 14px,
+    rgba(58, 42, 22, 0.9) 14px, rgba(58, 42, 22, 0.9) 19px,
+    rgba(84, 62, 32, 0.9) 19px, rgba(84, 62, 32, 0.9) 30px,
+    rgba(44, 32, 16, 0.9) 30px, rgba(44, 32, 16, 0.9) 38px);
+  -webkit-mask-image: radial-gradient(ellipse 62% 70% at 50% 46%, transparent 22%, black 78%);
+  mask-image: radial-gradient(ellipse 62% 70% at 50% 46%, transparent 22%, black 78%);
+}
+
+/* Two warm "wall sconce" glows flanking the menu panel, like candlelight
+   spilling across the Stacks. Opacity-only pulse, gated on
+   prefers-reduced-motion; a static glow remains either way so the scene
+   never loses its lit-room feel. */
+.main-menu-sconce {
+  position: absolute;
+  top: 22%;
+  width: 46vw;
+  max-width: 320px;
+  height: 46vw;
+  max-height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(240, 175, 90, 0.28) 0%, rgba(240, 175, 90, 0.09) 45%, transparent 70%);
+  opacity: 0.85;
+}
+.main-menu-sconce-left { left: 0; }
+.main-menu-sconce-right { right: 0; }
+
+@keyframes wbSconceFlicker {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.85; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .main-menu-sconce-left { animation: wbSconceFlicker 5.5s ease-in-out infinite; }
+  .main-menu-sconce-right { animation: wbSconceFlicker 6.5s ease-in-out infinite 1.2s; }
+}
+
 /* Screen/panel transitions (GOALS.md FEEL review F3): map -> combat ->
    reward -> map was a hard cut everywhere. These fire once, exactly when an
    element's `hidden` class is removed (display:none -> its normal display),
@@ -164,6 +224,16 @@ body.floor-3 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50%
     0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* Needs an explicit stacking position: .main-menu-scene above is a
+   position:fixed, z-index:0 sibling painted earlier in DOM order. Without
+   this, CSS's painting order puts a non-positioned block box (the panel)
+   BEHIND a positioned z-index:0 box, so the backdrop would cover the
+   panel instead of sitting behind it. */
+.main-menu-panel {
+  position: relative;
+  z-index: 1;
+}
+
 .game-title {
   font-size: 2.6rem;
   letter-spacing: 0.12em;
@@ -173,11 +243,78 @@ body.floor-3 .wb-floor-tint { background: radial-gradient(ellipse 80% 60% at 50%
   word-break: break-word;
 }
 
+/* VISUAL (Jaxon request, 2026-08-21): opening-screen glow-up -- a title
+   treatment that reads as engraved/struck into metal rather than plain
+   flat text. Layered text-shadow fakes a debossed bevel (a dark stroke
+   down-right for the recessed edge, a faint warm highlight up-left for
+   the catch-light), on top of a gold-foil gradient fill. Text-shadow only
+   -- no layout cost, no animation, works identically with reduced-motion. */
+.game-title-engraved {
+  background: linear-gradient(180deg, #fbe9ad 0%, #f0d789 45%, #c9a24f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    1px 1px 0 rgba(20, 14, 4, 0.55),
+    2px 2px 1px rgba(20, 14, 4, 0.35),
+    -1px -1px 0 rgba(255, 244, 214, 0.18);
+}
+
+/* Small ink-flourish divider under the title -- two thin rules with a
+   centered pilcrow-style mark, matching the woodcut/archive language used
+   throughout Wordbound's other art. Pure CSS/inline-SVG, no new assets. */
+.title-flourish {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  color: #8a7a52;
+}
+.title-flourish svg {
+  width: 60px;
+  height: 10px;
+  flex: 0 0 auto;
+}
+.title-flourish svg line {
+  stroke: currentColor;
+  stroke-width: 1;
+  opacity: 0.55;
+}
+.title-flourish-mark {
+  font-size: 0.95rem;
+  opacity: 0.75;
+  transform: translateY(-1px);
+}
+
+/* Scene-setting blurb (ROADMAP: "set the scene in the first three
+   seconds") -- separate from .tagline below, which explains the actual
+   weakness mechanic; this line is pure atmosphere, THEME.md voice. */
+.menu-scene-blurb {
+  color: #cdbf9a;
+  font-size: 0.95rem;
+  font-style: italic;
+  line-height: 1.5;
+  margin: 0 0 18px;
+  opacity: 0.92;
+}
+
 .version-info {
   font-size: 0.85rem;
   color: #9a8b6f;
-  margin: 0 0 16px;
+  margin: 0;
   letter-spacing: 0.05em;
+}
+
+/* Colophon plate: version + achievements, styled like a library stamp
+   block at the foot of the menu rather than two loose paragraphs. */
+.menu-colophon {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(184, 172, 138, 0.35);
+  text-align: center;
+  color: #b8ac8a;
+  font-size: 0.9rem;
 }
 
 .tagline {

@@ -4500,7 +4500,7 @@ Rules for the routine:
       finished result) -- worth reading before touching this file's mini-
       portrait or character-select code again.
 
-- [ ] VISUAL (Jaxon request): opening-screen glow-up -- the main menu
+- [x] VISUAL (Jaxon request): opening-screen glow-up -- the main menu
       should SET THE SCENE and sell the theme in the first three seconds.
       Direction (implementing run has latitude within the woodcut/archive
       language): a title treatment that looks set in metal/engraved rather

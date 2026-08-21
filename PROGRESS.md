@@ -12600,3 +12600,158 @@ next unchecked item is the opening-screen glow-up VISUAL ticket (main-menu
 "set the scene" pass -- title treatment, deepened Archive backdrop,
 restyled buttons, scene-setting blurb). After that: run-variety design
 levers, then the ink-era item batch, in that GOALS.md order.
+
+---
+
+## 2026-08-21T11:23Z -- VISUAL ticket done: main-menu opening-screen glow-up (v0.45 -> v0.46), ticket closed
+
+**Note on repo state at session start:** this run's `main` branch ref was
+locally stale (pointed at an old pre-Wordbound commit) even though
+`origin/main` was already at the tip from a prior run's push -- a `git
+fetch`/`git checkout -B main origin/main` was needed before starting. Not a
+data-loss situation (origin was already correct, only the local branch
+pointer was behind), but flagging it in case another session hits the same
+stale-ref symptom.
+
+**What:** picked up the next queued GOALS.md item -- the opening-screen
+"set the scene" VISUAL ticket. Implemented all four elements the ticket
+asked for, within its stated latitude to interpret direction:
+
+- **Engraved title treatment** (`.game-title-engraved` in
+  css/wordbound.css): gold-foil gradient fill (`background-clip: text`)
+  layered with a multi-stop text-shadow (dark stroke down-right for a
+  recessed edge, faint warm highlight up-left for a catch-light) so
+  WORDBOUND reads as struck/engraved rather than flat colored text. Applied
+  to both the main-menu title and (for continuity, see below) the
+  character-select "Choose Your Path" title. Text-shadow only, zero layout
+  or animation cost.
+- **Small ink-flourish divider** under the title (`.title-flourish`): two
+  thin CSS-drawn rules (inline SVG `<line>`s) flanking a centered pilcrow-
+  style mark ("❧"), matching the woodcut/archive visual language used in
+  the portrait art from the last two tickets.
+- **Deepened Archive backdrop, main-menu only** (`.main-menu-scene`,
+  `.main-menu-stacks-deep`, `.main-menu-sconce`): lives *inside*
+  `#screen-main-menu` rather than as a global always-on element, so it's
+  automatically scoped to that screen by the screen's own existing
+  `.hidden` toggle (no JS wiring needed) and layers on top of the
+  always-on `#wb-ambient-bg` underneath. A denser second row of
+  "shelf-spine" stripes (towering stacks) plus two warm radial "candle
+  sconce" glows flanking the panel, gently pulsing opacity
+  (`prefers-reduced-motion: no-preference`-gated; a static glow remains
+  under reduced motion). Had to add `.main-menu-panel { position: relative;
+  z-index: 1; }` -- without it, CSS's default painting order puts a
+  non-positioned in-flow box (the panel) *behind* a positioned
+  `z-index: 0` sibling (the new scene backdrop), which would have buried
+  the whole menu under its own decoration.
+- **Scene-setting blurb** (`.menu-scene-blurb`): "The dictionary burst. The
+  words got loose. Someone must spell them back." -- used the ticket's own
+  suggested line near-verbatim since it already nails THEME.md's voice and
+  is exactly one sentence. Placed above the existing `.tagline` (which
+  explains the actual weakness mechanic and was left untouched -- the two
+  serve different jobs: atmosphere vs. mechanic explainer, both worth
+  keeping).
+- **Buttons:** left `.btn-primary`/`.btn-secondary` as-is -- they already
+  use custom ink/parchment gradients, borders, and inset highlights (not
+  browser-default styling), so re-skinning them wasn't actually needed to
+  satisfy "not default-looking"; re-checked this against the ticket's own
+  wording rather than doing cosmetic churn for its own sake.
+- **Version + achievements integrated into the composition**
+  (`.menu-colophon`): replaced the old two-inline-style paragraphs (raw
+  `style="..."` attributes in the HTML) with a single bordered "colophon"
+  block at the foot of the panel -- version number and achievement count
+  now read as one small library-stamp-style plate instead of two loose
+  strings of text.
+- **Character-select continuity:** applied the same `.game-title-engraved`
+  class to "Choose Your Path" (one-line addition) so the two screens read
+  as the same place. The character-select screen already shared the
+  always-on `#wb-ambient-bg` backdrop and (from the last two tickets) the
+  woodcut character portraits, so this was the one missing piece rather
+  than a full second backdrop build -- confirmed via screenshot (see
+  below) that the shared vertical-stripe backdrop already carries across
+  both screens without any code duplication.
+
+**A real tuning pass, not just "shipped the first draft":** first-pass
+sconce/backdrop opacity values (copied roughly from the existing
+low-contrast `#wb-ambient-bg` convention) rendered essentially invisible
+in a real screenshot -- confirmed by eye, not assumed. Traced to two
+compounding causes: the radial-gradient alpha stacked with a container
+`opacity` multiplier (0.16 * 0.7 ≈ 0.11 peak), and the stacks-deep mask's
+transparent-to-black stops were sized against the *ellipse's own radius*
+(not the viewport), so the effectively-visible zone was mostly a slow
+32%-92% gradient covering nearly the whole screen at low alpha. Bumped
+sconce alpha (0.16→0.28 inner stop, container opacity 0.7→0.85) and
+tightened the stacks-deep mask stops (22%/78% instead of 32%/92%),
+re-screenshotted, confirmed the glow and deepened stacks are now clearly
+visible flanking the panel without overpowering the text (see screenshots
+below) -- this is a judgment call on "how strong is stylistically right,"
+flagging for Jaxon's aesthetic read same as the portrait tickets.
+
+**A real regression caught and fixed, not just code review:** the first
+implementation had the two candle sconces positioned with `left: -8%` /
+`right: -8%` (spilling off both viewport edges, matching a "glow bleeding
+past the frame" look). `npm run test:mobile` flagged this as a "clipped
+element" warning at both 375px and 414px main-menu widths -- a real signal
+the ticket's own mandatory-test gate exists to catch, not a false
+positive (confirmed `overflowX` itself stayed `false`, so no scrollbar,
+but the decorative element genuinely extended past the visible frame on
+narrow viewports). Fixed by anchoring both sconces flush to the viewport
+edges (`left: 0` / `right: 0`) instead of past them -- re-ran
+`npm run test:mobile`, clean at both widths, confirmed via screenshot the
+glow still reads correctly flanking the panel without needing to spill
+offscreen.
+
+**Verification actually done:**
+- `npm test`: clean, `ALL CHECKS PASSED`, no changes needed (this ticket
+  touched only HTML/CSS, no game.js logic).
+- `npm run test:mobile`: clean at 375px/414px for every screen including
+  main-menu, after the sconce-clipping fix above. Ran with `git stash` to
+  confirm the baseline (pre-my-change) already shows the same 2-3
+  "text elements < 12px" warnings on combat/tile-reward/game-over screens
+  (unrelated random-content variance the PROGRESS.md log has flagged
+  before) -- not something this ticket introduced; main-menu itself is
+  clean at both widths on both baseline and my branch.
+- `npm run test:run-header`: clean, 0px overflow across all 10 widths
+  (375-1280px) -- the new `.main-menu-scene`/sconce elements don't touch
+  the run-header at all, but re-ran since this is a standing regression
+  gate for anything CSS-layout-adjacent.
+- `npm run test:qa`: clean, real headless Chromium, zero console/page
+  errors across the full character-select → boss-reward flow (this boots
+  through the exact main-menu → character-select transition this ticket
+  touched).
+- **Visually confirmed, not just test-passed:** one-off Playwright
+  screenshot scripts (deleted after use, confirmed via `git status` clean
+  before commit) captured the main menu at 1000px desktop and 375px
+  mobile, and the character-select screen at 1000px, after a real click
+  through `#btn-new-run`. Desktop: engraved gold title with visible
+  bevel, flourish divider, scene blurb reads clearly, candle-sconce glow
+  visible flanking the panel, deepened stack stripes visible in the
+  surrounding space, colophon plate at the foot reads as one cohesive
+  block. 375px: same composition, no clipping, no overflow, text legible.
+  Character-select: same vertical-stripe backdrop carries over, portraits
+  + engraved title read as the same place as the main menu.
+
+**NOT independently verified:** audio (untouched by this change). A real
+physical device/browser and aesthetic judgment on the visual direction
+itself are both still Jaxon's call per this ticket's own wording
+("implementing run has latitude... aesthetic judgment stays Jaxon's") --
+flagging the full opening-screen treatment (title, backdrop, blurb,
+colophon) for his playtest alongside the portrait work from the last two
+tickets.
+
+**Why the box is now checked and the version bumped:** all four elements
+the ticket asked for are implemented and pass every mandated verification
+gate (`npm test`, `npm run test:mobile`, `npm run test:qa`, real-browser
+screenshots at desktop + 375px) with no known regressions. Minor bump per
+the ticket's own convention: `wordbound.html` v0.45 → v0.46.
+
+**State:** working tree clean (scratch screenshot scripts removed before
+commit, confirmed via `git status`), `wordbound.html` now v0.46. Both
+games fully playable; the Wordbound main menu now has an engraved title
+treatment, a deepened candlelit-stacks backdrop, a scene-setting blurb,
+and an integrated version/achievements colophon; character-select shares
+the same title treatment for continuity. **Next run:** GOALS.md's next
+unchecked item is the "more varied runs" DESIGN/CONTENT ticket (pick at
+least two of: per-run monster subset, more event variety, run modifiers,
+floor-themed encounter tables -- all seed-deterministic, sim-checked
+against the win-rate band). After that: the ink-era item batch (deliberately
+last, depends on the already-closed INK/branching-map tickets it built on).
