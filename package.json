@@ -11,6 +11,8 @@
     "test:run-header": "node test/verify-run-header-overflow.js",
     "pretest:qa": "node tools/ensure-deps.js @playwright/test",
     "test:qa": "node test/orchestrator-qa-boss-reward.js",
+    "pretest:audio": "node tools/ensure-deps.js @playwright/test",
+    "test:audio": "node test/verify-audio-context.js",
     "test:drag-interrupt": "node test/verify-drag-interrupt.js",
     "build:itch": "node tools/build-itch.js",
     "pretest:itch-build": "node tools/ensure-deps.js @playwright/test",

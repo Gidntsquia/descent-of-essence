@@ -1258,9 +1258,22 @@
 
   // ---- sound effects --------------------------------------------------------
 
+  // AUDIO ticket (GOALS.md, "NO SOUND AT ALL", 2026-08-21): a fresh
+  // AudioContext starts 'suspended' per spec unless the browser's autoplay
+  // heuristic auto-resumes it for this exact gesture -- Chromium usually
+  // does, Safari/Firefox are stricter and can leave it suspended even when
+  // constructed synchronously inside a click handler. Nothing in this file
+  // ever called .resume() before this fix, so on any browser that doesn't
+  // auto-resume, every play call below was scheduling into a context that
+  // was never actually producing sound. resume() on an already-running
+  // context is a harmless no-op, so this is safe to call from every path
+  // that touches the context, not just the first one.
   function initAudioContext() {
     if (!audioContext) {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === 'suspended' && typeof audioContext.resume === 'function') {
+      audioContext.resume().catch(function () {}); // best-effort; nothing more to do if it's refused
     }
     return audioContext;
   }
@@ -3053,6 +3066,36 @@
     if (loadingIndicator) {
       loadingIndicator.classList.add('hidden');
     }
+
+    // AUDIO ticket (GOALS.md, "NO SOUND AT ALL", 2026-08-21): create+resume
+    // the AudioContext on the very FIRST user gesture anywhere on the page,
+    // not just whenever a sound first happens to want to play. This gives
+    // stricter browsers (Safari/Firefox) the best possible chance to grant
+    // the autoplay exemption, since it's tied to the earliest, most
+    // unambiguous "the user just interacted" moment instead of whatever
+    // event later triggers the first actual sound (which could be further
+    // from the gesture, e.g. after other synchronous work). Runs once, then
+    // removes itself; initAudioContext() itself still resumes defensively
+    // on every call as a second line of defense.
+    var primeAudioOnce = function () {
+      try { initAudioContext(); } catch (e) { /* AudioContext unsupported -- nothing to do */ }
+      document.removeEventListener('pointerdown', primeAudioOnce);
+      document.removeEventListener('keydown', primeAudioOnce);
+      document.removeEventListener('touchend', primeAudioOnce);
+    };
+    document.addEventListener('pointerdown', primeAudioOnce);
+    document.addEventListener('keydown', primeAudioOnce);
+    document.addEventListener('touchend', primeAudioOnce);
+
+    // AUDIO ticket: the hardware ringer/silent switch mutes WebAudio in iOS
+    // Safari, and there's no reliable JS-visible signal for that switch's
+    // position -- so this can only ever be a hint, shown once, only on
+    // devices where it's plausibly relevant (iPhone/iPad; iPadOS reports
+    // itself as 'MacIntel' but with touch support, unlike a real Mac).
+    var iosLike = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var audioTip = $('howto-audio-tip');
+    if (audioTip && iosLike) audioTip.classList.remove('hidden');
 
     // Staged-tile drag: move/end/cancel are bound ONCE here, at the document
     // level, not per-tile. Per-tile end handlers die with the element (every

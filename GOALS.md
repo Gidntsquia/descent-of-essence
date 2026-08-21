@@ -4101,7 +4101,7 @@ Rules for the routine:
      designed against the NEW systems, not the old ones. Most of these are
      multi-run tickets -- leave working state + clear notes between runs. -->
 
-- [ ] BUG, CRITICAL (Jaxon, real-device report 2026-08-21): NO SOUND AT ALL.
+- [x] BUG, CRITICAL (Jaxon, real-device report 2026-08-21): NO SOUND AT ALL.
       Jaxon hears nothing -- despite v0.36's "10 new SFX + mute bug fix"
       passing its jsdom call-path checks (which, honestly-flagged at the
       time, could never verify audibility). Diagnose in a REAL browser, in
@@ -4132,6 +4132,47 @@ Rules for the routine:
       State plainly that audibility-on-real-glass still needs Jaxon's ears,
       and ASK him (via PROGRESS.md note) to re-test with the ringer switch
       ON if iOS. Patch bump.
+      DONE 2026-08-21T05:04Z, v0.38 -> v0.39: went through (a)-(d) in order.
+      (a) CONFIRMED as a real gap and fixed: zero `.resume()` calls existed
+      anywhere in game.js despite the AudioContext being created lazily
+      from several different call sites. `initAudioContext()` (the single
+      chokepoint every sound path already went through) now calls
+      `ctx.resume()` whenever `ctx.state === 'suspended'`, and `Game.init()`
+      additionally primes+resumes the context on the very first
+      pointerdown/keydown/touchend anywhere on the page (once, then
+      unbinds), so activation happens at the earliest possible real gesture
+      rather than whatever later event first wants to play a sound. (b)
+      NOT reproduced: `git log -p` on `AUDIO_SETTINGS_KEY`/`audioSettings`
+      shows the mute/volume persistence system was introduced whole, in one
+      commit, with sane defaults (`volume: 0.1, muted: false`) and no prior
+      key feeding into it -- no code-level evidence of an inherited bad
+      default or inverted boolean. (c) CHECKED, fine: every gain node
+      (`sfxGainNode`, `musicGainNode`, and the two ad-hoc ones in
+      `playCombatSound`/`playCounterattackSound`) connects to
+      `ctx.destination`, non-zero gain values, no missing `.start()`. (d)
+      COULD NOT rule in or out -- this sandbox only has Chromium
+      (`/opt/pw-browsers`), no WebKit/Safari, so the hardware-ringer-switch
+      hypothesis is untestable here either way; added the ticket's own
+      fallback regardless since it's cheap and harmless elsewhere: a
+      one-time How-to-Play hint ("check your ringer switch") gated to
+      iPhone/iPad UA/platform sniffing.
+      VERIFICATION: new permanent `test/verify-audio-context.js`
+      (`npm run test:audio`, same real-Chromium/Playwright pattern as
+      `test:mobile`/`test:run-header`) confirms, via a real user gesture
+      through the actual character-select -> node-map -> combat -> submit
+      flow: `AudioContext.state === 'running'` after the gesture, the
+      shared volume setting is nonzero, and playing a real word schedules
+      real `OscillatorNode.start()` calls (verified 4 -> 6 across a full
+      flow, not just combat's own hit sound). All green. `npm test`
+      (450+ jsdom checks), `npm run test:mobile`, and `npm run test:qa`
+      also re-run clean (this ticket touched `game.js` and added one `<li>`
+      to `wordbound.html`, both gated). **Still unconfirmed and needs
+      Jaxon:** whether this actually fixes what he's hearing (or not
+      hearing) on his real device -- none of the above can verify
+      audibility on real hardware, only that the Web Audio graph is
+      correctly constructed and running. Please re-test, and if you're on
+      iPhone/iPad, check the physical ringer switch first per the new
+      in-game hint.
 
 - [ ] FEATURE, STRUCTURAL (Jaxon's decision, 2026-08-21): replace the
       player's HP with INK -- one unified life + mana resource. Jaxon chose

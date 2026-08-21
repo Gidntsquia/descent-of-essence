@@ -11426,3 +11426,100 @@ stale cached branch ref, not real history.
 entry. **Not invented:** no busywork task started, per GOALS.md's
 guardrail. **Next run:** same check again -- GOALS.md first, then
 ROADMAP.md's gaps if the queue is still empty.
+
+## 2026-08-21T05:04Z -- BUG fix: AudioContext never resumed (v0.38 -> v0.39)
+
+**Hit the exact stale-branch trap the previous run's own note warned
+about, despite reading that note first.** `git checkout main` landed on a
+ref that *matched `origin/main` at that moment* (a 3-commit "theme bible"
+history) and I trusted it without running `git log main..origin/main`
+first -- did a full QA pass on that stale fork's much smaller codebase
+(different `lexicon.js`, no `achievements.js`/`consumables.js`/etc., a
+tiny hand-rolled `test/dom-check.js`) before `git push` was rejected as
+non-fast-forward, which is what actually caught it: `origin/main` had been
+force-pushed back to this file's real 53+-commit history while I was
+mid-session (visible in `git log main..origin/main` at that point -- the
+exact check I should have run up front). Recovered cleanly: kept the stale
+work on a local-only branch (`stale-theme-fork-qa`, not pushed, safe to
+delete or ignore) and `git reset --hard origin/main` onto the real history
+before touching anything further -- nothing destructive happened, just
+lost time. Restating the previous run's guidance more forcefully since
+"check before trusting" apparently wasn't enough on its own: **a plain
+`git checkout main` is not sufficient verification** -- run `git log
+main..origin/main` (or equivalent) and confirm it's empty before reading
+GOALS.md/PROGRESS.md as authoritative, every single time, not just when
+something looks suspicious.
+
+Picked up the actual first unchecked item once back on the real history:
+the CRITICAL "NO SOUND AT ALL" ticket (Jaxon's real-device report). Full
+root-cause writeup and fix is inline in GOALS.md's own DONE note on the
+ticket (checked off there) -- summary here: went through the ticket's
+(a)-(d) hypotheses in order.
+
+- **(a) AudioContext never resumed -- confirmed and fixed.** `grep -n
+  "\.resume("` across the whole repo returned nothing before this fix.
+  `initAudioContext()` (already the single chokepoint every sound path
+  goes through) now calls `ctx.resume()` whenever suspended; `Game.init()`
+  additionally primes the context on the very first real gesture anywhere
+  on the page (pointerdown/keydown/touchend, once). This is the one
+  concrete code bug found and fixed this pass.
+- **(b) stale muted/volume default -- checked, not reproduced.** `git log
+  -p` on the audio-settings code shows the whole persistence system
+  (`AUDIO_SETTINGS_KEY`, `{volume: 0.1, muted: false}` defaults) landed in
+  one commit with no prior key it inherited from. No evidence of an
+  inherited bad default.
+- **(c) gain-graph wiring -- checked, fine.** Every gain node connects to
+  `ctx.destination` with a nonzero value; no missing `.start()` calls.
+- **(d) iOS hardware ringer switch -- genuinely unknown, flagged for
+  Jaxon.** This sandbox has only Chromium (`/opt/pw-browsers`), no
+  WebKit/Safari at all, so I cannot test or rule out Safari's stricter
+  autoplay behavior or the hardware-mute-switch issue either way. Added
+  the ticket's suggested fallback anyway since it's cheap: a one-time
+  How-to-Play hint ("On iPhone/iPad, check your ringer switch"), shown
+  only when `navigator.userAgent`/`platform` looks like iOS.
+
+**Verification actually done:** new permanent `test/verify-audio-context.js`
+(`npm run test:audio`) drives a real Chromium browser through
+character-select -> node-map -> combat -> a real word submission (via
+actual clicks/fills, not direct state calls), with `AudioContext` and
+`OscillatorNode.start` instrumented via `page.addInitScript` (game.js
+keeps its audio internals in a closure, not exposed for testing, so this
+observes real Web Audio behavior from outside rather than reaching in).
+Confirms: context reaches `'running'` after one gesture, stays `'running'`
+after playing a word, default volume is nonzero, and playing a word that
+actually deals damage schedules real oscillator-start calls (had to
+account for `playCombatSound` firing behind a 220ms `setTimeout` so the
+tile-play CSS animation has time to show first, and had to pick a word
+that doesn't trigger a 0-damage trait immunity -- `playCombatSound` only
+fires when `damage > 0`, both are real game rules, not bugs, just things
+the test had to respect). `npm test` (jsdom, 450+ checks), `npm run
+test:mobile`, and `npm run test:qa` all re-run clean after these changes.
+
+**Confirmed vs. NOT confirmed, stated plainly per this ticket's own
+requirement:** confirmed -- the Web Audio graph is correctly constructed,
+the context reliably reaches and stays in `'running'` state after a real
+gesture, and real sound-producing nodes are scheduled when they should be,
+all verified in real (headless) Chromium, not jsdom. **NOT confirmed:**
+whether Jaxon will actually hear anything now. Nothing here proves or
+disproves the iOS hardware-switch hypothesis, and headless Chromium
+autoplay behavior may differ from his actual device/browser regardless.
+**Directly asking Jaxon:** please re-test on the device where you heard
+nothing, and if it's an iPhone/iPad, check the physical ringer switch
+first (flip it to ring mode) before concluding the fix didn't work -- the
+game can't detect that switch's position from JavaScript at all.
+
+Version bumped v0.38 -> v0.39 (`wordbound.html`) per the ticket's own
+"Patch bump" instruction.
+
+**State:** working tree clean, matches what's about to be pushed. Local
+branch `stale-theme-fork-qa` still exists (holds the misdirected QA-pass
+commit from earlier this session, built against the wrong history) --
+harmless to leave or delete, not pushed anywhere, not referenced by
+anything. **Next run:** GOALS.md's queue still has 7 more tickets from
+Jaxon's feature push queued behind this one (INK system replacing player
+HP, branching floor map, woodcut-style art x2, menu glow-up, run variety,
+ink-era items -- see the `<!--` comment above them in GOALS.md for
+sequencing rationale). The next one (INK system) is explicitly marked
+MULTI-RUN and structural -- read its full spec in GOALS.md before starting,
+it's a big one. **Before doing anything else, run `git log
+main..origin/main` and confirm it's empty.**
