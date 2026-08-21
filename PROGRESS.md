@@ -14393,3 +14393,87 @@ run).
 `#music-volume`, keep the mute/speaker toggle as the only audio control)
 is next. Items 5-6 remain after that, then item 7 (one-screen layout,
 explicitly last).
+
+## 2026-08-21T21:03Z -- item 4/7 closed: volume slider removed, fixed default audio (v0.56 -> v0.57)
+
+**The ticket:** remove `#music-volume` (the only volume slider found; no
+sibling SFX slider existed). Audio now plays at a fixed default; the
+existing `btn-toggle-music` speaker button (🔊/🔇) becomes the sole audio
+control. Confirmed nothing else reads the removed slider's value.
+
+**What changed:**
+- `wordbound.html`: deleted the `<input id="music-volume" type="range" ...>`
+  element from the run header. The `btn-toggle-music` button stays exactly
+  where it was.
+- `js/wordbound/game.js`:
+  - `audioSettings` shrunk from `{ volume, muted }` to `{ muted }`. A new
+    `DEFAULT_MUSIC_VOLUME = 0.1` constant (same numeric value the slider
+    used to default to) replaces every gain-node read of
+    `audioSettings.volume` (`getSfxGainNode`, `startBackgroundMusic`,
+    `toggleMusicMute` -- 4 call sites).
+  - `loadAudioSettings()` no longer parses a `volume` field out of
+    persisted localStorage JSON -- a pre-existing save with that field
+    just has it silently ignored now (not deleted, harmless dead data;
+    `muted` still round-trips as before).
+  - Deleted `setMusicVolume()` entirely (only caller was the slider's
+    `input` listener, also deleted) and the DOM-init lines that set the
+    slider's initial `.value` from `audioSettings.volume`.
+  - `toggleMusicMute()` simplified to always target `DEFAULT_MUSIC_VOLUME`
+    on unmute instead of the user's last-chosen `audioSettings.volume`
+    (there's no longer a "last-chosen" value to restore).
+  - Added `Game._audioSettings()` (test-inspection hook, same pattern as
+    the existing `Game._sfxCallLog`/`Game._getMusicMode` etc.) returning
+    `{ muted, volume }` so tests can assert on the fixed default without a
+    slider left in the DOM to read.
+- `css/wordbound.css`: removed both `#music-volume` rules (the
+  `accent-color` rule at the old line 441, and the `width: 60px` mobile
+  override in the `<=480px` media query at the old line 1520).
+- `test/verify-audio-context.js`: its one dependency on the slider (reading
+  `document.getElementById('music-volume').value` to confirm the default
+  volume wasn't accidentally zeroed) now calls
+  `window.Wordbound.Game._audioSettings()` instead, and additionally
+  asserts `muted === false` by default (a check the old slider-based probe
+  couldn't make).
+
+**Swept for other dependents:** grepped every `.js`/`.html`/`.css` file for
+`music-volume`, `setMusicVolume`, and `audioSettings.volume` -- zero hits
+left outside GOALS.md/PROGRESS.md's historical entries and one explanatory
+comment. `items.js`'s "Bound Volume" item and its `bound_volume` id (a
+combat item name, unrelated to audio) were the only other "volume" hits in
+the codebase and needed no changes.
+`test/verify-run-header-overflow.js` mentions "volume slider" only in a
+comment describing what used to be in the run header -- it measures generic
+horizontal overflow, not the slider by selector, so it needed no change
+and was re-run anyway as a sanity check (still green, see below).
+
+**Verification:**
+- `npm test`: full suite green, "ALL CHECKS PASSED", zero SKIPs.
+- `npm run test:audio` (mandated by the ticket): full suite green,
+  including the two updated/new assertions
+  ("default audio volume is > 0 (0.1)" and "audio is not muted by
+  default") and every pre-existing audio-context/silent-loop-hack
+  assertion, unaffected by this change.
+- `npm run test:mobile` and `npm run test:run-header`: also run as a
+  sanity check since removing a run-header element could plausibly shift
+  layout -- both green, zero horizontal overflow at every tested width
+  (375-1280px, run-header sweep) and the touch-mode/blank-picker checks on
+  the 375/414px combat and menu screens.
+- Did NOT run a real browser to listen for actual audible volume --
+  `npm test`/`test:audio` confirm the gain-node math and DOM/state changes
+  are correct (jsdom + real headless Chromium AudioContext), but true
+  loudness-by-ear is outside what any of this project's harnesses can
+  check, same caveat as every prior audio ticket.
+
+**Version:** v0.56 -> v0.57 in `wordbound.html`. The ticket itself didn't
+explicitly call for a bump (unlike its batch siblings, which said "Minor
+bump"), but this is a user-facing control removal consistent with the rest
+of the batch, so bumped to match convention -- judgment call, flagging it
+here in case Jaxon disagrees.
+
+**GOALS.md box checked `[x]`.**
+
+**Next run:** item 5/7 (CONTENT: cut every item/consumable description to
+~6 words max, mechanically precise) is next. Item 6/7 (BALANCE: starting
+gold) and the two mid-batch BALANCE follow-ups (Rewrite cost -> 1 Ink;
+steeper long-word damage curve) remain after that, then item 7/7
+(one-screen layout, explicitly last, depends on 1-5 shrinking the UI).

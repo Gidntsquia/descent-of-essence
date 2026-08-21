@@ -4842,7 +4842,7 @@ Rules for the routine:
       with the log. VERIFY: `npm test` green; Playwright confirms hidden by
       default, visible with ?debug=1. Minor bump (can share ticket 4's).
 
-- [ ] UX (Jaxon batch, item 4/7): REMOVE the sound/music volume slider
+- [x] UX (Jaxon batch, item 4/7): REMOVE the sound/music volume slider
       (`#music-volume` and any sibling SFX slider). Audio plays at a fixed
       sensible default; keep the mute/speaker toggle if one exists (it does
       appear in the mobile header) — that becomes the only audio control.

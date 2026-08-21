@@ -23,18 +23,23 @@
   var isPlayingMusic = false;
   var currentMusicMode = null; // 'normal' or 'boss'
 
-  // Audio settings (volume + mute) persisted separately from achievements.js's
-  // save -- otherwise every fresh page load silently reset the player's chosen
-  // volume/mute back to the 10% default, even if they'd explicitly changed it.
+  // Audio settings (mute only) persisted separately from achievements.js's
+  // save -- otherwise every fresh page load silently reset the player's
+  // chosen mute state. Volume is no longer user-adjustable (UX ticket,
+  // GOALS.md 2026-08-21 batch item 4/7: the slider is gone, audio plays at
+  // a fixed sensible default) -- DEFAULT_MUSIC_VOLUME is that fixed level,
+  // used everywhere a gain node previously read audioSettings.volume.
   var AUDIO_SETTINGS_KEY = 'wordbound_audio_settings';
-  var audioSettings = { volume: 0.1, muted: false };
+  var DEFAULT_MUSIC_VOLUME = 0.1;
+  var audioSettings = { muted: false };
   (function loadAudioSettings() {
     try {
       if (typeof localStorage === 'undefined') return;
       var stored = localStorage.getItem(AUDIO_SETTINGS_KEY);
       if (!stored) return;
       var parsed = JSON.parse(stored);
-      if (typeof parsed.volume === 'number') audioSettings.volume = Math.max(0, Math.min(1, parsed.volume));
+      // A pre-4/7 save may still carry a `volume` field -- ignored on
+      // purpose, it no longer means anything.
       if (typeof parsed.muted === 'boolean') audioSettings.muted = parsed.muted;
     } catch (e) {
       // localStorage unavailable or corrupt saved value -- fall back to defaults
@@ -148,6 +153,7 @@
   Game._advanceFloor = function () { return advanceFloor(); }; // CONTENT ticket (GOALS.md, 2026-08-21): exposed so tests can assert the onFloorAdvance item hook fires without driving a full floor clear
   Game._sfxCallLog = function () { return sfxCallLog.slice(); }; // AUDIO ticket (GOALS.md, 2026-08-21): exposed so tests can assert which SFX fired, whether mute suppressed them, and whether the tile-tap debounce ate a burst -- jsdom has no real Web Audio to listen to, this is the substitute
   Game._clearSfxCallLog = function () { sfxCallLog.length = 0; lastSfxAt = {}; }; // AUDIO ticket: reset between test cases so each assertion starts from a clean log/debounce state
+  Game._audioSettings = function () { return { muted: audioSettings.muted, volume: DEFAULT_MUSIC_VOLUME }; }; // UX ticket (GOALS.md, 2026-08-21 batch item 4/7): exposed so tests can assert the fixed default volume/mute state without a volume slider to read from the DOM anymore
 
   function $(id) { return document.getElementById(id); }
 
@@ -1583,7 +1589,7 @@
     if (!sfxGainNode) {
       sfxGainNode = ctx.createGain();
       sfxGainNode.connect(ctx.destination);
-      sfxGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, ctx.currentTime);
+      sfxGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : DEFAULT_MUSIC_VOLUME, ctx.currentTime);
     }
     return sfxGainNode;
   }
@@ -1690,7 +1696,7 @@
       if (!musicGainNode) {
         musicGainNode = ctx.createGain();
         musicGainNode.connect(ctx.destination);
-        musicGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, ctx.currentTime);
+        musicGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : DEFAULT_MUSIC_VOLUME, ctx.currentTime);
       }
 
       currentMusicMode = isBoss ? 'boss' : 'normal';
@@ -1794,28 +1800,14 @@
     musicOscillators = [];
   }
 
-  function setMusicVolume(volume) {
-    audioSettings.volume = Math.max(0, Math.min(1, volume));
-    audioSettings.muted = false; // moving the slider implies "I want sound"
-    saveAudioSettings();
-    if (musicGainNode) {
-      musicGainNode.gain.setValueAtTime(audioSettings.volume, audioContext.currentTime);
-    }
-    if (sfxGainNode) {
-      sfxGainNode.gain.setValueAtTime(audioSettings.volume, audioContext.currentTime);
-    }
-  }
-
   function toggleMusicMute() {
     audioSettings.muted = !audioSettings.muted;
     saveAudioSettings();
     if (musicGainNode) {
-      // Restore the actual chosen volume on unmute, not a hardcoded default --
-      // previously this reset to 0.1 regardless of what the slider was set to.
-      musicGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, audioContext.currentTime);
+      musicGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : DEFAULT_MUSIC_VOLUME, audioContext.currentTime);
     }
     if (sfxGainNode) {
-      sfxGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : audioSettings.volume, audioContext.currentTime);
+      sfxGainNode.gain.setValueAtTime(audioSettings.muted ? 0 : DEFAULT_MUSIC_VOLUME, audioContext.currentTime);
     }
     return !audioSettings.muted;
   }
@@ -3377,14 +3369,10 @@
       $('btn-toggle-music').textContent = isMuted ? '🔊' : '🔇';
     });
 
-    $('music-volume').addEventListener('input', function () {
-      var volume = this.value / 100;
-      setMusicVolume(volume);
-    });
-
-    // Reflect the loaded (persisted) audio settings in the UI immediately,
-    // rather than always showing the 10%/unmuted defaults on a fresh page load.
-    $('music-volume').value = Math.round(audioSettings.volume * 100);
+    // Reflect the loaded (persisted) mute state in the UI immediately,
+    // rather than always showing the unmuted default on a fresh page load.
+    // UX ticket (GOALS.md 2026-08-21 batch item 4/7): the volume slider is
+    // gone -- this speaker button is the only audio control now.
     $('btn-toggle-music').textContent = audioSettings.muted ? '🔇' : '🔊';
 
     // Hide the dictionary loading indicator now that all scripts are loaded

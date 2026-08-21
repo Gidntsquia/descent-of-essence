@@ -438,10 +438,6 @@ h2 {
   width: 32px;
 }
 
-#music-volume {
-  accent-color: #f0d789;
-}
-
 .run-header {
   display: flex;
   flex-wrap: wrap;
@@ -1515,10 +1511,6 @@ body.debug-mode .message-log {
     flex: 1 1 100%;
     flex-wrap: wrap;
     justify-content: flex-start;
-  }
-
-  #music-volume {
-    width: 60px;
   }
 
   .word-actions-row {

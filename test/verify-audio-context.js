@@ -129,14 +129,16 @@ async function main() {
     check(combatActive, 'combat is active after entering the first node');
 
     const gainInfo = await page.evaluate(() => {
-      // sfxGainNode/musicGainNode are private to game.js -- probe the public
-      // audioSettings-driven volume via the music slider's reflected value
-      // (game.js sets it from the same audioSettings.volume it feeds every
-      // gain node) instead of reaching into the closure.
-      const slider = document.getElementById('music-volume');
-      return { sliderValue: slider ? Number(slider.value) : null };
+      // sfxGainNode/musicGainNode are private to game.js -- probe the fixed
+      // default volume via the Game._audioSettings() test hook (the volume
+      // slider that used to reflect this in the DOM is gone as of the UX
+      // ticket, GOALS.md 2026-08-21 batch item 4/7: audio plays at a fixed
+      // default now, with only a mute toggle left as a user control).
+      const settings = window.Wordbound.Game._audioSettings();
+      return { volume: settings.volume, muted: settings.muted };
     });
-    check(gainInfo.sliderValue > 0, 'default audio volume is > 0 (slider reflects ' + gainInfo.sliderValue + '%), not accidentally zeroed');
+    check(gainInfo.volume > 0, 'default audio volume is > 0 (' + gainInfo.volume + '), not accidentally zeroed');
+    check(gainInfo.muted === false, 'audio is not muted by default');
 
     // Play a real word -- exercises playCombatSound (the oldest, most
     // player-visible sound) end to end.
