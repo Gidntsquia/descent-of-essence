@@ -12755,3 +12755,127 @@ least two of: per-run monster subset, more event variety, run modifiers,
 floor-themed encounter tables -- all seed-deterministic, sim-checked
 against the win-rate band). After that: the ink-era item batch (deliberately
 last, depends on the already-closed INK/branching-map tickets it built on).
+
+---
+
+## 2026-08-21T12:27Z -- "more varied runs" DESIGN/CONTENT ticket: levers (1) and (2) implemented, box NOT yet checked (balance-sim band confirmation in progress)
+
+**What:** picked up the next queued GOALS.md item -- "more varied runs,"
+which asked for at least two of four levers. Implemented two:
+
+- **Lever (1), per-run monster subset** (`js/wordbound/floor.js`): new
+  `Floor.pickRunMonsterSubset(rng)`, called once in `Game.startRun` (and
+  reused for every floor of that run via `state.monsterSubset`, threaded
+  through both `Floor.generateBranchingFloor` calls in game.js). Excludes
+  exactly 1 def from each of the 'weak' (4->3) and 'normal' (5->4) monster
+  tiers, seeded, so a run's floor-1 (and floor-2's weak/normal picks) draw
+  from a smaller, run-specific roster instead of the full 9-def pool every
+  time -- two runs on different seeds can now have a completely different
+  monster in rotation. `pickCombatDefId` grew an optional third
+  `monsterSubset` argument that filters the pool when present; omitted
+  (as the old, no-longer-called-by-game.js `generateFloor` and any direct
+  test call still does) it's a no-op, so nothing else changed behavior.
+  **'strong' tier deliberately left unrestricted** (only 3 defs exist --
+  sentinel/warden/spinesplinter -- and all three double as the floor-2/3
+  elite pool and are individually balance-tuned floor-2 outliers per
+  monsters.js's own comments; subsetting a pool that small would
+  concentrate difficulty onto whichever 2 remained rather than adding
+  variety). `pickEliteDefId` untouched for the same reason.
+- **Lever (2), more event variety** (`js/wordbound/events.js`): 3 new
+  events (8 -> 11), each filling a gap the existing eight didn't cover
+  rather than a near-duplicate: `the_overdue_fine` (spend gold to restore
+  ink -- every existing event only trades the other direction, or restores
+  ink for free), `stuck_tile` (spend ink to add a random enchanted tile to
+  the deck -- deck growth was previously shop/treasure-only), and
+  `weeding_notice` (swap a random owned item for a random unowned one --
+  no existing event lets a bad early item pick be corrected later). All
+  three follow the established pattern: a real THEME.md-voiced choice with
+  a stated cost, a `disabledReason` guard when the choice can't currently
+  be taken (not enough gold / no items to swap), and a walk-away option so
+  the node is never a forced loss. `Events.pickRandomEvent` needed no
+  change (already a generic `Object.keys(EVENT_DEFS)` pick).
+
+**Why these two, not e.g. run modifiers or floor-themed tables:** both are
+small, self-contained, and low-risk to the just-stabilized balance-sim band
+(3/4 targets met per ROADMAP.md) -- lever (1) only changes WHICH
+already-tuned-similar defs appear, not their stats or frequency shape, and
+lever (2) only adds pure-choice content with costs modeled directly on
+existing events' scale (ink/gold ratios cross-checked against
+`blood_bargain`/`forbidden_tome`/`cursed_tome` rather than invented fresh).
+Run modifiers (a new rule-bending system) and floor-themed tables (would
+mean re-deriving which specific defs "belong" to each floor's identity, a
+real design pass) both looked like they'd need more judgment and balance
+risk than fit one run -- left for a follow-up run if Jaxon wants more than
+two levers.
+
+**Verification actually done so far:**
+- `npm test`: clean, `ALL CHECKS PASSED`, no regressions (this ticket
+  touched floor.js/game.js/events.js -- game logic, not just content, so
+  this gate was mandatory and is satisfied).
+- `node test/verify-branching-map.js`: clean, all 18 invariant checks
+  still pass (generateBranchingFloor's optional new third arg doesn't
+  break any existing caller, confirmed the old no-arg `generateFloor` path
+  is also explicitly checked and still "works unchanged").
+- `node test/verify-seeded-runs.js`: clean, including 6 NEW checks added
+  this run (the ticket's own "extend verify-seeded-runs where touched"
+  requirement) proving: `state.monsterSubset` populates on `startRun`;
+  weak/normal subset sizes are exactly `tier count - MONSTER_SUBSET_
+  EXCLUDE_COUNT`; the SAME seed reproduces an IDENTICAL subset
+  (determinism -- the subset is drawn from `state.rng`, the same seeded
+  stream everything else uses, not `Math.random()`); a 15-seed sweep
+  confirms every floor-1 combat node's `defId` actually drawn falls inside
+  that run's own subset (the filter is real, not just computed and
+  ignored); and that the subset itself varies across seeds (not
+  accidentally hardcoded to one fixed combination).
+- `npm run test:qa`: clean, real headless Chromium, zero console/page
+  errors across the full character-select -> boss-reward flow (this
+  exercises `Game.startRun`, which now also calls
+  `Floor.pickRunMonsterSubset` and passes it through to floor generation,
+  so this is a real end-to-end smoke test of the new code path, not just
+  jsdom).
+- **`npm run test:mobile` was NOT run** -- this ticket touched zero
+  CSS/layout, only floor.js/game.js/events.js logic, so per GOALS.md's own
+  rule ("for any task that touches CSS layout/panels") that gate doesn't
+  apply here. Noting the omission explicitly rather than silently skipping
+  a gate the ticket's own text doesn't require.
+- **Balance-sim band check: IN PROGRESS, not yet complete as this entry is
+  being written.** `node test/balance-simulation.js 30` (n=30 per
+  strategy, matching the sample size PROGRESS.md's own balance-rebalance
+  history treats as trustworthy, not the script's smaller n=15 default)
+  was kicked off but had not finished by the time this run needed to
+  commit (per GOALS.md's own "commit after every run, even partial
+  progress" rule, and a stop-hook enforcing it) -- a full run takes several
+  minutes (parses the 2.5MB wordlist once, then plays 60 real
+  headlessly-driven fights). **The GOALS.md box for this ticket is
+  DELIBERATELY LEFT UNCHECKED** until that result is read and confirmed to
+  still land in the tuned 35-50% "best"-strategy win-rate band (and
+  floor-1-regular deaths still near the ~10% ceiling) -- per this file's
+  own standing rule (the 2026-08-19 postmortem) that a task is only
+  checked off when ACTUALLY verified, not just implemented and plausible.
+  Read this expectation on both levers before the sim finished: lever (1)
+  should have close to zero effect on the band (same tier stats, just
+  different which specific same-tier defs get drawn -- and monsters.js's
+  own comments already establish that within-tier defs are tuned close to
+  siblings), lever (2) should have zero effect (its 3 new events are all
+  pure player-choice content, no forced encounters, no monster/boss stat
+  changes) -- but "should" is exactly the kind of claim the 2026-08-19
+  postmortem exists to stop this routine from shipping unverified, so the
+  actual number is what decides the box, not this reasoning.
+
+**State:** working tree has real, tested code changes (floor.js, game.js,
+events.js, test/verify-seeded-runs.js) -- game boots and plays correctly
+per every check that HAS run, nothing is half-edited or broken. Committing
+now (uncommitted-changes stop-hook enforced) with the GOALS.md box left
+unchecked and no version bump yet, exactly per this file's own rule that a
+version bump/box-check is tied to a COMPLETE, verified ticket, not to code
+existing. **Next run:** read `test/balance-simulation.js 30`'s actual
+output (re-run it if this run's invocation didn't finish or wasn't saved
+anywhere durable -- it was only running in an ephemeral background shell,
+not written to a repo file) -- if the win-rate band and floor-1-death
+ceiling both still hold, check the ticket's box and bump `wordbound.html`
+v0.46 -> v0.47 (two levers = one minor bump per the ticket's own "minor
+bump per completed lever-pair" wording). If the sim shows the band
+broken, that's a real signal lever (1) or (2) has more balance impact than
+reasoned above -- don't just re-run hoping for a better sample; look at
+which specific defs/events are over-represented in the failing sample
+first.

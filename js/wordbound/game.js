@@ -78,6 +78,8 @@
     pile: null, // { drawPile, discardPile } -- reset at the start of every fight
     floorNumber: 1,
     floor: null,
+    monsterSubset: null, // { tier: [defId,...] } -- DESIGN/CONTENT ticket (GOALS.md, "more varied runs"), set once in startRun via Floor.pickRunMonsterSubset, reused across every floor of the run
+
     // BRANCHING MAP (GOALS.md, run 2/N): replaces the old flat currentNodeIndex.
     // currentNodeId is the node currently being resolved (set on entry, cleared
     // once resolved). mapPositionNodeId is the last-cleared node the player is
@@ -213,7 +215,12 @@
     state.rng = RNG.create(state.runSeed);
     state.deck = createCharacterDeck(characterDef);
     state.floorNumber = 1;
-    state.floor = Floor.generateBranchingFloor(state.floorNumber, state.rng);
+    // DESIGN/CONTENT ticket (GOALS.md, "more varied runs", 2026-08-21): a
+    // per-run seeded monster subset, computed once here and reused for
+    // every floor below so a run keeps a consistent (but not full) roster
+    // throughout -- see Floor.pickRunMonsterSubset's own comment.
+    state.monsterSubset = Floor.pickRunMonsterSubset(state.rng);
+    state.floor = Floor.generateBranchingFloor(state.floorNumber, state.rng, state.monsterSubset);
     state.currentNodeId = null;
     state.mapPositionNodeId = null;
     state.pathNodeIds = [];
@@ -246,7 +253,7 @@
     var floorCtx = { player: state.player, floorNumber: state.floorNumber, messages: [] };
     Items.runHook('onFloorAdvance', floorCtx, state.player);
     floorCtx.messages.forEach(function (msg) { log(msg); });
-    state.floor = Floor.generateBranchingFloor(state.floorNumber, state.rng);
+    state.floor = Floor.generateBranchingFloor(state.floorNumber, state.rng, state.monsterSubset);
     state.currentNodeId = null;
     state.mapPositionNodeId = null;
     state.pathNodeIds = [];

@@ -35,6 +35,15 @@
   Events.SHREDDER_MIN_DECK_SIZE = 10;
   Events.WAGER_STAKE = 30;
   Events.WAGER_PAYOUT = 90;
+  // DESIGN/CONTENT ticket (GOALS.md, "more varied runs", 2026-08-21) lever
+  // (2), more event variety: three new events below, each filling a gap the
+  // existing eight didn't cover -- gold-for-ink (existing events only ever
+  // trade ink/gold the other direction, or restore ink for free), a deck-
+  // growth event (only shops/treasure grow the deck today), and an item
+  // swap (no existing event lets a bad early pick be exchanged later).
+  Events.OVERDUE_FINE_COST = 15;
+  Events.OVERDUE_FINE_INK_RATIO = 0.3;
+  Events.STUCK_TILE_INK_COST = 4;
 
   Events.EVENT_DEFS = {
     blood_bargain: {
@@ -271,6 +280,91 @@
             state.player.gold += 10;
             if (state.runStats) state.runStats.goldEarned += 10;
             return 'You pocket the warm coin. The Archive always takes its currency back, eventually.';
+          }
+        }
+      ]
+    },
+
+    the_overdue_fine: {
+      name: 'The Overdue Fine',
+      text: 'A stern chit slides out from under a shelf: 15 gold, due immediately, for "excessive lingering." The librarian on duty taps a pen expectantly.',
+      choices: [
+        {
+          text: 'Pay it: −15 gold, restore 30% of max ink',
+          disabledReason: function (state) {
+            return state.player.gold < Events.OVERDUE_FINE_COST
+              ? 'you don\'t have ' + Events.OVERDUE_FINE_COST + ' gold'
+              : null;
+          },
+          effect: function (state) {
+            state.player.gold -= Events.OVERDUE_FINE_COST;
+            var healed = Math.round(state.player.maxInk * Events.OVERDUE_FINE_INK_RATIO);
+            state.player.ink = Math.min(state.player.maxInk, state.player.ink + healed);
+            return 'You pay up. The librarian softens and tops off your inkwell for the trouble (+' + healed + ' ink).';
+          }
+        },
+        {
+          text: 'Argue the charge: keep your gold',
+          effect: function (state) {
+            return 'You cite an obscure bylaw. The librarian, unmoved but outgunned on paperwork, waves you on.';
+          }
+        }
+      ]
+    },
+
+    stuck_tile: {
+      name: 'A Tile Stuck to the Shelf',
+      text: 'A single letter tile is wedged flat against a shelf edge, humming faintly. It does not want to come loose.',
+      choices: [
+        {
+          text: 'Work it free: gain a random enchanted tile for your deck, −4 ink',
+          effect: function (state) {
+            var Tiles = window.Wordbound && window.Wordbound.Tiles;
+            state.player.ink = Math.max(0, state.player.ink - Events.STUCK_TILE_INK_COST);
+            if (!Tiles) return 'It comes free, but the enchantment has already faded.';
+            var tile = Tiles.rollVariantTile(state.rng);
+            state.deck.push(tile);
+            return 'It pops free with a satisfying click. A ' + Tiles.describeVariant(tile.variant) + ' tile joins your deck.';
+          }
+        },
+        {
+          text: 'Leave it be: some things stay stuck for a reason',
+          effect: function (state) {
+            return 'You leave it wedged where you found it. Probably wise.';
+          }
+        }
+      ]
+    },
+
+    weeding_notice: {
+      name: 'The Weeding Notice',
+      text: 'A librarian eyes your collection with clipboard in hand. "One of these has to go. Standard practice — weeding makes room for the new."',
+      choices: [
+        {
+          text: 'Let them weed: swap a random item you own for a different one',
+          disabledReason: function (state) {
+            return (state.player.items || []).length === 0 ? 'you have nothing to weed' : null;
+          },
+          effect: function (state) {
+            var Items = window.Wordbound && window.Wordbound.Items;
+            var owned = state.player.items;
+            var removedId = state.rng.choice(owned);
+            state.player.items = owned.filter(function (id) { return id !== removedId; });
+            if (!Items) return 'They confiscate something. You didn\'t catch what.';
+            var removedName = Items.ITEM_DEFS[removedId] ? Items.ITEM_DEFS[removedId].name : removedId;
+            var available = Object.keys(Items.ITEM_DEFS).filter(function (id) { return state.player.items.indexOf(id) === -1; });
+            if (available.length === 0) {
+              return 'They confiscate ' + removedName + ' and hand you nothing back. "Budget cuts," they explain.';
+            }
+            var grantedId = state.rng.choice(available);
+            state.player.items.push(grantedId);
+            return 'They confiscate ' + removedName + ' and press ' + Items.ITEM_DEFS[grantedId].name + ' into your hands instead. "Balances the shelf."';
+          }
+        },
+        {
+          text: 'Refuse: your collection stays exactly as it is',
+          effect: function (state) {
+            return 'You clutch your items protectively. The librarian sighs and moves along.';
           }
         }
       ]

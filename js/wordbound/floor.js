@@ -46,11 +46,19 @@
     return ['normal', 'strong'];
   }
 
-  function pickCombatDefId(floorNumber, rng) {
+  // `monsterSubset` (optional): { tier: [defId, ...] } restricting which defs
+  // of a subsettable tier this RUN draws from -- see pickRunMonsterSubset
+  // below. A tier absent from monsterSubset (or no monsterSubset at all,
+  // e.g. the old unused generateFloor / any test calling this directly) is
+  // unfiltered, so this stays backward compatible.
+  function pickCombatDefId(floorNumber, rng, monsterSubset) {
     var Monsters = window.Wordbound.Monsters;
     var allowed = getAllowedTiers(floorNumber);
     var pool = Object.keys(Monsters.MONSTER_DEFS).filter(function (id) {
-      return allowed.indexOf(Monsters.MONSTER_DEFS[id].tier) !== -1;
+      var tier = Monsters.MONSTER_DEFS[id].tier;
+      if (allowed.indexOf(tier) === -1) return false;
+      if (monsterSubset && monsterSubset[tier] && monsterSubset[tier].indexOf(id) === -1) return false;
+      return true;
     });
     return rng.choice(pool);
   }
@@ -62,6 +70,37 @@
     });
     return rng.choice(pool);
   }
+
+  // DESIGN/CONTENT ticket (GOALS.md, "more varied runs", 2026-08-21), lever
+  // (1) per-run monster subset: excludes a handful of defs from the 'weak'
+  // and 'normal' tiers for the WHOLE run (seeded, so it's reproducible),
+  // so floor 1 -- and floor 2's weak/normal picks -- don't always draw from
+  // the full roster. 'strong' is left untouched: only 3 defs exist in that
+  // tier already (sentinel/warden/spinesplinter), all three double as the
+  // floor 2/3 elite pool (pickEliteDefId), and each has been individually
+  // balance-tuned as a floor-2 "wall" outlier (see monsters.js) -- removing
+  // one from a run would concentrate the other two rather than adding
+  // variety. EXCLUDE_COUNT of 1 per tier is deliberately conservative:
+  // weak goes 4->3 defs, normal goes 5->4, enough to make two runs feel
+  // different (a monster common in one run can be entirely absent from the
+  // next) without starving any floor of choices or skewing which specific
+  // defs a sim run leans on (every def within a tier is already tuned close
+  // to its siblings, per this file and monsters.js's own balance comments).
+  Floor.MONSTER_SUBSET_TIERS = ['weak', 'normal'];
+  Floor.MONSTER_SUBSET_EXCLUDE_COUNT = 1;
+
+  Floor.pickRunMonsterSubset = function (rng) {
+    var Monsters = window.Wordbound.Monsters;
+    var subset = {};
+    Floor.MONSTER_SUBSET_TIERS.forEach(function (tier) {
+      var idsOfTier = Object.keys(Monsters.MONSTER_DEFS).filter(function (id) {
+        return Monsters.MONSTER_DEFS[id].tier === tier;
+      });
+      var keepCount = Math.max(2, idsOfTier.length - Floor.MONSTER_SUBSET_EXCLUDE_COUNT);
+      subset[tier] = rng.shuffle(idsOfTier).slice(0, keepCount);
+    });
+    return subset;
+  };
 
   function pickBossDefId(floorNumber) {
     var Monsters = window.Wordbound.Monsters;
@@ -161,7 +200,11 @@
   //   - on elite floors, at most one 'elite' node, only ever placed in a
   //     row that has another node too, so a route to the boss that never
   //     visits it always exists (avoidable-at-a-cost, never mandatory)
-  Floor.generateBranchingFloor = function (floorNumber, rng) {
+  // `monsterSubset` (optional, GOALS.md "more varied runs" lever 1): pass
+  // Floor.pickRunMonsterSubset(rng)'s result, computed once at run start
+  // (game.js) and reused across every floor of that run -- see
+  // pickCombatDefId above.
+  Floor.generateBranchingFloor = function (floorNumber, rng, monsterSubset) {
     var LANES = rng.randInt(2, 3);
     var ROWS = rng.randInt(6, 8); // encounter rows; boss sits at row ROWS
     var hasElite = Floor.ELITE_FLOOR_NUMBERS.indexOf(floorNumber) !== -1;
@@ -217,7 +260,7 @@
     });
 
     // Row 0 is always 'combat' (ease-in, matches the old linear design).
-    rowNodes[0].forEach(function (n) { n.type = 'combat'; n.defId = pickCombatDefId(floorNumber, rng); });
+    rowNodes[0].forEach(function (n) { n.type = 'combat'; n.defId = pickCombatDefId(floorNumber, rng, monsterSubset); });
 
     // Seat the required specials on GUARANTEED_LANES worth of paths (rows
     // 1..ROWS-1), one full required set per guaranteed lane, independently
@@ -291,7 +334,7 @@
         if (eventId) { n.type = 'event'; n.defId = eventId; return; }
       }
       n.type = 'combat';
-      n.defId = pickCombatDefId(floorNumber, rng);
+      n.defId = pickCombatDefId(floorNumber, rng, monsterSubset);
     });
 
     var nodes = Object.keys(nodeAt).map(function (k) { return nodeAt[k]; });
