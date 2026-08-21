@@ -12081,3 +12081,106 @@ that would eliminate the routing-risk premise the whole feature exists for.
 Whichever direction, re-run the full verification list above (at minimum
 `npm test` + `npm run test:branching-map` + the sim) before touching the
 box.
+
+---
+
+**2026-08-21T07:43Z -- Branching map run 3/N: balance confirmed in-band, woodcut map visual pass, ticket CLOSED (v0.42 -> v0.43).**
+
+Housekeeping note first: this session found local `main` pointing at a
+stale commit (3 commits behind, from before all the branching-map/INK/sound
+work) while `origin/main` was correctly at the real tip -- just a stale
+local branch ref from container init, not an actual divergence. Fixed with
+`git checkout -B main origin/main` before doing anything else. No data was
+at risk; flagging only so a future run isn't alarmed by the same
+appearance without checking `git fetch` first.
+
+Picked up exactly where run 2/N (previous entry) left off: it had built and
+wired the full branching-map feature but left the ticket's box unchecked
+for two reasons -- (1) balance not yet decisively confirmed in the 35-50%
+win-rate band, (2) the map's visual style still plain CSS pills/lines
+rather than the ticket's own "woodcut/manuscript" requirement.
+
+**Balance:** ran the prescribed `node test/balance-simulation.js 40`.
+Result: 25% "best"-strategy win rate (10/40) -- confirmed the prior small
+samples' ~25% aggregate was real, not noise. Applied ONE targeted retune,
+per the ticket's own suggested lever list: bumped the player rest-node heal
+from a flat 50% of maxInk to 65% (`js/wordbound/game.js`, the
+`node.type === 'rest'` branch in `enterCurrentNode`). Reasoning: branching
+guarantees a rest node on only `min(2,lanes)` of a floor's 2-3 lanes now,
+vs. every floor unconditionally on the old single linear path -- less
+guaranteed recovery access is the most direct, mechanically-traceable thing
+branching actually took away, so compensating its per-visit strength (not
+touching floor2's monster stats, which every prior balance round already
+flagged as tightly tuned and risking reopening the old floor-2 wall) was
+the more surgical fix. Committed this as a WIP checkpoint before the
+confirmation re-run (matches this repo's own established pattern of small
+WIP balance commits). Re-ran n=40: **43% win rate (17/40), squarely in
+band.** Floor clear rates (of runs entering that floor): floor1 78%,
+floor2 61%, floor3 89% -- floor2 stays relatively the hardest, consistent
+with every previous round's finding, but the ticket's own band target is
+met. Also checked the OLDER (already-closed) rebalance ticket's
+floor2-death-share metric out of curiosity: ~52% of losses landed on
+floor2, an improvement on the pre-branching 55-67% range that metric held
+at, though still just over that ticket's informal ~50% line -- not
+reopening that already-checked ticket, just noting the retune didn't make
+it worse.
+
+**Woodcut/parchment map visual (the ticket's other open item):** gave
+`.branch-map` the exact same vellum-grain `feTurbulence` background-image
+technique `.panel` already uses elsewhere in the game (reused verbatim, no
+new texture asset or design decision needed) plus a page-like 1px border +
+radius, so the map reads as sitting on parchment rather than a bare control
+strip. For the connector lines: added an SVG `<filter id="branch-ink-wobble">`
+(`feTurbulence` fractalNoise + `feDisplacementMap`, low base frequency for
+a gentle multi-wave curve rather than jittery static) defined fresh inside
+`renderNodeMap`'s own `<svg>` on every render (the function already clears
+and rebuilds the SVG each call, so the filter's `#id` is always
+resolvable), applied via CSS to `.branch-edge`/`.branch-edge-walked`. This
+perturbs only the RENDERED stroke raster -- the underlying `<line>`
+geometry (and the reachability/lane-position math that places it) is
+completely untouched, so none of the existing branching-map tests needed
+any changes. Also added `stroke-linecap: round` on both edge classes and a
+subtle `text-shadow` on `.node-pill` for a slightly embossed-ink feel.
+**Visually confirmed, not just test-passed:** wrote a one-off Playwright
+script, launched real headless Chromium, clicked through to a live node
+map, and took an actual screenshot -- parchment grain and the wobbly
+ink-line connectors both render correctly, lines still visually meet their
+node pills at the expected positions, no clipping or filter glitches.
+Screenshot script deleted after use (not part of the repo, purely this
+run's own manual verification step).
+
+**Verification actually done:** `npm test` (dom-check.js) clean both
+before and after the CSS/game.js edits. `npm run test:branching-map`
+clean, full 180-seed sweep, unaffected as expected (rendering-only
+change). `node test/verify-seeded-runs.js` clean, including the
+branching-map determinism section (also unaffected -- the wobble filter
+seed is a fixed literal, not derived from the run's RNG, so it doesn't
+touch reproducibility). `npm run test:mobile` clean at 375/414px across
+all 5 screens including a dedicated node-map check -- re-run because this
+round touched map CSS/layout, per the mandatory gate for that class of
+change. `npm run test:qa` clean, real headless-Chromium, zero console
+errors across a full two-floor click-through of the actual map UI. Plus
+the manual Chromium screenshot above for the purely-visual claim tests
+can't verify on their own. **NOT independently re-verified this run:**
+audio (untouched); a real physical device/browser beyond the one Chromium
+screenshot taken here -- still Jaxon's to do per ROADMAP.md's own
+long-standing note.
+
+Re-checked the ticket's full original requirements list against current
+state: boss-terminal-per-floor + shop/rest/elite-avoidability guarantees
+(done, run 2), seeded determinism (done, run 2, unaffected here), map UI
+in the woodcut/manuscript language with 44px+ tap targets and
+current-position/path marking (tap targets + marking done run 2, the
+woodcut/manuscript styling itself done THIS run), existing floor
+count/structure preserved (unaffected throughout), and the win-rate band
+holding post-routing (done THIS run). All met. **GOALS.md's box is now
+checked -- ticket closed.**
+
+**State:** working tree clean, `wordbound.html` bumped v0.42 -> v0.43 (a
+real balance change + a real visual change, both player-facing). **Next
+run:** GOALS.md's next unchecked item is the monster/boss woodcut-portrait
+ART ticket (every monster/boss gets an inline-SVG woodcut/engraving-style
+portrait) -- a large, multi-run content task; start with the shared SVG
+helper/template the ticket calls for before generating individual
+portraits, and budget it across several runs rather than trying to rush
+partial coverage in one.
