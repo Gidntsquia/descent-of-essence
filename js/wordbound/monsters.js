@@ -68,8 +68,21 @@
   // most targeted way to pull the pooled win rate down without touching
   // floor 2's already-scrutinized strong-tier numbers again.
   mdef({ id: 'serpent', name: 'The Consonant Constrictor', maxHp: 56, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'lengthy' }] });
-  mdef({ id: 'golempup', name: 'Echo Pup', maxHp: 58, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
-  mdef({ id: 'raven', name: 'Quoth', maxHp: 52, attack: 4, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
+  // maxHp 58 -> 50 (2026-08-20 rebalance ROUND 7): floor1-regular deaths
+  // have held stable at ~15-16% across THREE consecutive large samples
+  // (rounds 4/5/6, n=40-50 each) -- unlike the noisier floor-share metrics,
+  // this looks like a real signal, not sampling variance. Per-monster data
+  // (round 6's n=50) pinned it on Echo Pup (9% kill rate, 5.1 dmg taken,
+  // the single HARD-flagged floor1 outlier alongside Binding Strap/Quoth)
+  // and Quoth (6% kill rate) specifically -- NEITHER was touched by round
+  // 5's Binding Strap/Appendix-only fix. Win rate has ~4 points of buffer
+  // under the 50% ceiling (round 6 read 46%), enough room for one more
+  // small floor1-only correction.
+  mdef({ id: 'golempup', name: 'Echo Pup', maxHp: 50, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'doubled' }] });
+  // attack 4 -> 3 (2026-08-20 rebalance ROUND 7): same reasoning as above --
+  // Quoth was bumped to 4 in round 4 and never revisited; round 6's data
+  // flags it as a floor1 HARD outlier (4.1 dmg taken vs. 2.5 floor avg).
+  mdef({ id: 'raven', name: 'Quoth', maxHp: 52, attack: 3, tier: 'normal', goldDrop: [3, 6], traitPhases: [{ hpThreshold: 1.0, traitId: 'silentE' }] });
   // `intents` (GOALS.md "FUN OVERHAUL 2/8"): signature moves this monster
   // can roll on TOP of Attack/Heavy Blow, but ONLY when it's fighting as an
   // elite (node.type === 'elite') -- these are the same defs the floor also
