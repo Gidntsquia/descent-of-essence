@@ -4295,7 +4295,7 @@ Rules for the routine:
       GOALS.md's last queued ticket in this batch (CONTENT: ink-era items)
       was explicitly gated on this box being checked -- it's unblocked now.
 
-- [ ] FEATURE, STRUCTURAL (Jaxon request): branching floor map with path
+- [x] FEATURE, STRUCTURAL (Jaxon request): branching floor map with path
       choices. Replace the current linear node progression with a
       Slay-the-Spire-style branching map: each floor is a small DAG (2-3
       lanes wide), the player SEES upcoming node types (fight / elite /
@@ -4390,6 +4390,59 @@ Rules for the routine:
       pass on the map itself (currently functional but plain -- the
       separate ART tickets below are about monster/boss portraits, not this
       map's own texture, so don't assume they cover it).
+      PROGRESS (run 3/N, 2026-08-21, v0.42 -> v0.43): ran the prescribed
+      decisive n=40 `test/balance-simulation.js` -- confirmed "best"
+      win rate was genuinely stuck at 25%, not sampling noise (matches the
+      prior 3 small-sample runs' aggregate). Applied the ticket's own
+      suggested lever: bumped the rest-node heal from a flat 50% to 65% of
+      maxInk (`js/wordbound/game.js`, `node.type === 'rest'` branch) --
+      reasoned this specifically compensates for what branching took away
+      (every floor used to guarantee a rest node on its one linear path;
+      now only `min(2,lanes)` of 2-3 lanes get one), rather than re-touching
+      floor2's monster stats, which prior rounds already flagged as
+      tightly tuned and risking re-opening the old floor-2 wall. Re-ran
+      n=40: **43% win rate (17/40), squarely in the 35-50% band.** Floor
+      clear rates by stage: floor1 78%, floor2 61% (of entrants), floor3
+      89% (of entrants) -- floor2 remains relatively the hardest floor
+      (consistent with every prior balance round's finding), but the
+      overall band target is met. Also computed floor2's death-SHARE for
+      the older rebalance ticket's own metric out of curiosity (not this
+      ticket's bar): ~52% of losses, down from the 55-67% this same metric
+      held at pre-branching -- an improvement, not a regression, though
+      still just over that ticket's informal ~50% line; that ticket is
+      already checked off in GOALS.md and this isn't reopening it, just
+      noting it didn't get worse.
+      Then closed the ticket's other still-open bar (the woodcut/parchment
+      map visual, flagged unfinished by run 2): gave `.branch-map` the same
+      feTurbulence vellum-grain background `.panel` already uses elsewhere
+      (reused verbatim, not a new texture), and added a `feTurbulence` +
+      `feDisplacementMap` SVG filter (`#branch-ink-wobble`, defined fresh
+      inside `renderNodeMap`'s own `<svg>` on every render) applied to the
+      `.branch-edge`/`.branch-edge-walked` lines -- perturbs the RENDERED
+      stroke only, geometry/hit-testing/percentage math for line-endpoint
+      placement is untouched, so the existing reachability/positioning
+      logic and tests didn't need to change. Also added `stroke-linecap:
+      round` on the edges and a subtle ink `text-shadow` on `.node-pill`.
+      Visually confirmed via a real headless-Chromium screenshot (not just
+      "tests pass") -- parchment grain and wobbly ink-line connectors both
+      render correctly in Chromium, lines still visually meet their node
+      pills, no clipping/glitching.
+      **Verification:** `npm test` clean, `npm run test:branching-map`
+      clean (180-seed sweep untouched by either change), `node
+      test/verify-seeded-runs.js` clean (determinism unaffected -- the
+      wobble filter is a pure rendering effect, not part of the seeded
+      RNG/generation path), `npm run test:mobile` clean at 375/414px
+      across all 5 screens including the node-map (re-run because this
+      round touched map CSS, per the mandatory gate), `npm run test:qa`
+      clean (real-browser two-floor click-through, zero console errors).
+      **NOT independently re-verified:** audio (untouched by this round);
+      a real physical device/browser beyond the Chromium screenshot taken
+      this run (still Jaxon's to do per ROADMAP.md). Ticket requirements
+      re-checked against the original list: boss-terminal + guarantees,
+      seeded determinism, 44px+ tap targets + current-position marking,
+      woodcut/manuscript map language, and the win-rate band are all now
+      met and verified. **Box checked -- ticket closed.** Next queued item
+      is the monster/boss woodcut-portrait ART ticket below.
 
 - [ ] ART (Jaxon request; style DECIDED: inked woodcut): every monster and
       boss gets an inline-SVG portrait in the woodcut/engraving style --

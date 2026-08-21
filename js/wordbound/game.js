@@ -2612,6 +2612,35 @@
     svg.setAttribute('viewBox', '0 0 100 100');
     svg.setAttribute('preserveAspectRatio', 'none');
 
+    // Woodcut/manuscript ticket (GOALS.md branching-map): straight <line>
+    // geometry keeps the reachability math exact (nodes are hit dead-on),
+    // but reads as a ruled diagram, not an inked path. A feDisplacementMap
+    // driven by low-frequency feTurbulence noise perturbs the RENDERED
+    // stroke only -- geometry/hit-testing untouched -- for a hand-drawn
+    // wobble. Defined per-render inside this SVG (el.innerHTML='' above
+    // clears the old one) so the #id is always resolvable in-document.
+    var defs = document.createElementNS(svgNS, 'defs');
+    var wobble = document.createElementNS(svgNS, 'filter');
+    wobble.setAttribute('id', 'branch-ink-wobble');
+    wobble.setAttribute('x', '-30%');
+    wobble.setAttribute('y', '-30%');
+    wobble.setAttribute('width', '160%');
+    wobble.setAttribute('height', '160%');
+    var turbulence = document.createElementNS(svgNS, 'feTurbulence');
+    turbulence.setAttribute('type', 'fractalNoise');
+    turbulence.setAttribute('baseFrequency', '0.06');
+    turbulence.setAttribute('numOctaves', '2');
+    turbulence.setAttribute('seed', '7');
+    turbulence.setAttribute('result', 'inkNoise');
+    var displace = document.createElementNS(svgNS, 'feDisplacementMap');
+    displace.setAttribute('in', 'SourceGraphic');
+    displace.setAttribute('in2', 'inkNoise');
+    displace.setAttribute('scale', '2.2');
+    wobble.appendChild(turbulence);
+    wobble.appendChild(displace);
+    defs.appendChild(wobble);
+    svg.appendChild(defs);
+
     floor.edges.forEach(function (edge) {
       var fromNode = findNodeById(edge[0]);
       var toNode = findNodeById(edge[1]);
