@@ -64,29 +64,36 @@
   // (GOALS.md, 2026-08-21 Jaxon-batch follow-up). Length 5 stays at the old
   // +2 (a bare improvement over a 4-letter word shouldn't feel huge); from
   // length 6 on the curve jumps and then grows superlinearly (each extra
-  // letter's marginal bonus is itself larger than the last: +4, +5, +6,
-  // +7, ...) so a 6+ letter word reads as a clear power spike rather than
+  // letter's marginal bonus is itself larger than the last: +3, +4, +5,
+  // +6, ...) so a 6+ letter word reads as a clear power spike rather than
   // "a little more damage":
   //   len:    4   5   6   7   8   9   10
-  //   bonus:  0   2   6  10  15  21   28
-  // len>=6 bonus = (len-2)*(len-3)/2 (quadratic fit through the table
-  // above); continues past 10 at the same growth rate (11 -> 36, 12 -> 45)
-  // rather than capping, since the dictionary supports longer words and
-  // finding one that long is already its own reward.
-  // RETUNED 2026-08-22 (same run, before checking this ticket's box): a
-  // first attempt at +8/+14/+22/+32/+44 (len*len-7*len+14, twice this
-  // curve) pushed the n=50 balance sim's `best`-strategy win rate to a
-  // confirmed 60-62% across two independent samples (31/50, 30/50) --
-  // consistently ~13-14 points above the pre-change 44-52% baseline and
-  // well outside the 25-50% band, not noise (the two samples were only 2
-  // points apart, vs. the ~20-point spread this harness shows on identical
-  // code). Retuned down to roughly half the excess bonus over the old flat
-  // formula (old gave +4 at length 6; this gives +6, not +8) -- see
-  // PROGRESS.md for the confirmation sample after this retune.
+  //   bonus:  0   2   5   8  12  17   23
+  // len>=6 bonus = (len*len - 7*len + 16) / 2 (quadratic fit through the
+  // table above -- always an even numerator, so this stays integer for
+  // every length); continues past 10 at the same growth rate (11 -> 30,
+  // 12 -> 38) rather than capping, since the dictionary supports longer
+  // words and finding one that long is already its own reward.
+  // RETUNED TWICE 2026-08-22 (same run, before checking this ticket's
+  // box) based on n=50 balance-sim `best`-strategy win rate readings
+  // (25-50% is the accepted band):
+  //   1st attempt, len*len-7*len+14 (+8/+14/+22/+32/+44 at 6-10): two
+  //     independent samples both landed 60-62% (31/50, 30/50) -- ~13-14
+  //     points over the pre-change 44-52% baseline, only 2 points apart
+  //     from each other (vs. this harness's ~20-point noise spread on
+  //     identical code), so a confirmed real overshoot, not noise.
+  //   2nd attempt, (len-2)*(len-3)/2 (+6/+10/+15/+21/+28 at 6-10, half
+  //     the 1st attempt's excess over the old flat formula): two more
+  //     independent samples landed 52% and 54% (26/50, 27/50) -- still
+  //     consistently 2-4 points over the band's 50% ceiling, again too
+  //     tight a spread to be noise.
+  //   Current curve trims the 2nd attempt down by roughly another 15-20%
+  //   (e.g. length 6's +6 -> +5) -- see PROGRESS.md for the confirmation
+  //   sample against THIS curve, which is what actually shipped.
   function lengthBonusFor(len) {
     if (len <= 4) return 0;
     if (len === 5) return 2;
-    return ((len - 2) * (len - 3)) / 2;
+    return (len * len - 7 * len + 16) / 2;
   }
   Lexicon.lengthBonusFor = lengthBonusFor;
 

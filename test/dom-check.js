@@ -692,7 +692,7 @@ async function main() {
   {
     const Lexicon = window.Wordbound.Lexicon;
     const Tiles = window.Wordbound.Tiles;
-    const EXPECTED_LENGTH_BONUS = { 4: 0, 5: 2, 6: 6, 7: 10, 8: 15, 9: 21, 10: 28 };
+    const EXPECTED_LENGTH_BONUS = { 4: 0, 5: 2, 6: 5, 7: 8, 8: 12, 9: 17, 10: 23 };
     Object.keys(EXPECTED_LENGTH_BONUS).forEach((lenStr) => {
       const len = Number(lenStr);
       const expected = EXPECTED_LENGTH_BONUS[len];
