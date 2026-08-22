@@ -4914,7 +4914,7 @@ Rules for the routine:
       exactly 1 Ink (and the chosen Steady Transcription behavior); sim
       win rate reported. Minor bump (can share the batch's).
 
-- [ ] LAYOUT (Jaxon batch, item 7/7 — DO THIS LAST, it depends on tickets
+- [x] LAYOUT (Jaxon batch, item 7/7 — DO THIS LAST, it depends on tickets
       1-5 shrinking the UI): everything fits in ONE screen on computer, no
       scrolling, on every core screen (menu, character select, map, combat,
       shop/rewards, event, game-over/victory). Acceptance: at 1366×768 AND

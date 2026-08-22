@@ -14999,3 +14999,179 @@ depends on items 1-5 -- all done). Check GOALS.md directly for the exact
 ticket text and its `test/verify-desktop-fit.js`/`npm run test:desktop`
 requirement before starting; this run did not touch CSS/layout so that
 harness was not exercised here.
+
+## 2026-08-22T01:11Z -- LAYOUT item 7/7 closed: one-screen desktop fit (v0.62 -> v0.63) -- GOALS.md queue now empty
+
+**GOALS.md's queue is now fully empty** -- this was the last unchecked
+item (item 7/7 of the 2026-08-21 Jaxon batch, explicitly last since it
+depended on items 1-5 shrinking the UI, and the long-word-curve/Rewrite-
+cost follow-ups that landed earlier this same run). A future run finding
+the queue empty should check ROADMAP.md's known-gaps section next, per
+GOALS.md's own instructions -- see the note at the bottom of this entry
+for what's there right now.
+
+**The ticket:** "everything fits in ONE screen on computer, no
+scrolling" on every core screen (menu, character select, map, combat,
+shop/rewards, event, game-over/victory), measured as zero vertical
+overflow (`document.documentElement.scrollHeight <= clientHeight`, small
+tolerance) at 1366x768 AND 1920x1080, with a new real
+`test/verify-desktop-fit.js` Playwright check wired as `npm run
+test:desktop` and added to the header rules' CSS-gate list, without
+breaking `npm run test:mobile`.
+
+**Measured before touching anything** (the right call before assuming a
+redesign was needed): wrote a throwaway Playwright probe checking
+`scrollHeight` vs `clientHeight` across 11 screen variants at both
+viewports on UNMODIFIED code. Result: only **2 of 11 screens actually
+overflowed**, both at 1366x768 only (1920x1080 was already clean
+everywhere) -- CHARACTER_SELECT (192px) and an apparent SHOP overflow
+(285px, see the investigation note below -- this one turned out to be a
+false alarm). Every other screen (menu, map, combat, treasure,
+tile-reward, boss-item-reward, event, game-over, victory) already fit
+with zero overflow, unmodified. This is a MUCH smaller gap than the
+ticket's "DO THIS LAST, depends on 1-5 shrinking the UI" framing implied
+-- the prior batch's UI-shrinking tickets (typing removed, message log
+hidden, volume slider removed, descriptions cut, combo mechanic removed)
+had apparently already done nearly all the necessary work by the time
+this ticket came up. Glad I measured first rather than assuming a bigger
+CSS rework was needed.
+
+**Fix 1 -- character select (192px -> 0px):** 3 character cards
+(portrait + name + description each) were a single stacked column
+(`.character-choices { flex-direction: column }`), fine at mobile widths
+but wasteful of vertical space at desktop widths where there's plenty of
+horizontal room instead. Added a `@media (min-width: 700px)` block (the
+mobile breakpoint elsewhere in this file is `max-width: 480px`, so 700px
+sits cleanly in the untouched middle ground and only engages at genuine
+desktop widths) that switches `.character-choices` to `flex-direction:
+row` and raises `.character-select-panel`'s own `max-width` from 500px to
+640px (matching `#wb-root`'s own site-wide cap, so it's "as wide as the
+page ever gets," not an arbitrary new number). `.character-portrait-large`
+was already sized in `min(96px, 26vw)` units (a prior ART ticket's own
+choice, made for an unrelated reason -- never forcing the panel wider
+than its parent), which happened to already be small enough to work
+in a 3-column row without further changes.
+
+**Fix 2 -- shop (285px reading, but see below -- real fix still needed
+and applied):** `#treasure-choices`/`.treasure-choice` (up to 4
+items/consumables + an optional premium-tile row + a Leave Shop button,
+each a multi-line text bar) was also a single stacked column. BUT this
+exact DOM id/class pair is reused, unchanged, by SIX other screens --
+treasure item-pick, boss item reward, the deck viewer, the consumables
+panel, event choices, and the Shredder tile picker -- all sharing one
+`<div id="treasure-choices">` element that different `render*()`
+functions populate depending on `state.screen`. A blanket CSS rule
+targeting `.treasure-choices` would have restyled ALL of those, several
+of which (the deck viewer especially, potentially dozens of tiles) were
+never measured and could have looked wrong. Scoped the fix behind a new
+`body.screen-shop` class instead: added one line to `render()` in
+game.js (`document.body.classList.toggle('screen-shop', state.screen
+=== 'SHOP')`), right next to the existing `floor-N` class handling so it
+can never go stale on a screen switch, then wrote the CSS rules under
+`body.screen-shop .treasure-choice` -- a 2-column wrapping grid, with the
+non-`.treasure-choice` Leave Shop button forced onto its own full-width
+row via `flex: 1 1 100%`.
+
+**Investigation note (a real finding, not just a footnote):** after
+applying the grid fix, the probe STILL showed shop overflowing by 201px
+at 1366x768. Dumped every `#screen-run` child's computed
+display/height/position to debug and found `#combat-panel` sitting
+visible (`display: block`, 458px tall) directly above the shop panel.
+Traced it to `render()`'s own toggle logic (game.js line ~2600):
+`$('combat-panel').classList.toggle('hidden', sidePanelOpen ||
+!state.combatActive)` -- combat-panel's visibility depends ONLY on
+`state.combatActive`, never on which screen is actually showing. My
+probe had forced `state.screen = 'SHOP'` by direct assignment right
+after a real combat step earlier in the same script, without clearing
+`state.combatActive` first -- something that can never happen through
+real play (a shop node is only ever entered from the node map, never
+mid-fight, so `combatActive` is always already `false` by the time a
+real SHOP screen renders). Fixed the probe (added
+`state.combatActive = false` before the force) and the overflow
+disappeared completely -- confirmed genuine 0px overflow at both
+viewports with a realistic 4-item shop roll. This was NOT a real bug in
+the shipped game, just an artifact of an unrealistic test harness state
+-- but it's exactly the kind of trap GOALS.md's own "an unexecuted DOM
+lets bugs pass code review" warning (2026-08-19) is about, just showing
+up in a NEW throwaway script instead of the shipped code this time.
+Documented the gotcha directly in `test/verify-desktop-fit.js`'s own
+top-of-file comment so it doesn't get rediscovered from scratch next
+time someone touches this file, and every reward/event screen in the
+real script now explicitly clears `combatActive` before forcing its
+screen, on principle, even where it happened not to matter.
+
+**New `test/verify-desktop-fit.js`:** mirrors `verify-mobile-layout.js`'s
+structure (same local HTTP server pattern, same sandbox-Chromium-path
+fallback) but checks the opposite axis -- vertical overflow at WIDE/short
+viewports instead of horizontal overflow at narrow/tall ones. Covers all
+11 screen variants menu/character-select/map/combat reached via real
+clicks (same as the mobile script); shop/treasure/tile-reward/
+boss-item-reward/event/game-over/victory reached by forcing
+`state.screen` directly (the mobile script's own established pattern,
+already used there for GAME_OVER) rather than hunting a specific
+node/seed for each, which would be flaky given random floor generation.
+Wired as `npm run test:desktop` (`pretest:desktop` installs Playwright,
+same pattern as every other Playwright-backed script in package.json).
+
+**GOALS.md header rules updated:** added `npm run test:desktop` to the
+"ALSO MANDATORY for CSS layout/panel tasks" paragraph, alongside the
+existing `npm run test:mobile` mandate, per this ticket's own
+instruction to add it to the gate list.
+
+**Verification:**
+- `npm test`: full suite green, "ALL CHECKS PASSED", zero SKIPs. Did not
+  touch anything `npm test` covers directly, but ran it anyway per the
+  standing rule for any game.js touch (the `body.screen-shop` toggle
+  line).
+- `npm run test:desktop` (the new script): all 11 screen variants x 2
+  viewports (1366x768, 1920x1080) = 22 checks, zero overflow anywhere.
+- `npm run test:mobile`: stayed responsive at 375/414px, zero horizontal
+  overflow/clipping, in every run. It DOES intermittently log a "N text
+  elements < 12px" sub-warning on the combat/tile-reward/game-over
+  screens (2-3 elements, varying by run) -- confirmed via `git stash`
+  that this is 100% pre-existing on unmodified `origin/main` (identical
+  count, same screens) and confirmed via a same-run repeat AFTER this
+  ticket's changes that it also comes back completely clean sometimes --
+  it's flaky/content-dependent (some random word, tile letter, or item
+  name occasionally renders under the 12px floor depending on what a
+  given run's RNG produced), not a deterministic regression this ticket
+  introduced. Reported honestly rather than either hidden or
+  over-claimed as "this ticket broke zero-warning" when it didn't --
+  worth a dedicated look someday (whichever specific element it is) but
+  out of this ticket's scope, and NOT new.
+- Did not touch audio or drag/drop code, so no unverified-audio caveat
+  applies beyond what's already on record.
+
+**Version:** v0.62 -> v0.63 in `wordbound.html`.
+
+**GOALS.md box checked `[x]`.** The queue is now empty -- see the top of
+this entry.
+
+**What's next (ROADMAP.md's known-gaps section, since the queue is
+empty):** skimmed it fresh at the end of this run. Everything still open
+there is explicitly flagged as needing Jaxon directly -- a physical-
+device touch test, a feel/fun ear-and-hands playtest, and the actual
+itch.io upload -- plus the two just-landed known-gap entries from this
+same run (the long-word-curve/Rewrite-cost 44-52%-ish balance drift,
+already closed out as within-band by the other session's final
+confirmation right before this entry) and nothing else reads as a
+concrete, sandbox-doable task. Per GOALS.md's own guardrail ("if that's
+also empty/exhausted, note you're idle... don't invent busywork"), the
+right move for a future run finding this same empty state is to actually
+re-read ROADMAP.md fresh (a new Jaxon note may have been added since)
+rather than trust this summary, and if it's still all
+Jaxon-only/exhausted, log an idle entry and stop rather than manufacture
+a task.
+
+**A note on this run overall, for whoever reads this file next:** this
+single run touched three separate tickets (Rewrite ink cost, this LAYOUT
+one, plus resolving a concurrent-session collision on the long-word-curve
+ticket by backing off and letting the other session finish it) and ran
+into two different multi-session races along the way (a duplicate
+retune attempt, and a rebase `--ours`/`--theirs` mixup on a shared JSON
+snapshot file -- both described in the Rewrite-ticket entry above this
+one). Everything landed cleanly in the end, but it's worth a future run
+doing a `git fetch origin main` + re-reading GOALS.md's actual current
+state before starting ANY task if there's any reason to suspect another
+session might be active concurrently, rather than trusting a stale read
+from earlier in a long session.
