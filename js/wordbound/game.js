@@ -2445,6 +2445,15 @@
     // so every other screen (menu/character-select/game-over/victory) just
     // clears it back to the neutral backdrop.
     if (document.body) document.body.classList.remove('floor-1', 'floor-2', 'floor-3');
+    // LAYOUT ticket (GOALS.md, one-screen desktop fit): SHOP renders into
+    // the same #treasure-choices container (same DOM id) as every other
+    // reward/pick screen -- treasure, boss reward, deck viewer,
+    // consumables, event, shredder -- so a shop-specific desktop layout
+    // needs its own CSS hook rather than targeting .treasure-choices
+    // directly (that would also restyle every screen sharing the class).
+    // Toggled once here, not scattered across each render*() function, so
+    // it can never go stale on a screen switch.
+    if (document.body) document.body.classList.toggle('screen-shop', state.screen === 'SHOP');
     $('howto-overlay').classList.toggle('hidden', !state.howToPlayOpen);
     renderBlankPicker();
     if (state.screen === 'MAIN_MENU') { show('screen-main-menu'); renderMainMenu(); return; }

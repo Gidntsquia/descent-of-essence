@@ -7,6 +7,8 @@
     "test": "node test/dom-check.js",
     "pretest:mobile": "node tools/ensure-deps.js @playwright/test",
     "test:mobile": "node test/verify-mobile-layout.js",
+    "pretest:desktop": "node tools/ensure-deps.js @playwright/test",
+    "test:desktop": "node test/verify-desktop-fit.js",
     "pretest:desktop-tile-play": "node tools/ensure-deps.js @playwright/test",
     "test:desktop-tile-play": "node test/verify-desktop-tile-play.js",
     "pretest:debug-mode": "node tools/ensure-deps.js @playwright/test",

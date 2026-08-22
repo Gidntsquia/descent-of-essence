@@ -1537,3 +1537,53 @@ body.debug-mode .message-log {
     font-size: 0.8rem;
   }
 }
+
+/* LAYOUT ticket (GOALS.md, "everything fits in ONE screen on computer, no
+   scrolling"): two screens overflowed vertically at 1366x768 once measured
+   with a real headless browser (test/verify-desktop-fit.js) -- both were
+   stacking N cards/rows in a single column, which is fine at mobile widths
+   (narrow, tall) but wastes height at desktop widths (wide, short). Above
+   the mobile breakpoint, lay them out in a row/grid instead -- same content,
+   far less total height. Mobile (<=480px) is untouched, so
+   npm run test:mobile stays covered by the existing column layout above. */
+@media (min-width: 700px) {
+  /* Character select: 3 cards, portrait+name+description each. Stacked,
+     they alone were ~192px taller than a 768px-tall viewport; side by side
+     they fit with room to spare. .character-select-panel's own max-width
+     (500px) is raised to #wb-root's own cap (640px, see the top of this
+     file) so 3 cards have enough combined width not to feel cramped. */
+  .character-select-panel {
+    max-width: 640px;
+  }
+  .character-choices {
+    flex-direction: row;
+    align-items: stretch;
+  }
+  .character-option {
+    flex: 1;
+    padding: 14px 12px;
+  }
+
+  /* Shop: up to 4 items/consumables plus an optional premium-tile offer,
+     each a multi-line text bar -- stacked, that alone ran ~285px past a
+     768px-tall viewport. #treasure-choices/.treasure-choice are shared
+     with several OTHER screens (treasure item-pick, boss reward, deck
+     viewer, consumables, event, shredder) via the same DOM id, so this is
+     scoped to the body.screen-shop hook (game.js's render(), toggled every
+     render so it can't go stale) rather than restyling every screen that
+     happens to reuse the class. A 2-column grid roughly halves the total
+     height; the "Leave Shop" button (the one non-.treasure-choice child of
+     this container) is forced onto its own full-width row rather than
+     sharing a column with an item. */
+  body.screen-shop .treasure-choices {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  body.screen-shop .treasure-choice {
+    flex: 1 1 calc(50% - 5px);
+    max-width: calc(50% - 5px);
+  }
+  body.screen-shop .treasure-choices > .btn-secondary {
+    flex: 1 1 100%;
+  }
+}

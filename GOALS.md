@@ -25,9 +25,13 @@ rather than claiming it's confirmed working when it isn't.
 **ALSO MANDATORY for any task that touches CSS layout/panels (positioning, sizing,
 media queries, flex/grid behavior):** run `npm run test:mobile` (a real-browser
 Playwright check of horizontal overflow/clipping at 375px and 414px on the main menu
-and combat screen) and get a clean (or documented-acceptable) result before checking
-the box, same standard as the `npm test` mandate above. It's a separate, slower script
-from `npm test` (needs a real browser) -- see test/verify-mobile-layout.js.
+and combat screen) AND `npm run test:desktop` (a real-browser Playwright check of
+VERTICAL overflow -- everything must fit one screen, no scrolling -- at 1366x768 and
+1920x1080 across every core screen: menu, character select, node map, combat, shop,
+treasure/tile-reward/boss-reward, event, game-over, victory). Get a clean (or
+documented-acceptable) result on BOTH before checking the box, same standard as the
+`npm test` mandate above. Both are separate, slower scripts from `npm test` (need a
+real browser) -- see test/verify-mobile-layout.js and test/verify-desktop-fit.js.
 
 Rules for the routine:
 - Work top to bottom. Don't skip ahead unless a task is blocked — note the blocker in
