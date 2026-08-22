@@ -15229,3 +15229,42 @@ long-word-curve ticket without duplicating its work), all with `npm
 test` green and no regressions, everything committed and pushed to
 `main` in small, real commits. Nothing left in a broken or half-finished
 state.
+
+## 2026-08-22T01:14Z -- re-checked fresh, still idle, no action taken
+
+Woke on the hourly schedule at the same commit (`fc17406`) the previous
+run ended at -- no new commits landed in between, so re-verified rather
+than trusting the prior entry's "nothing to do" read at face value, per
+that entry's own instruction.
+
+**GOALS.md queue:** confirmed empty via `grep -n '\[ \]' GOALS.md` --
+zero unchecked boxes anywhere in the file (checked both the `- [ ]`
+line-start form and any other `[ ]` occurrence, in case a sub-item used
+different indentation). Matches the previous run's finding exactly.
+
+**ROADMAP.md known gaps:** re-read the full section fresh. Every entry
+is either explicitly RESOLVED, or explicitly flagged Jaxon-only
+(physical-device touch test, feel/fun ear-and-hands playtest, the actual
+itch.io upload), or the floor2-death-share difficulty item -- which is
+already correctly identified in its own entry as a design judgment call
+for Jaxon (three direct stat cuts tried, floor2 reads as "correctly
+hard" in every sample; forcing a 4th would go against that entry's own
+reasoning) rather than a mechanical tuning task a sandbox run should
+force. Nothing new since the last run's read.
+
+**Also noticed and fixed in passing, not a GOALS.md/ROADMAP.md item:**
+the session's git checkout started in a detached HEAD state, and its
+cached `origin/main` ref was stale (pointed at an old 3-commit history
+from before this project's real work started -- likely a container-
+provisioning snapshot issue, not a repo problem). A fresh
+`git fetch origin main` confirmed the real remote `main` matches this
+session's starting `HEAD` (`fc17406`) exactly, so `git checkout -B main
+origin/main` was safe -- no divergent work, nothing lost, just re-
+attaching the local branch pointer to where the remote (and this
+session) already agreed the tip was. No code changes resulted from this;
+mentioning it only so a future run isn't confused by seeing a detached-
+HEAD start.
+
+**No sandbox-doable task found. Idle, no code changes this run.** Per
+GOALS.md's guardrail, not inventing busywork. A future run should still
+re-check both files fresh on wake rather than trust this entry.
