@@ -14895,3 +14895,107 @@ independently, a future run picking up either of these should do a
 (not just trust this entry's description of them) before starting, in
 case yet another concurrent run has moved the queue further in the
 meantime.
+
+## 2026-08-22T01:04Z -- long-word damage curve ticket CLOSED (v0.59 -> v0.62), final win rate 46% (23/50)
+
+**Follow-up to the 00:04Z entry above.** That entry landed the code and
+tests but left GOALS.md's box unchecked pending an n=50 balance-sim
+confirmation. This entry covers the whole tuning arc that followed and
+closes the ticket.
+
+**Tuning arc (3 curves tried, 5 total n=50 sim samples):**
+1. First curve, `len*len - 7*len + 14` for len>=6 (+8/+14/+22/+32/+44 at
+   lengths 6-10): two independent samples both landed 60-62% best-strategy
+   win rate (31/50, 30/50) -- ~13-14 points above the pre-ticket 44-52%
+   baseline, and the two samples were only 2 points apart (this harness's
+   documented noise floor is ~20+ points on identical code), so this read
+   as a confirmed real overshoot, not noise. Per the ticket's own
+   instruction ("if it drifts, retune this curve, don't touch monster HP
+   in this ticket"), retuned down rather than touching anything else.
+2. Second curve, `(len-2)*(len-3)/2` (+6/+10/+15/+21/+28 at 6-10, roughly
+   half the first curve's excess over the pre-ticket flat formula): two
+   more independent samples landed 52% and 54% (26/50, 27/50) -- still
+   consistently 2-4 points over the band's 50% ceiling. Again too tight a
+   spread between samples to call noise (unlike the starting-gold
+   ticket's precedent, where a 52% reading was immediately followed by an
+   in-band 44% on the very next sample -- here both readings agreed with
+   each other, just outside the band).
+3. Third curve (shipped), `(len*len - 7*len + 16) / 2` (+5/+8/+12/+17/+23
+   at lengths 6-10): trimmed the second curve down another ~15-20%.
+
+**Mid-arc complication:** while curve 3 was being confirmed, another
+concurrent run of this same hourly routine landed and pushed the NEXT
+queue ticket (Rewrite cost 2->1 Ink, `js/wordbound/combat.js`) directly
+on top of this branch -- `git push` was rejected (403/non-fast-forward),
+`git fetch` + `git merge origin/main` pulled in commits `03bfc6b` and
+`530885a`. Only `test/balance-simulation-results.json` conflicted (both
+runs regenerated the same tracked snapshot file); resolved by taking ours
+temporarily and then re-running the balance sim against the fully merged
+code anyway (needed regardless, since curve 3 hadn't been confirmed yet,
+and the Rewrite-cost change is itself economy-relevant and could plausibly
+interact with a length-bonus retune). Confirmed via `npm test` (green,
+zero SKIPs) that the merge introduced no conflicts in game logic --
+`dom-check.js` merged cleanly with no manual resolution needed. Bumped
+the version again on top of the merge (v0.61, from the Rewrite-cost
+ticket, -> v0.62) since this ticket's own change still needed its bump
+and the two tickets' version bumps are independent line edits, not a
+conflict.
+
+**Final confirmation sample (against the fully merged code -- curve 3 +
+Rewrite cost 1):** **23/50 = 46% best-strategy win rate**, comfortably
+inside the 25-50% band. (`first`-strategy stayed at 0/50 as in every prior
+sample, matching the long-established unskilled-play baseline.)
+
+**Final shipped curve** (`js/wordbound/lexicon.js`'s `lengthBonusFor`,
+also exported as `Lexicon.lengthBonusFor`):
+```
+len:    4   5   6   7   8   9   10
+bonus:  0   2   5   8  12  17   23
+```
+`len>=6` bonus = `(len*len - 7*len + 16) / 2` (always an even numerator,
+so this is exact integer arithmetic at every length, verified in
+dom-check.js). This is still a real, felt jump at length 6 relative to
+the pre-ticket formula's +4 (a 25% increase) and grows superlinearly
+beyond (marginal gains of +3, +4, +5, +6 per additional letter), so the
+ticket's design intent ("a clear jump at 6 letters and steeper growth
+beyond") is met -- just at a scale the game's economy can actually absorb
+without breaking the accepted difficulty band. Full reasoning for all
+three curves and every sample is documented directly in lexicon.js's
+comment above `lengthBonusFor`, not just here.
+
+**Test coverage:** `test/dom-check.js`'s length-bonus assertions (added in
+the 00:04Z entry, 14 assertions across lengths 4-10 plus a regression
+guard) were updated in lockstep with each retune and are green against the
+final shipped curve. `npm test`: full suite green, "ALL CHECKS PASSED",
+zero SKIPs, on the final merged state.
+
+**Did NOT touch:** monster HP or any other balance lever (per the
+ticket's explicit instruction), audio/drag code (no caveat needed), or
+CSS/layout (test:mobile/test:desktop not required by this ticket).
+
+**Version:** v0.59 -> v0.62 across this ticket's own work (v0.60 for the
+initial implementation) and absorbing the concurrently-merged
+Rewrite-cost ticket's v0.60 -> v0.61.
+
+**GOALS.md box checked `[x]`.**
+
+**A process note for future runs:** this run overlapped with another
+instance of the same hourly routine (both apparently triggered close
+together, likely because the balance-sim runs in this sandbox were
+unusually slow/CPU-throttled tonight -- several n=50 samples took well
+over 2 minutes each, some past 5, versus faster runs earlier tonight).
+`git push` failing with a non-fast-forward/403 error is the signal for
+this -- the fix is `git fetch origin main && git merge origin/main`
+(never force-push over another run's real, already-pushed work), resolve
+any conflicts (likely only in generated/snapshot files like
+`test/balance-simulation-results.json`, since two runs working different
+queue tickets shouldn't touch the same source lines), re-run `npm test`
+on the merged result before pushing, and re-check version numbers since
+both runs may have bumped the same line independently.
+
+**Next run:** the queue's next item after both concurrently-completed
+tickets is item 7/7 (LAYOUT: one-screen desktop fit, explicitly last,
+depends on items 1-5 -- all done). Check GOALS.md directly for the exact
+ticket text and its `test/verify-desktop-fit.js`/`npm run test:desktop`
+requirement before starting; this run did not touch CSS/layout so that
+harness was not exercised here.

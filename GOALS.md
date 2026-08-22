@@ -4866,7 +4866,7 @@ Rules for the routine:
       n=50 win rate as with ticket 2. VERIFY: `npm test` green; a fresh run
       starts with the chosen gold amount.
 
-- [ ] BALANCE (Jaxon batch follow-up, filed 2026-08-21 during the same
+- [x] BALANCE (Jaxon batch follow-up, filed 2026-08-21 during the same
       desktop playtest): LONGER words should deal a noticeably larger
       damage bonus, especially 6+ letters. Current formula is weak-linear:
       `js/wordbound/lexicon.js:128` — `lengthBonus = (len - 4) * 2` for
