@@ -4888,7 +4888,7 @@ Rules for the routine:
       assertions for the exact bonus at lengths 5, 6, 7, 8; sim win rate
       reported in PROGRESS.md. Minor bump (can share the batch's).
 
-- [ ] BALANCE (Jaxon batch follow-up, filed 2026-08-21, same desktop
+- [x] BALANCE (Jaxon batch follow-up, filed 2026-08-21, same desktop
       playtest): REWRITE must cost 1 Ink. Currently
       `Combat.REWRITE_INK_COST = 2` (js/wordbound/combat.js:76). The cost
       of 1 is Jaxon's explicit directive — it is NOT a tunable knob; do

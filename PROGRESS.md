@@ -14739,3 +14739,159 @@ honestly, same as prior balance tickets have done, and still leave the
 judgment call to whether the box should be checked (the numeric target is
 explicit in this ticket, unlike some others that explicitly say "ship
 regardless").
+
+## 2026-08-22T00:47Z -- concurrent-session note, long-word curve retuned + confirmed by another run; Rewrite cost 2->1 Ink landed this run (v0.60 -> v0.61)
+
+**Housekeeping first:** this run started detached at `ab6fa47` (the previous
+run's tip), fixed via `git fetch origin main && git checkout -B main
+origin/main`, same dance noted in an earlier entry. While working the
+length-bonus ticket's pending sim confirmation (see below), **a second,
+concurrent instance of this same hourly routine was found running in
+parallel** -- my own attempted push of a length-bonus retune was rejected
+(`403`/non-fast-forward) because `origin/main` had already moved past what
+I'd fetched: another session had independently landed an equivalent retune
+of the same curve (commit `eb28820`) moments before mine would have pushed.
+Confirmed via `git show` that their fix (`(len-2)*(len-3)/2` for len>=6,
+giving 6/10/15/21/28) and my own independent fix (`0.5*len*len-2.5*len+2`,
+giving 5/9/14/20/27) were the same idea at nearly the same magnitude --
+both a ~half-strength version of the too-strong first curve, arrived at
+independently. Rather than force a duplicate/conflicting commit onto an
+already-solved ticket, discarded my local commit (`git reset --hard
+origin/main` -- safe, it had never reached the remote) and picked up the
+NEXT unchecked ticket instead (Rewrite ink cost), leaving the long-word
+curve ticket to the other session, which was still actively running a
+confirmation sim on its own retune (visible via repeated `git fetch`
+between the two sessions' commits: `ab6fa47` -> `eb28820` -> `49babef`,
+the last being their own "sample 1/2: 26/50=52%" snapshot commit, i.e.
+that session had NOT yet checked GOALS.md's box or written a PROGRESS.md
+entry for it as of this entry's writing -- whether/how it finished is
+whatever entry appears immediately below or above this one in the final
+file, written by that other session, not fabricated here). **This entry
+does not check that ticket's box** -- that's the other session's call to
+make once its own confirmation sim is in hand. If a future run finds the
+box still unchecked and no further entry from that session, treat it as
+abandoned and pick it back up (its code change is already committed and
+tests already pass either way -- only the box-check + final PROGRESS.md
+write were left pending on that side).
+
+**This run's actual ticket (next unchecked after the above): Rewrite must
+cost 1 Ink.** Jaxon's non-negotiable directive (GOALS.md 2026-08-21
+follow-up). Straightforward constant change --
+`Combat.REWRITE_INK_COST` 2 -> 1 in `js/wordbound/combat.js` -- plus the
+one real design decision the ticket flagged: Steady Transcription
+(`items.js`, was `statMods: { rewriteCostReduction: 1 }`) would floor
+right back to 1 at the new base via `getRewriteCost`'s existing
+`Math.max(1, ...)` floor (1-1 floors to 1, identical to owning nothing) --
+a silent no-op, exactly the trap the ticket called out.
+
+**Judgment call (as instructed, documenting the choice and why):** picked
+"floor the effective cost at 1 and rework Steady Transcription's effect"
+over "let it go free." Reasoning: Rewrite already has zero downside beyond
+its ink cost (discards the whole rack and redraws, does NOT end the turn
+or trigger a counterattack), so a permanently-free Rewrite for anyone
+holding this one uncommon item would let them reroll their rack every
+single turn for free, forever -- a genuinely degenerate "keep rerolling
+until the rack is perfect" loop, not just a strong item. Reworked it
+instead into a bounded version of the same idea: **the first Rewrite each
+fight is free; every one after that costs the normal 1 ink.** Implemented
+as a new `onRewrite` hook (documented in the PUBLIC API comment block at
+the top of `items.js`, alongside the existing `onWordPlayed`/
+`onPlayerDamaged`/`onFloorAdvance` hooks) -- fires from
+`Game.rewriteRack` BEFORE the affordability check with a mutable `ctx.cost`
+the hook can lower, plus a `freeRewriteUsedThisFight` per-fight flag
+(new `state` field, reset in `startCombat` alongside the game's other
+per-fight resets like `wordsPlayedThisFightCount`). Steady Transcription's
+hint text changed from "-1 Rewrite ink cost." to "First Rewrite each fight
+is free." (33 chars, comfortably under the CONTENT ticket's ~40-char cap).
+
+**User-facing strings updated (ticket's own "update EVERY string that
+names the Rewrite cost" instruction):** the Rewrite button's label
+(`renderInkSpendControls` in game.js) now runs the same `onRewrite` hook
+in preview-only mode (a throwaway ctx the hook can't leak into real state)
+so it reads "🔄 Rewrite (free!)" instead of "(-0 ink)" whenever the discount
+is live, and the rack-discard log line ("You spend N ink...") is skipped
+entirely for a free use since the hook's own "Steady Transcription: this
+Rewrite is free!" message already covers it. Grepped `wordbound.html` for
+other Rewrite-cost mentions -- the tooltip and how-to-play line are both
+generic ("spends ink," no hardcoded number), nothing else to update.
+
+**New/updated test coverage in `test/dom-check.js`:**
+- Replaced the old `getRewriteCost` "Steady Transcription reduces it by 1"
+  assertion (no longer true) with one confirming that getter is now
+  unaffected by the item, plus three new isolated `onRewrite` hook
+  assertions: first-use-this-fight is free, second-use-this-fight is full
+  price, and no-op for a player without the item.
+- Added an end-to-end pair driving the REAL `Game.rewriteRack()` (not the
+  button, to sidestep any stale `disabled` attribute from an earlier
+  render in the same test block) through a full fight: first call at 0 ink
+  succeeds and logs the free-Rewrite message, second call at 0 ink is
+  correctly refused.
+- **Fixed a pre-existing test that the base-cost change silently broke:**
+  "an unaffordable rewrite is refused" set `ink = 1` expecting refusal --
+  true at the old cost of 2, but 1 ink is now affordable on its own at the
+  new cost of 1. Caught this via `npm test` actually failing (3 checks),
+  not by inspection -- exactly the kind of thing the project's own
+  "actually run it" rule exists to catch. Moved to `ink = 0`.
+- `npm test`: full suite green, "ALL CHECKS PASSED", zero SKIPs, after the
+  fix above.
+- Did not touch CSS/layout or audio/drag-drop code, so `test:mobile`/
+  `test:desktop`/`test:audio` were not required and weren't run.
+
+**Balance sim (n=50, per this ticket's own VERIFY clause):** `node
+test/balance-simulation.js 50` on the final code (base game +
+[the other session's] retuned long-word curve + this run's Rewrite
+change) came back **26/50 = 52%** best-strategy win rate -- 2 points above
+the 25-50% band ceiling. Per the ticket's own explicit instruction ("if
+the win rate leaves the accepted band, still ship cost=1, report the
+drift in PROGRESS.md, and add a dated known-gap line to ROADMAP.md... no
+compensating changes to other systems in this ticket"), shipped as-is.
+Added a dated entry to ROADMAP.md's known-gaps list flagging both this
+drift and its likely interaction with the same-run long-word-curve
+retune (both landed right at/above the band ceiling on the same base
+state, untested together as a pair) -- a real follow-up balance pass
+should treat them jointly rather than nudging either one again in
+isolation.
+
+**Version:** v0.60 -> v0.61 in `wordbound.html` ("Minor bump, can share
+the batch's" per the ticket).
+
+**GOALS.md box checked `[x]`** for the Rewrite-cost ticket.
+
+**Verified vs. not:** `npm test` (jsdom) confirms the hook logic, per-fight
+flag, button label, and log-message behavior all work exactly as coded --
+that's real, not just "should work." The balance sim's win-rate number is
+real too (an actual played-out simulation, not a guess), but per this
+project's own standing caveat, a single n=50 sample carries meaningful
+noise (this file has documented swings of 20+ points on unchanged code
+before) -- the 52% reading is reported honestly as what it is, not
+over-claimed as a confirmed regression. Did not touch audio or drag/drop
+code this run, so no new unverified-audio caveat beyond the ones already
+on record.
+
+**Repo mechanics note for future runs:** confirmed via direct experience
+this run that `git checkout --ours <path>` / `--theirs` during a
+**rebase** are the OPPOSITE way around from during a merge -- `--ours`
+resolves to the upstream (target) branch's version, `--theirs` to the
+commit being replayed. Picked the wrong one on the first try when
+resolving a rebase conflict in `test/balance-simulation-results.json`
+against the other session's concurrent snapshot commit (ended up keeping
+their JSON instead of the sim I'd actually just run), caught it by
+diffing the result against their commit and finding zero diff, and fixed
+it by pulling my own committed blob back out with `git show
+<my-commit>:<path>` and re-committing. Worth remembering if another run
+hits the same kind of snapshot-file conflict.
+
+**Next run:** two items remain in GOALS.md's queue: (1) whatever's left of
+the long-word-curve ticket if the other concurrent session didn't finish
+checking its box (see the housekeeping note above -- check for a
+PROGRESS.md entry from that session first; if there's a code change
+already committed and tests pass but the box is still unchecked with no
+further entry, it's safe to just check the box after confirming the sim
+result it left behind), and (2) LAYOUT item 7/7 (one-screen-fit, explicitly
+last, depends on the UI-shrinking items 1-5 which are all done). Given
+today's near-miss with two sessions landing overlapping balance work
+independently, a future run picking up either of these should do a
+`git fetch origin main` + re-check GOALS.md's actual current box states
+(not just trust this entry's description of them) before starting, in
+case yet another concurrent run has moved the queue further in the
+meantime.
