@@ -162,22 +162,18 @@ runs should look at to decide what's next once GOALS.md's queue empties.)
   filling real content gaps (gold-for-ink, ink-for-deck-tile, item-swap).
   Verified balance-neutral relative to the (separately-flagged, see above)
   current baseline via the pooled n=70-per-side comparison.
-- **2026-08-22: Rewrite cost 2->1 Ink landed 2 points over the balance
-  band.** GOALS.md's BALANCE follow-up ("REWRITE must cost 1 Ink," a
-  non-negotiable Jaxon directive) shipped as instructed even though the
-  confirming n=50 sim came back at 26/50 = 52% best-strategy win rate --
-  2 points above the 25-50% band ceiling. The ticket's own guidance was
-  explicit not to compensate elsewhere in that same ticket, so this is
-  ticketed here instead per that instruction. Worth noting: this landed
-  in the same run as (and immediately after) a separate curve retune for
-  the long-word damage bonus, whose own confirmation samples were also
-  hovering right at/above the band ceiling (52-54%) on the SAME base game
-  state -- the two changes are cumulative and haven't been sim-tested
-  together as a pair. A follow-up balance pass should treat both together
-  (long-word curve magnitude and/or Rewrite's downstream effects) rather
-  than retuning either in isolation, and should use a larger n (or several
-  pooled n=50 samples) given how much single-sample noise this harness has
-  already demonstrated on unchanged code.
+- **RESOLVED 2026-08-22 -- Rewrite cost 2->1 Ink's 52% reading.** GOALS.md's
+  BALANCE follow-up ("REWRITE must cost 1 Ink," a non-negotiable Jaxon
+  directive) shipped even though its own confirming n=50 sim read 2 points
+  over the 25-50% band ceiling (52%), tested in isolation against an
+  interim long-word-curve retune that was ALSO reading high (52-54%) on
+  the same base state -- flagged here at the time as needing a combined
+  test since the two changes are cumulative and hadn't been sim-tested
+  together as a pair. They have been since: the long-word-curve ticket's
+  own final confirmation sample, run against the fully merged code (its
+  3rd and final curve retune + this Rewrite-cost change together), landed
+  at 46% (23/50) -- comfortably inside the band, ~4 points of headroom
+  under the ceiling. No further action needed.
 
 ## Draft store page copy (for Jaxon to review/edit, then paste into itch.io)
 

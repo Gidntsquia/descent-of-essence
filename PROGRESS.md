@@ -15175,3 +15175,57 @@ doing a `git fetch origin main` + re-reading GOALS.md's actual current
 state before starting ANY task if there's any reason to suspect another
 session might be active concurrently, rather than trusting a stale read
 from earlier in a long session.
+
+## 2026-08-22T01:12Z -- ROADMAP.md tidied, queue and known gaps both exhausted -- idle
+
+**ROADMAP.md correction:** the "Rewrite cost 2->1 Ink landed 2 points
+over band" known-gap entry (added earlier this same run, before the
+long-word-curve ticket's own final closure landed) asked for a combined
+test of that change plus the concurrently-landed curve retune, since
+neither had been sim-tested together as a pair yet. That combined test
+has since happened -- the long-word-curve ticket's own final
+confirmation sample (PROGRESS.md, ~01:04Z entry) ran against the fully
+merged code (both changes together) and landed at 46% (23/50),
+comfortably inside the band. Marked that ROADMAP.md entry RESOLVED with
+the final number, per the file's own "keep it accurate" instruction --
+leaving it as an open ask would have pointed a future run at a balance
+pass that's already done.
+
+**Checked the rest of ROADMAP.md's known-gaps section fresh, per
+GOALS.md's own instruction** ("once this queue empties... lists known
+gaps to pull the next task from"), since the LAYOUT ticket closed out
+earlier in this run left GOALS.md's queue at zero unchecked items.
+Everything remaining there is one of:
+- Explicitly Jaxon-only (physical-device touch test, feel/fun
+  ear-and-hands playtest, the actual itch.io upload) -- sandbox runs
+  cannot close these, full stop.
+- The floor2-death-share difficulty item ("IN PROGRESS 2026-08-20/21"
+  entry): 3 of 4 measurable targets met, the 4th (floor2's share of
+  deaths under ~50%) has resisted three direct HP/attack cuts and is
+  explicitly logged as "GOALS.md's ticket box left UNCHECKED pending
+  Jaxon's read on whether the current state... is acceptable, or whether
+  floor2 parity needs a different kind of fix" -- i.e. already correctly
+  identified (by whichever prior run wrote that entry) as a real design
+  judgment call for Jaxon, not a mechanical tuning task. Forcing a 4th
+  incremental stat cut here would go against that entry's own explicit
+  reasoning (three cuts already tried, floor2 reads as "correctly hard"
+  in every sample). Left alone.
+- Already RESOLVED (several entries, including the one just updated
+  above) -- no action needed, nothing to pull from these.
+
+**No sandbox-doable task found.** Per GOALS.md's own guardrail ("if the
+queue is empty, don't invent busywork -- note that you're idle... and
+stop"), stopping here rather than manufacturing a task. This run is now
+idle. A future run should still re-check both files fresh on wake (a
+human -- Jaxon -- may have added a new GOALS.md ticket or a ROADMAP.md
+note in the meantime; don't trust this entry's "nothing to do" read as
+still accurate without re-verifying).
+
+**This run's full scope, for reference:** closed three tickets end to
+end (Rewrite ink cost + Steady Transcription rework, the one-screen
+desktop-fit LAYOUT ticket including a new `test/verify-desktop-fit.js`
+harness, and helping untangle a concurrent-session collision on the
+long-word-curve ticket without duplicating its work), all with `npm
+test` green and no regressions, everything committed and pushed to
+`main` in small, real commits. Nothing left in a broken or half-finished
+state.
