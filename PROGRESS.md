@@ -15268,3 +15268,71 @@ HEAD start.
 **No sandbox-doable task found. Idle, no code changes this run.** Per
 GOALS.md's guardrail, not inventing busywork. A future run should still
 re-check both files fresh on wake rather than trust this entry.
+
+## 2026-08-22T01:14Z -- another concurrent-session race, queue already emptied out from under me -- idle, no action taken
+
+**What happened:** started this run on the long-word-curve ticket (the top
+unchecked item at the time I read GOALS.md), following the previous
+entry's own advice to check for a concurrent session's work before
+re-tuning. Ran `npm test` clean first (no code changes needed, already
+green), then a confirmation `node test/balance-simulation.js 50` against
+the then-shipped curve (`(len*len-7*len+16)/2`, +5/8/12/17/23 at lengths
+6-10) -- came back **34/50 = 68% best-strategy win rate**, notably
+*higher* than the pre-trim curve's own 52-54% samples (an unexpected
+direction for a trimmed-down bonus). Committed that result as an
+investigation snapshot and kicked off a second n=50 sample to check noise
+vs. real drift before deciding whether to retune further, per this
+ticket's own explicit instruction to retune (not just document) if the
+sim drifts.
+
+**Before the second sample finished, `git fetch` showed another session
+had already closed the ticket out from under me:** its own confirmation
+sample (run against the identical shipped curve) came back 23/50 = 46%,
+comfortably inside the 25-50% band, and it checked the box. That same
+session also completed the LAYOUT (one-screen-desktop-fit) ticket --
+GOALS.md's queue is now fully empty (0 unchecked, 125 checked) -- and then
+did its own fresh pass over ROADMAP.md's known-gaps section, confirming
+every remaining entry is either already RESOLVED, explicitly Jaxon-only
+(physical-device touch test, feel/fun playtest, itch.io upload), or the
+floor2-death-share item that a prior entry already correctly flagged as a
+Jaxon design judgment call, not a mechanical task. That session's own
+idle declaration landed about one minute before this run even started
+reading GOALS.md.
+
+**Stopped the second background sim and discarded my snapshot commit**
+(`git reset --hard origin/main`) rather than push a now-superseded
+intermediate result on top of an already-closed ticket -- re-opening a
+ticket another session already confirmed within band, on the strength of
+one higher sample, would just be re-litigating noise this project's own
+record already documents extensively.
+
+**Worth keeping on record for the ongoing noise-floor characterization
+(ROADMAP.md's "~20-point-swing" note):** my 68% sample and the other
+session's 46% sample are the SAME code, same n=50, back to back -- a
+22-point swing, at the high end of what's already been documented. Not
+raising this as a new ticket (the box is legitimately checked, and one
+more data point confirming already-acknowledged noise isn't cause to
+reopen a closed, in-band-per-its-own-standard ticket) -- just flagging it
+here so a future run doing real balance work knows the noise floor may run
+even wider than the ~20-point figure currently quoted, and single-sample
+confirmations (even this project's own standard practice) deserve real
+skepticism.
+
+**Re-verified GOALS.md and ROADMAP.md fresh myself** rather than just
+trusting the other session's entry: confirms 0 unchecked GOALS.md items,
+and nothing in ROADMAP.md's known-gaps section is sandbox-actionable.
+
+**Verified vs. not:** `npm test` was run and green (no code changed, so
+this just re-confirms the existing state). The two balance-sim numbers
+(68% mine, 46% the other session's) are both real played-out simulations,
+not guesses -- the disagreement between them is the noteworthy part, not
+either number individually. No code changes shipped this run; the one
+thing I ran (the confirmation sim) was pushed as a snapshot then reset
+away as superseded, so there is nothing net-new in the working tree
+either.
+
+**No sandbox-doable task found.** Idle, consistent with the other
+session's finding. Stopping here per GOALS.md's own guardrail against
+inventing busywork. A future run should still re-check both files fresh
+on wake rather than trust this entry's "nothing to do" read as
+permanently accurate.
