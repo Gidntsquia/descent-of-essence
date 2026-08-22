@@ -140,7 +140,8 @@
     hexedTileId: null, // set by a Hex monster intent, cleared when the rack that held it cycles away (see monster-intents ticket)
     proccedItemIds: [], // FUN OVERHAUL 8/8: item ids whose onWordPlayed hook fired on the just-played word; consumed + cleared in renderItemsOwned to flash those chips for one render only
     runStats: null, // { wordsPlayed, bestWord, bestWordDamage, totalDamage, monstersDefeated, floorsCleared, goldEarned } -- reset in startRun, shown on the game-over/victory screens (review N6)
-    justUnlockedOverchargeRewrite: false // DESIGN/BALANCE ticket (GOALS.md, 2026-08-21): true for exactly one game-over/victory screen visit, the run that first unlocks Overcharge/Rewrite -- drives a one-time callout, set in endRun, consumed in renderGameOver/renderVictory
+    justUnlockedOverchargeRewrite: false, // DESIGN/BALANCE ticket (GOALS.md, 2026-08-21): true for exactly one game-over/victory screen visit, the run that first unlocks Overcharge/Rewrite -- drives a one-time callout, set in endRun, consumed in renderGameOver/renderVictory
+    freeRewriteUsedThisFight: false // BALANCE ticket (GOALS.md, 2026-08-21 follow-up, REWRITE_INK_COST 2->1): Steady Transcription's reworked "first Rewrite each fight is free" effect -- reset in startCombat, read/set by Game.rewriteRack via items.js's onRewrite hook
   };
   Game._state = state; // exposed for headless/browser test inspection only
   Game._getMusicMode = function () { return currentMusicMode; }; // exposed for headless/browser test inspection only (review F2)
@@ -664,6 +665,7 @@
     state.previousWordThisFight = null;
     state.wordsPlayedThisFightCount = 0;
     state.overchargeArmed = false; // INK SPEND: Overcharge toggle, per-fight reset
+    state.freeRewriteUsedThisFight = false; // BALANCE ticket, 2026-08-21 follow-up: Steady Transcription's free-first-Rewrite, per-fight reset
     state.repeatedWordThisFight = false;
     state.hexedTileId = null;
     state.proccedItemIds = [];
@@ -1085,12 +1087,24 @@
   // comment above), so this exists purely for "I don't like this hand."
   Game.rewriteRack = function () {
     if (!state.combatActive || state.monster.hp <= 0) return;
-    var rewriteCost = Items.getRewriteCost(state.player);
+    // BALANCE ticket (GOALS.md, 2026-08-21 follow-up): Steady Transcription's
+    // onRewrite hook can lower ctx.cost (down to a one-per-fight free use) --
+    // run it BEFORE the affordability check so that free use isn't blocked by
+    // an ink shortfall. See the hook's contract at the top of items.js.
+    var rewriteHookCtx = {
+      player: state.player,
+      cost: Items.getRewriteCost(state.player),
+      freeRewriteUsedThisFight: state.freeRewriteUsedThisFight,
+      messages: []
+    };
+    Items.runHook('onRewrite', rewriteHookCtx, state.player);
+    var rewriteCost = rewriteHookCtx.cost;
     if (state.player.ink < rewriteCost) {
       log('Not enough ink to rewrite your rack (need ' + rewriteCost + ').');
       render();
       return;
     }
+    if (rewriteHookCtx.consumedFreeRewrite) state.freeRewriteUsedThisFight = true;
     state.player.ink -= rewriteCost;
     state.pile.discardPile = state.pile.discardPile.concat(state.player.rack);
     state.player.rack = [];
@@ -1099,7 +1113,8 @@
     state.hexedTileId = null; // the hexed tile itself just got discarded along with the rest of the rack
     refillRack();
     ensureRackIsPlayable();
-    log('You spend ' + rewriteCost + ' ink to rewrite your rack.');
+    rewriteHookCtx.messages.forEach(function (msg) { log(msg); });
+    if (rewriteCost > 0) log('You spend ' + rewriteCost + ' ink to rewrite your rack.');
     render();
   };
 
@@ -3189,10 +3204,24 @@
       ? '⚡ Overcharged! (x' + Combat.OVERCHARGE_DAMAGE_MULTIPLIER + ')'
       : '⚡ Overcharge (-' + overchargeCost + ' ink)';
 
-    var rewriteCost = Items.getRewriteCost(state.player);
+    // Preview-only hook call (BALANCE ticket, 2026-08-21 follow-up): mirrors
+    // the real Items.runHook('onRewrite', ...) call in Game.rewriteRack so
+    // the button reflects Steady Transcription's free-first-Rewrite-per-fight
+    // discount before the player commits to it. Safe to call for preview --
+    // the hook only mutates this throwaway ctx, never player/state directly.
+    var rewritePreviewCtx = {
+      player: state.player,
+      cost: Items.getRewriteCost(state.player),
+      freeRewriteUsedThisFight: state.freeRewriteUsedThisFight,
+      messages: []
+    };
+    Items.runHook('onRewrite', rewritePreviewCtx, state.player);
+    var rewriteCost = rewritePreviewCtx.cost;
     var canRewrite = state.player.ink >= rewriteCost;
     rewriteBtn.disabled = !canRewrite;
-    rewriteBtn.textContent = '🔄 Rewrite (-' + rewriteCost + ' ink)';
+    rewriteBtn.textContent = rewriteCost > 0
+      ? '🔄 Rewrite (-' + rewriteCost + ' ink)'
+      : '🔄 Rewrite (free!)';
   }
 
   // GOALS.md FEATURE (staged-word damage preview): show what the currently
