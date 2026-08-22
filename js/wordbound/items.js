@@ -51,6 +51,19 @@
 //                            log it. Added for CONTENT ticket (GOALS.md,
 //                            2026-08-21)'s Acquisitions Budget -- the only
 //                            item using this hook so far.
+//       onRewrite(ctx)       ctx = { player, cost, freeRewriteUsedThisFight,
+//                            messages }. Fires from game.js's Game.rewriteRack
+//                            BEFORE the ink-affordability check, so a hook can
+//                            lower ctx.cost (read back by the caller) to make
+//                            that Rewrite cheaper/free. freeRewriteUsedThisFight
+//                            is the per-fight flag the caller tracks; a hook
+//                            that grants a one-per-fight discount should only
+//                            act while it's false and set
+//                            ctx.consumedFreeRewrite = true so the caller
+//                            flips the flag. Added for the BALANCE ticket
+//                            (GOALS.md, 2026-08-21 follow-up) that dropped
+//                            REWRITE_INK_COST to 1 -- Steady Transcription is
+//                            the only item using this hook so far.
 //     }
 //   }
 //   getRackCapacity(player) -> 7 + sum of owned rackCapacityBonus
@@ -680,13 +693,33 @@
     statMods: { overchargeCostReduction: 1 }
   });
 
+  // RETUNE (GOALS.md BALANCE ticket, Jaxon batch follow-up filed 2026-08-21):
+  // Combat.REWRITE_INK_COST dropped 2->1 ("REWRITE must cost 1 Ink" --
+  // non-negotiable). getRewriteCost's Math.max(1, ...) floor means the old
+  // `statMods: { rewriteCostReduction: 1 }` effect (2-1=1) would now be a
+  // total no-op at the new base (1-1 floors right back to 1 -- identical to
+  // owning nothing). Rather than let this item make Rewrite free on every
+  // single use -- Rewrite has no downside besides ink (whole-rack
+  // discard+redraw, doesn't end the turn), so an unconditional free Rewrite
+  // risks a "reroll until the rack is perfect" loop every turn -- reworked
+  // it to a bounded version of the same idea: the first Rewrite each fight
+  // costs nothing, every one after that costs the normal 1 ink. See the
+  // onRewrite hook contract at the top of this file and Game.rewriteRack in
+  // game.js for the per-fight bookkeeping.
   def({
     id: 'steady_transcription',
     name: 'Steady Transcription',
-    hint: '-1 Rewrite ink cost.',
+    hint: 'First Rewrite each fight is free.',
     rarity: 'uncommon',
     shopPrice: 35,
-    statMods: { rewriteCostReduction: 1 }
+    hooks: {
+      onRewrite: function (ctx) {
+        if (ctx.freeRewriteUsedThisFight) return;
+        ctx.cost = 0;
+        ctx.consumedFreeRewrite = true;
+        ctx.messages.push('Steady Transcription: this Rewrite is free!');
+      }
+    }
   });
 
   def({

@@ -482,14 +482,42 @@ async function main() {
       check('Frugal Bookmark: Overcharge costs 1 less ink', Items.getOverchargeCost(player) === Combat.OVERCHARGE_INK_COST - 1);
     }
 
-    // 2. Steady Transcription: Rewrite costs 1 less ink (floored at 1).
+    // 2. getRewriteCost's base case. Steady Transcription no longer reduces
+    // this getter (BALANCE ticket, 2026-08-21 follow-up, REWRITE_INK_COST
+    // 2->1 -- the old rewriteCostReduction:1 statMod would floor right back
+    // to the same 1, a silent no-op, so the item was reworked into the
+    // onRewrite hook tested just below instead).
     {
       const player = { items: [] };
       check('getRewriteCost: base cost with no items is Combat.REWRITE_INK_COST', Items.getRewriteCost(player) === Combat.REWRITE_INK_COST);
     }
     {
       const player = { items: ['steady_transcription'] };
-      check('Steady Transcription: Rewrite costs 1 less ink', Items.getRewriteCost(player) === Combat.REWRITE_INK_COST - 1);
+      check('getRewriteCost: Steady Transcription no longer changes this getter (reworked to onRewrite hook)', Items.getRewriteCost(player) === Combat.REWRITE_INK_COST);
+    }
+
+    // 2b. Steady Transcription's reworked effect: the first Rewrite each
+    // fight is free (ctx.cost -> 0), every one after costs the normal
+    // Combat.REWRITE_INK_COST. Exercised directly via the onRewrite hook
+    // contract (items.js), independent of game.js's Game.rewriteRack --
+    // that's covered further down in the real ink-spend block.
+    {
+      const player = { items: ['steady_transcription'] };
+      const ctx = { player, cost: Combat.REWRITE_INK_COST, freeRewriteUsedThisFight: false, messages: [] };
+      Items.runHook('onRewrite', ctx, player);
+      check('Steady Transcription: first Rewrite this fight is free', ctx.cost === 0 && ctx.consumedFreeRewrite === true && ctx.messages.length === 1);
+    }
+    {
+      const player = { items: ['steady_transcription'] };
+      const ctx = { player, cost: Combat.REWRITE_INK_COST, freeRewriteUsedThisFight: true, messages: [] };
+      Items.runHook('onRewrite', ctx, player);
+      check('Steady Transcription: second Rewrite this fight is full price', ctx.cost === Combat.REWRITE_INK_COST && !ctx.consumedFreeRewrite && ctx.messages.length === 0);
+    }
+    {
+      const player = { items: [] };
+      const ctx = { player, cost: Combat.REWRITE_INK_COST, freeRewriteUsedThisFight: false, messages: [] };
+      Items.runHook('onRewrite', ctx, player);
+      check('onRewrite: no-op without Steady Transcription', ctx.cost === Combat.REWRITE_INK_COST && !ctx.consumedFreeRewrite);
     }
 
     // 3. Inkwell Reserve: +2 ink every 4th word played this fight, capped at
@@ -3379,14 +3407,40 @@ async function main() {
     check('ink spend: rewrite logs what happened', state.messages.some((m) => /rewrite your rack/.test(m)));
     check('ink spend: rewrite does not end the turn (combat still active)', state.combatActive === true);
 
-    // -- Rewrite, insufficient ink: refuses, no state change.
-    state.player.ink = 1;
+    // -- Rewrite, insufficient ink: refuses, no state change. ink = 0 (not 1
+    // -- REWRITE_INK_COST dropped 2->1 in the BALANCE follow-up, 2026-08-21,
+    // so 1 ink is now affordable on its own).
+    state.player.ink = 0;
     const rackIdsBeforeRefusal = state.player.rack.map((t) => t.id).slice().sort();
     state.messages = [];
     rewriteBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
-    check('ink spend: an unaffordable rewrite is refused (ink unchanged)', state.player.ink === 1);
+    check('ink spend: an unaffordable rewrite is refused (ink unchanged)', state.player.ink === 0);
     check('ink spend: an unaffordable rewrite leaves the rack untouched', state.player.rack.map((t) => t.id).slice().sort().join(',') === rackIdsBeforeRefusal.join(','));
     check('ink spend: an unaffordable rewrite attempt logs a refusal', state.messages.some((m) => /Not enough ink/.test(m)));
+
+    // -- Rewrite, Steady Transcription: first Rewrite each fight is free,
+    // a second one (same fight) costs the normal amount again. BALANCE
+    // ticket, 2026-08-21 follow-up (REWRITE_INK_COST 2->1). Drives
+    // Game.rewriteRack() directly rather than the button, so a stale
+    // disabled attribute from an earlier render in this same block can't
+    // mask whether the underlying mechanic is actually gating the second
+    // use.
+    state.player.items = ['steady_transcription'];
+    state.player.ink = 0;
+    state.freeRewriteUsedThisFight = false;
+    state.messages = [];
+    const rackIdsBeforeFree = state.player.rack.map((t) => t.id).slice().sort();
+    Game.rewriteRack();
+    check('ink spend: Steady Transcription lets the first Rewrite through with 0 ink',
+      state.player.ink === 0 && state.player.rack.map((t) => t.id).slice().sort().join(',') !== rackIdsBeforeFree.join(','));
+    check('ink spend: Steady Transcription logs the free-Rewrite message', state.messages.some((m) => /Steady Transcription/.test(m)));
+    check('ink spend: Steady Transcription consumes its per-fight flag after use', state.freeRewriteUsedThisFight === true);
+
+    state.messages = [];
+    const rackIdsBeforeSecond = state.player.rack.map((t) => t.id).slice().sort();
+    Game.rewriteRack();
+    check('ink spend: Steady Transcription does not grant a second free Rewrite this fight',
+      state.player.rack.map((t) => t.id).slice().sort().join(',') === rackIdsBeforeSecond.join(',') && state.messages.some((m) => /Not enough ink/.test(m)));
 
     check('ink spend block: produced zero errors', errors.length === 0);
     if (errors.length) errors.forEach((e) => console.log('  ERR:', e));

@@ -162,6 +162,22 @@ runs should look at to decide what's next once GOALS.md's queue empties.)
   filling real content gaps (gold-for-ink, ink-for-deck-tile, item-swap).
   Verified balance-neutral relative to the (separately-flagged, see above)
   current baseline via the pooled n=70-per-side comparison.
+- **2026-08-22: Rewrite cost 2->1 Ink landed 2 points over the balance
+  band.** GOALS.md's BALANCE follow-up ("REWRITE must cost 1 Ink," a
+  non-negotiable Jaxon directive) shipped as instructed even though the
+  confirming n=50 sim came back at 26/50 = 52% best-strategy win rate --
+  2 points above the 25-50% band ceiling. The ticket's own guidance was
+  explicit not to compensate elsewhere in that same ticket, so this is
+  ticketed here instead per that instruction. Worth noting: this landed
+  in the same run as (and immediately after) a separate curve retune for
+  the long-word damage bonus, whose own confirmation samples were also
+  hovering right at/above the band ceiling (52-54%) on the SAME base game
+  state -- the two changes are cumulative and haven't been sim-tested
+  together as a pair. A follow-up balance pass should treat both together
+  (long-word curve magnitude and/or Rewrite's downstream effects) rather
+  than retuning either in isolation, and should use a larger n (or several
+  pooled n=50 samples) given how much single-sample noise this harness has
+  already demonstrated on unchanged code.
 
 ## Draft store page copy (for Jaxon to review/edit, then paste into itch.io)
 

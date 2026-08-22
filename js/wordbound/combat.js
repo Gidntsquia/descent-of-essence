@@ -64,12 +64,25 @@
   // Overcharge's 3->2 vs. Frugal Bookmark's overchargeCostReduction:1.
   Combat.OVERCHARGE_INK_COST = 2;
   Combat.OVERCHARGE_DAMAGE_MULTIPLIER = 2.0;
+  // FOLLOW-UP RETUNE (GOALS.md BALANCE ticket, Jaxon batch follow-up filed
+  // 2026-08-21, desktop playtest -- explicit non-negotiable directive: "REWRITE
+  // must cost 1 Ink"). Dropped 2->1. This makes items.js's Math.max(1, ...)
+  // floor on getRewriteCost a no-op for Steady Transcription's old
+  // rewriteCostReduction:1 (1-1 floored back up to 1 -- identical to owning
+  // nothing), so that item's effect would have been silently dead. Rather
+  // than let Rewrite go to 0/free on demand every turn -- Rewrite already has
+  // no downside but ink cost (whole-rack discard/redraw, no turn spent), so a
+  // permanently-free version risks a degenerate "reroll until the rack is
+  // perfect" loop -- reworked Steady Transcription (items.js) to a bounded
+  // effect instead: the FIRST Rewrite each fight is free, every one after
+  // that costs the normal 1. See items.js's onRewrite hook and the
+  // freeRewriteUsedThisFight per-fight flag in game.js for the mechanics.
   // Rewrite (the other ink spend, GOALS.md's "consumable-style activated
   // ability" candidate): discard the whole rack and redraw fresh, for ink,
   // without ending the turn. The redraw/discard mechanics live in game.js
   // (they touch the draw pile and rack, not combat resolution) -- this is
   // just the shared cost constant.
-  Combat.REWRITE_INK_COST = 2;
+  Combat.REWRITE_INK_COST = 1;
 
   Combat.playWord = function (player, monster, word, wordHistory, options) {
     options = options || {};
