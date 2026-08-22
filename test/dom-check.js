@@ -681,6 +681,33 @@ async function main() {
     check('rollVariantTile: always carries a variant (premium offer never whiffs)', shopTiles.every((t) => !!t.variant && !t.bonus));
   }
 
+  // Word length damage curve (GOALS.md, 2026-08-21 Jaxon-batch follow-up):
+  // "longer words should deal a noticeably larger damage bonus, especially
+  // 6+ letters" -- length 5 stays at the old +2, then the curve jumps and
+  // grows superlinearly from length 6 on (see lexicon.js's lengthBonusFor
+  // and its LENGTH_BONUS_TABLE comment for the exact numbers). All-'A' tiles
+  // (value 1 each) so base == word length exactly, and rackCapacity ==
+  // length+1 so the bingo bonus never fires and can't muddy the isolated
+  // lengthBonus arithmetic.
+  {
+    const Lexicon = window.Wordbound.Lexicon;
+    const Tiles = window.Wordbound.Tiles;
+    const EXPECTED_LENGTH_BONUS = { 4: 0, 5: 2, 6: 8, 7: 14, 8: 22, 9: 32, 10: 44 };
+    Object.keys(EXPECTED_LENGTH_BONUS).forEach((lenStr) => {
+      const len = Number(lenStr);
+      const expected = EXPECTED_LENGTH_BONUS[len];
+      const tilesUsed = [];
+      for (let i = 0; i < len; i++) tilesUsed.push(Tiles.createTile('A', null));
+      const word = 'A'.repeat(len);
+      const score = Lexicon.scoreWord(word, tilesUsed, len + 1);
+      check('length ' + len + ' word: lengthBonus is +' + expected, score.lengthBonus === expected);
+      check('length ' + len + ' word: total reflects base(' + len + ') + lengthBonus(' + expected + ')', score.total === len + expected);
+    });
+    // Regression guard: the old formula gave length 6 only +4 -- the whole
+    // point of this ticket is that it no longer does.
+    check('length 6 bonus (+8) is strictly more than the old flat formula would give (+4)', Lexicon.scoreWord('AAAAAA', ['A', 'A', 'A', 'A', 'A', 'A'].map((l) => Tiles.createTile(l, null)), 7).lengthBonus > 4);
+  }
+
   // Word novelty (GOALS.md "FUN OVERHAUL 1/8"; combo streak bonus removed
   // 2026-08-21, batch item 2/7): distinct words deal plain score damage with
   // no streak bonus, and replaying an already-used word this fight applies

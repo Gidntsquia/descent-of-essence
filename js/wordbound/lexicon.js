@@ -27,8 +27,13 @@
 //          base = sum of LETTER_VALUES for tilesUsed (blanks contribute 0;
 //          a Volatile tile's own letter value is doubled here, see tiles.js
 //          VARIANTS -- GOALS.md "FUN OVERHAUL 5/8").
-//          lengthBonus = 2 points per letter beyond the 4th (trimmed from 3
-//          on 2026-08-20, review N1/N2/N3 balance pass -- see PROGRESS.md).
+//          lengthBonus: 0 for length<=4, +2 at length 5 (unchanged), then a
+//          superlinear jump from length 6 on -- see LENGTH_BONUS_TABLE below
+//          for the exact curve (Jaxon desktop-playtest follow-up filed
+//          2026-08-21, GOALS.md: "longer words should deal a noticeably
+//          larger damage bonus, especially 6+ letters" -- the old flat
+//          (len-4)*2 formula only gave +4 at 6 letters, barely felt next to
+//          letter values).
 //          bingoBonus = +15 if tilesUsed.length === rackCapacity (using the
 //          WHOLE rack in one word, not a hardcoded 7 -- callers pass the
 //          player's actual capacity from Items.getRackCapacity; rackCapacity
@@ -53,6 +58,27 @@
     Y: 4, Z: 10, '?': 0
   };
   Lexicon.LETTER_VALUES = LETTER_VALUES;
+
+  // Word-length damage bonus (scoreWord's lengthBonus field). Word length is
+  // THE skill-expression damage lever now that the combo mechanic is gone
+  // (GOALS.md, 2026-08-21 Jaxon-batch follow-up). Length 5 stays at the old
+  // +2 (a bare improvement over a 4-letter word shouldn't feel huge); from
+  // length 6 on the curve jumps and then grows superlinearly (each extra
+  // letter's marginal bonus is itself larger than the last: +6, +8, +10,
+  // +12, ...) so a 6+ letter word reads as a clear power spike rather than
+  // "a little more damage":
+  //   len:    4   5   6   7   8   9   10
+  //   bonus:  0   2   8  14  22  32   44
+  // len>=6 bonus = len*len - 7*len + 14 (quadratic fit through the table
+  // above); continues past 10 at the same growth rate (11 -> 58, 12 -> 74)
+  // rather than capping, since the dictionary supports longer words and
+  // finding one that long is already its own reward.
+  function lengthBonusFor(len) {
+    if (len <= 4) return 0;
+    if (len === 5) return 2;
+    return len * len - 7 * len + 14;
+  }
+  Lexicon.lengthBonusFor = lengthBonusFor;
 
   var LETTER_POOL = {
     A: 9, B: 2, C: 2, D: 4, E: 12, F: 2, G: 3, H: 2, I: 9, J: 1, K: 1, L: 4,
@@ -125,7 +151,7 @@
       }
       if (tile.variant === Tiles.VARIANTS.CHARGED) variantFlat += 4;
     }
-    var lengthBonus = word.length > 4 ? (word.length - 4) * 2 : 0;
+    var lengthBonus = lengthBonusFor(word.length);
     var capacity = rackCapacity || 7;
     var bingoBonus = tilesUsed.length === capacity ? 15 : 0;
     var total = Math.round((base + lengthBonus + bingoBonus + bonusFlat + variantFlat) * bonusMult);

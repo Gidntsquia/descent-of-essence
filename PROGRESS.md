@@ -14648,3 +14648,94 @@ Jaxon directive, with a judgment call needed on how Steady Transcription's
 rework the item, or let Rewrite go free -- document the choice and why).
 Either is a reasonable next pick; neither depends on the other or on this
 run's change.
+
+## 2026-08-22T00:04Z -- steeper long-word damage curve landed (v0.59 -> v0.60), balance sim still running
+
+**The ticket:** the Jaxon-batch follow-up filed 2026-08-21 -- longer words
+should deal a noticeably larger damage bonus, especially 6+ letters. Old
+formula (`js/wordbound/lexicon.js`'s `scoreWord`) was flat-linear:
+`(len-4)*2` for len>4, so 5->+2, 6->+4, 7->+6, 8->+8 -- barely felt next to
+letter values, and specifically no "jump" at 6 as the ticket asked for.
+
+**The fix:** replaced the flat formula with a new `lengthBonusFor(len)`
+helper (exported as `Lexicon.lengthBonusFor` for reuse/testing) with this
+table, documented in a comment directly above it in lexicon.js:
+
+```
+len:    4   5   6   7   8   9   10
+bonus:  0   2   8  14  22  32   44
+```
+
+Length 5 stays at the old +2 (a bare step up from a 4-letter word
+shouldn't feel huge). From length 6 on, the curve is superlinear -- each
+extra letter's marginal bonus is itself bigger than the last one (+6, +8,
++10, +12, ...), which reads as second-difference-constant = quadratic
+growth: `bonus(len) = len*len - 7*len + 14` for len>=6 (verified this
+formula reproduces every table value exactly, and extends sanely past 10:
+11->+58, 12->+74 -- no cap needed since finding a longer real word is
+already its own reward and the dictionary is the natural ceiling). Chose
+6 as the jump point per the ticket's own wording ("especially 6+
+letters") rather than jumping earlier -- a 5-letter word is still common
+enough that it shouldn't feel like hitting a wall of bonus damage.
+
+`scoreWord`'s return shape is unchanged (`lengthBonus` field, same units,
+folded into `total` exactly as before) -- no other file needed touching.
+Confirmed `game.js`'s `updateDamagePreview` (the live combat-screen
+preview) has no separate lengthBonus formula of its own; it just calls
+`Combat.previewWord` -> `Lexicon.scoreWord` and reads `.damage`/`.total`,
+so the new curve flows into the live preview automatically with zero
+code changes there.
+
+**New test coverage:** added a dedicated block to `test/dom-check.js`
+(right after the existing tile-variant scoring checks, same file/style)
+that builds synthetic all-'A' tile racks (letter value 1 each, so
+`base === word.length` exactly) at lengths 4-10, with `rackCapacity =
+length+1` so the bingo bonus can never fire and muddy the isolated
+arithmetic. Asserts both `score.lengthBonus` and `score.total` against
+the exact table above for every length 4-10 (ticket explicitly asked for
+5/6/7/8; extended to the full 4-10 table since the marginal cost was
+trivial and it's real regression coverage for the whole curve, not just
+the four called-out points), plus one explicit regression guard that
+length 6's new +8 is strictly greater than the old formula's +4.
+
+**Verification:**
+- `npm test`: full suite green, "ALL CHECKS PASSED", zero SKIPs,
+  including all 14 new length-bonus assertions (7 lengths x 2 checks each)
+  plus the regression guard.
+- Did not touch audio or drag/drop code, so no unverified-audio caveat
+  applies.
+- Did not touch CSS/layout, so `test:mobile`/`test:desktop` were not run
+  (not required by this ticket).
+- Balance sim (n=50, per the ticket's VERIFY clause): kicked off in the
+  background but did not finish within this run's window (it ran past
+  120s, longer than prior sim runs logged in this file -- container may
+  just be under more load right now; nothing about this change should
+  make the sim itself slower, it's the same code path with different
+  constants). **Not yet reported** -- see below.
+
+**Version:** v0.59 -> v0.60 in `wordbound.html` ("Minor bump, can share
+the batch's" per the ticket).
+
+**GOALS.md box: left UNCHECKED.** Per this project's own rule ("only
+check a box when the task is actually complete and working, not
+partially done") and this specific ticket's explicit VERIFY clause ("sim
+win rate reported in PROGRESS.md"), the box stays open until the n=50
+sim result is actually in hand -- the code change itself is complete,
+tested, and safe to ship (that's why it's committed now rather than held
+back), but the balance-band confirmation the ticket asks for isn't done
+yet. Committing this now anyway (rather than holding the commit open
+further) because the repo must never sit uncommitted at a stopping point,
+and this state is fully working (tests green, no partial edits).
+
+**Next run (or a same-run follow-up if the sim finishes before this run
+ends):** re-run `node test/balance-simulation.js 50`, report the win rate
+here, and if it's within the 25-50% band, check GOALS.md's box for this
+ticket (no code changes needed either way -- Rewrite's cost is
+independent of word length, so this curve isn't expected to interact with
+it). If the sim comes back outside the band, the ticket's own guidance
+doesn't ask for a compensating retune here (that's the *next* queued
+ticket's territory, Rewrite cost 2->1 Ink) -- just document the drift
+honestly, same as prior balance tickets have done, and still leave the
+judgment call to whether the box should be checked (the numeric target is
+explicit in this ticket, unlike some others that explicitly say "ship
+regardless").
