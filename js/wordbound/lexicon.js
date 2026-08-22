@@ -64,19 +64,29 @@
   // (GOALS.md, 2026-08-21 Jaxon-batch follow-up). Length 5 stays at the old
   // +2 (a bare improvement over a 4-letter word shouldn't feel huge); from
   // length 6 on the curve jumps and then grows superlinearly (each extra
-  // letter's marginal bonus is itself larger than the last: +6, +8, +10,
-  // +12, ...) so a 6+ letter word reads as a clear power spike rather than
+  // letter's marginal bonus is itself larger than the last: +4, +5, +6,
+  // +7, ...) so a 6+ letter word reads as a clear power spike rather than
   // "a little more damage":
   //   len:    4   5   6   7   8   9   10
-  //   bonus:  0   2   8  14  22  32   44
-  // len>=6 bonus = len*len - 7*len + 14 (quadratic fit through the table
-  // above); continues past 10 at the same growth rate (11 -> 58, 12 -> 74)
+  //   bonus:  0   2   6  10  15  21   28
+  // len>=6 bonus = (len-2)*(len-3)/2 (quadratic fit through the table
+  // above); continues past 10 at the same growth rate (11 -> 36, 12 -> 45)
   // rather than capping, since the dictionary supports longer words and
   // finding one that long is already its own reward.
+  // RETUNED 2026-08-22 (same run, before checking this ticket's box): a
+  // first attempt at +8/+14/+22/+32/+44 (len*len-7*len+14, twice this
+  // curve) pushed the n=50 balance sim's `best`-strategy win rate to a
+  // confirmed 60-62% across two independent samples (31/50, 30/50) --
+  // consistently ~13-14 points above the pre-change 44-52% baseline and
+  // well outside the 25-50% band, not noise (the two samples were only 2
+  // points apart, vs. the ~20-point spread this harness shows on identical
+  // code). Retuned down to roughly half the excess bonus over the old flat
+  // formula (old gave +4 at length 6; this gives +6, not +8) -- see
+  // PROGRESS.md for the confirmation sample after this retune.
   function lengthBonusFor(len) {
     if (len <= 4) return 0;
     if (len === 5) return 2;
-    return len * len - 7 * len + 14;
+    return ((len - 2) * (len - 3)) / 2;
   }
   Lexicon.lengthBonusFor = lengthBonusFor;
 
